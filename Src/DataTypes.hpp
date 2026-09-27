@@ -70,6 +70,18 @@ struct CWSystemInfo {
 		: guid (inGuid), name (inName), edition (inEdition) {}
 };
 
+// --- Article CostWaves (phase 2) -------------------------------------------------
+
+struct CWArticle {
+	GS::UniString	id;		// identifiant CostWaves = id de l'item de classification
+	GS::UniString	name;	// libellé
+	GS::UniString	unit;	// "m2", "m3", "m", "U"... (vide si inconnue)
+
+	CWArticle () = default;
+	CWArticle (const GS::UniString& inId, const GS::UniString& inName, const GS::UniString& inUnit)
+		: id (inId), name (inName), unit (inUnit) {}
+};
+
 // --- Rapport de scan -----------------------------------------------------------
 
 struct CWScanReport {

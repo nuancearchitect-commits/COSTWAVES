@@ -25,10 +25,17 @@ public:
 
 	// Scanne le projet : tous les éléments, filtrés sur ceux portant une classe
 	// du système systemGuid. Renvoie le code d'erreur global (APIERR_NOPLAN etc.).
-	static GSErrCode				Scan (const API_Guid&		systemGuid,
-										 const API_Guid&	elemIdPropGuid,
-										 GS::Array<CWElementRow>&	outRows,
-										 CWScanReport&				outReport);
+	// elemFilter (optionnel) : si non nul et non vide, seuls ces éléments sont
+	// analysés (utilisé pour la lecture de la sélection courante).
+	static GSErrCode		Scan (const API_Guid&			systemGuid,
+								 const API_Guid&			elemIdPropGuid,
+								 const GS::Array<API_Guid>*	elemFilter,
+								 GS::Array<CWElementRow>&	outRows,
+								 CWScanReport&				outReport);
+
+	// Éléments actuellement sélectionnés dans Archicad (dédupliqués).
+	// Err si aucun / base invalide — outGuids reste vide.
+	static GSErrCode		GetSelectedElements (GS::Array<API_Guid>& outGuids);
 
 	// Propriétés d'un composant (lecture à la demande, pour le panneau de détails).
 	static GS::Array<CWPropertyEntry>	GetComponentProperties (const API_ElemComponentID& component);

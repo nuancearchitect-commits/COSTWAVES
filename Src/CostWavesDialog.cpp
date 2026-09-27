@@ -2,6 +2,7 @@
 
 #include "CostWavesDialog.hpp"
 
+#include "ArticleManager.hpp"
 #include "Exporter.hpp"
 #include "ModelReader.hpp"
 
@@ -69,6 +70,7 @@ CostWavesDialog::CostWavesDialog ()
 	:	DG::ModalDialog (ACAPI_GetOwnResModule (), DialogResourceId, ACAPI_GetOwnResModule ()),
 		systemPopup (GetReference (), SystemPopupId),
 		refreshButton (GetReference (), RefreshButtonId),
+		selectionCheck (GetReference (), SelectionCheckId),
 		statusText (GetReference (), StatusTextId),
 		table (GetReference (), TableId),
 		detailsGroup (GetReference (), DetailsGroupId),
@@ -77,6 +79,11 @@ CostWavesDialog::CostWavesDialog ()
 		detail3 (GetReference (), DetailText3Id),
 		detail4 (GetReference (), DetailText4Id),
 		detail5 (GetReference (), DetailText5Id),
+		articlePopup (GetReference (), ArticlePopupId),
+		assignButton (GetReference (), AssignButtonId),
+		importButton (GetReference (), ImportButtonId),
+		createClassButton (GetReference (), CreateClassButtonId),
+		articlesInfo (GetReference (), ArticlesInfoId),
 		exportJsonButton (GetReference (), ExportJsonButtonId),
 		exportCsvButton (GetReference (), ExportCsvButtonId),
 		closeButton (GetReference (), CloseButtonId)
@@ -87,6 +94,9 @@ CostWavesDialog::CostWavesDialog ()
 	systemPopup.Attach (*this);		// PopUpObserver
 	refreshButton.Attach (*this);	// ButtonItemObserver
 	table.Attach (*this);			// ListBoxObserver
+	assignButton.Attach (*this);	// ButtonItemObserver
+	importButton.Attach (*this);	// ButtonItemObserver
+	createClassButton.Attach (*this);// ButtonItemObserver
 	exportJsonButton.Attach (*this);
 	exportCsvButton.Attach (*this);
 	closeButton.Attach (*this);
@@ -96,6 +106,7 @@ CostWavesDialog::CostWavesDialog ()
 	ModelReader::ResolveElementIdPropertyGuid (elemIdPropGuid, elemIdPropNote);
 
 	LoadSystems ();
+	ReloadArticlesFromSystem ();
 
 	if (selectedSystem != APINULLGuid)
 		RefreshData ();
@@ -165,10 +176,28 @@ void CostWavesDialog::RefreshData ()
 		return;
 	}
 
+	// Lecture de la sélection courante si la case est cochée.
+	GS::Array<API_Guid> selection;
+	const GS::Array<API_Guid>* filter = nullptr;
+	if (selectionCheck.IsChecked ()) {
+		ModelReader::GetSelectedElements (selection);
+		if (selection.IsEmpty ()) {
+			isFilling = true;
+			rows.Clear ();
+			report = CWScanReport ();
+			FillTable ();
+			isFilling = false;
+			statusText.SetText (FR ("Aucun élément sélectionné dans Archicad — sélectionnez puis Actualiser."));
+			ClearDetails ();
+			return;
+		}
+		filter = &selection;
+	}
+
 	isFilling = true;
 
 	rows.Clear ();
-	ModelReader::Scan (selectedSystem, elemIdPropGuid, rows, report);
+	ModelReader::Scan (selectedSystem, elemIdPropGuid, filter, rows, report);
 	FillTable ();
 
 	isFilling = false;
@@ -278,6 +307,242 @@ void CostWavesDialog::ClearDetails ()
 {
 	for (short i = 1; i <= 5; ++i)
 		SetDetailLine (i, GS::UniString ());
+}
+
+
+// ---------------------------------------------------------------------------
+// Articles CostWaves (phase 2)
+// ---------------------------------------------------------------------------
+
+void CostWavesDialog::ReloadArticlesFromSystem ()
+{
+	// Les articles importés (JSON) ont priorité sur les items du système.
+	if (articlesImported) {
+		LoadArticlesPopup ();
+		return;
+	}
+
+	articles.Clear ();
+	articlesSourceName.Clear ();
+
+	if (selectedSystem != APINULLGuid) {
+		ArticleManager::CollectFromClassification (selectedSystem, articles);
+		for (UIndex i = 0; i < systems.GetSize (); ++i) {
+			if (systems[i].guid == selectedSystem) {
+				articlesSourceName = systems[i].name;
+				break;
+			}
+		}
+	}
+
+	LoadArticlesPopup ();
+}
+
+
+void CostWavesDialog::LoadArticlesPopup ()
+{
+	isFilling = true;
+
+	while (articlePopup.GetItemCount () > 0)
+		articlePopup.DeleteItem (1);
+
+	for (UIndex i = 0; i < articles.GetSize (); ++i) {
+		GS::UniString label = articles[i].id + US (" — ") + articles[i].name;
+		if (!articles[i].unit.IsEmpty ())
+			label += US (" (") + articles[i].unit + US (")");
+		articlePopup.AppendItem ();
+		articlePopup.SetItemText (articlePopup.GetItemCount (), label);
+	}
+
+	if (articlePopup.GetItemCount () > 0)
+		articlePopup.SelectItem (1);
+
+	GS::UniString info;
+	if (articles.IsEmpty ()) {
+		info = FR ("Aucun article — importez un JSON ou utilisez la classification.");
+	} else {
+		info = GS::ToUniString (std::to_wstring (static_cast<int> (articles.GetSize ())))
+			 + (articlesImported ? FR (" articles importés — ") : FR (" articles (classification) — "))
+			 + articlesSourceName;
+	}
+	articlesInfo.SetText (info);
+
+	isFilling = false;
+}
+
+
+void CostWavesDialog::ImportArticles ()
+{
+	DG::FileDialog fileDialog (DG::FileDialog::OpenFile);
+	fileDialog.SetTitle (FR ("Importer des articles CostWaves (JSON)"));
+
+	// Dossier par défaut : celui du projet, sinon Documents.
+	GS::UniString folder;
+	GS::UniString projectName;
+	if (Exporter::ResolveProjectLocation (folder, projectName)) {
+		const IO::Location defaultFolder (folder);
+		fileDialog.SetFolder (defaultFolder);
+	}
+
+	if (!fileDialog.Invoke ())
+		return;		// annulé par l'utilisateur
+
+	GS::UniString path;
+	if (fileDialog.GetSelectedFile ().ToPath (&path) != NoError || path.IsEmpty ()) {
+		DG::WarningAlert (FR ("Impossible de récupérer le fichier choisi."), GS::UniString (), FR ("OK"));
+		return;
+	}
+
+	GS::Array<CWArticle> imported;
+	GS::UniString error;
+	if (!ArticleManager::ImportFromJsonFile (path, imported, error)) {
+		DG::ErrorAlert (FR ("Échec de l'import des articles."), error, FR ("OK"));
+		return;
+	}
+
+	articles = imported;
+	articlesImported = true;
+
+	// Nom du fichier (sans chemin) pour la ligne d'information.
+	std::wstring pathW = GS::ToWString (path);
+	for (wchar_t& ch : pathW) {
+		if (ch == L'\\')
+			ch = L'/';
+	}
+	const std::size_t slash = pathW.find_last_of (L'/');
+	articlesSourceName = GS::ToUniString (slash != std::wstring::npos ? pathW.substr (slash + 1) : pathW);
+
+	LoadArticlesPopup ();
+
+	DG::InformationAlert (FR ("Articles importés."),
+						  GS::ToUniString (std::to_wstring (static_cast<int> (articles.GetSize ())))
+							  + FR (" articles lus depuis ") + articlesSourceName,
+						  FR ("OK"));
+}
+
+
+void CostWavesDialog::CreateClassification ()
+{
+	if (articles.IsEmpty ()) {
+		DG::WarningAlert (FR ("Aucun article disponible."),
+						  FR ("Importez des articles (JSON) ou choisissez un système contenant des items."),
+						  FR ("OK"));
+		return;
+	}
+
+	API_Guid	systemGuid = APINULLGuid;
+	USize		createdItems = 0;
+	GS::UniString error;
+	if (ArticleManager::EnsureCostWavesClassification (articles, systemGuid, createdItems, error) != NoError) {
+		DG::ErrorAlert (FR ("Échec de la création de la classification."), error, FR ("OK"));
+		return;
+	}
+
+	// Recharger les systèmes et sélectionner « CostWaves ».
+	LoadSystems ();
+
+	const GS::UniString costWavesName (ArticleManager::CostWavesSystemName (), CC_UTF8);
+	for (UIndex i = 0; i < systems.GetSize (); ++i) {
+		if (systems[i].name == costWavesName) {
+			selectedSystem = systems[i].guid;
+			systemPopup.SelectItem (static_cast<short> (i + 1));
+			break;
+		}
+	}
+
+	// Si les articles venaient de la classification, relire depuis le système
+	// « CostWaves » fraîchement créé.
+	ReloadArticlesFromSystem ();
+	RefreshData ();
+
+	DG::InformationAlert (FR ("Classification CostWaves prête."),
+						  createdItems > 0
+							  ? GS::ToUniString (std::to_wstring (static_cast<int> (createdItems)))
+									+ FR (" items créés.")
+							  : FR ("Tous les articles existaient déjà."),
+						  FR ("OK"));
+}
+
+
+void CostWavesDialog::AssignCurrentArticle ()
+{
+	// 1) Article choisi dans le popup.
+	const short articleIndex = articlePopup.GetSelectedItem ();
+	if (articleIndex < 1 || static_cast<UIndex> (articleIndex) > articles.GetSize ()) {
+		DG::WarningAlert (FR ("Aucun article sélectionné."),
+						  FR ("Importez des articles ou choisissez-en un dans la liste."),
+						  FR ("OK"));
+		return;
+	}
+	const CWArticle& article = articles[static_cast<UIndex> (articleIndex) - 1];
+
+	// 2) Ligne du tableau : doit être un élément (pas un composant).
+	const short listItem = table.GetSelectedItem ();
+	if (listItem < 1 || static_cast<UIndex> (listItem) > displayRows.GetSize ()) {
+		DG::WarningAlert (FR ("Aucune ligne sélectionnée."),
+						  FR ("Sélectionnez un élément dans le tableau."),
+						  FR ("OK"));
+		return;
+	}
+	const DisplayRow& displayRow = displayRows[static_cast<UIndex> (listItem) - 1];
+	if (displayRow.elementIndex >= rows.GetSize ())
+		return;
+
+	if (displayRow.kind != RowKind::Element) {
+		DG::WarningAlert (FR ("L'affectation se fait sur un élément."),
+						  FR ("Sélectionnez une ligne d'élément (les composants suivent leur élément)."),
+						  FR ("OK"));
+		return;
+	}
+	CWElementRow& element = rows[displayRow.elementIndex];
+
+	// 3) Item de classification correspondant : système « CostWaves » en
+	//    priorité, sinon le système courant.
+	API_Guid targetSystem = APINULLGuid;
+	API_Guid itemGuid = APINULLGuid;
+
+	const API_Guid costWavesSystem = ArticleManager::FindCostWavesSystemGuid ();
+	if (costWavesSystem != APINULLGuid) {
+		const API_Guid guid = ArticleManager::FindItemGuid (costWavesSystem, article.id);
+		if (guid != APINULLGuid) {
+			targetSystem = costWavesSystem;
+			itemGuid = guid;
+		}
+	}
+	if (itemGuid == APINULLGuid && selectedSystem != APINULLGuid) {
+		const API_Guid guid = ArticleManager::FindItemGuid (selectedSystem, article.id);
+		if (guid != APINULLGuid) {
+			targetSystem = selectedSystem;
+			itemGuid = guid;
+		}
+	}
+
+	if (itemGuid == APINULLGuid) {
+		DG::WarningAlert (FR ("Article introuvable dans les classifications."),
+						  FR ("Cliquez d'abord sur « Créer la classification » pour générer le système CostWaves."),
+						  FR ("OK"));
+		return;
+	}
+
+	// 4) Affectation (annulable).
+	bool changed = false;
+	GS::UniString error;
+	const GSErrCode err = ArticleManager::AssignArticleToElement (element.guid, targetSystem, itemGuid,
+																   changed, error);
+	if (err != NoError) {
+		DG::ErrorAlert (FR ("Échec de l'affectation."), error, FR ("OK"));
+		return;
+	}
+
+	RefreshData ();
+
+	if (!changed) {
+		DG::InformationAlert (FR ("Aucun changement."), FR ("Cet élément porte déjà cet article."), FR ("OK"));
+	} else if (targetSystem != selectedSystem) {
+		DG::InformationAlert (FR ("Article affecté."),
+							  FR ("Affecté dans le système « CostWaves » — basculez le système en haut pour le voir dans la colonne Classe."),
+							  FR ("OK"));
+	}
 }
 
 
@@ -422,8 +687,8 @@ void CostWavesDialog::Export (bool jsonFormat)
 	GS::UniString error;
 
 	const GSErrCode err = jsonFormat
-		? Exporter::ExportJSON (systemName, rows, report, path, error)
-		: Exporter::ExportCSV (systemName, rows, report, path, error);
+		? Exporter::ExportJSON (systemName, rows, report, articles, path, error)
+		: Exporter::ExportCSV (systemName, rows, report, articles, path, error);
 
 	if (err == NoError) {
 		DG::InformationAlert (FR ("Export réussi."), path, FR ("OK"));
@@ -440,16 +705,29 @@ void CostWavesDialog::PanelResized (const DG::PanelResizeEvent& ev)
 	const short dx = ev.GetHorizontalChange ();
 	const short dy = ev.GetVerticalChange ();
 
+	// Zone fixe au-dessus du tableau : s'élargit seulement.
 	systemPopup.MoveAndResize (0, 0, dx, 0);
-	refreshButton.Move (0, dy);
 	statusText.MoveAndResize (0, 0, dx, 0);
+
+	// Le tableau absorbe le redimensionnement vertical.
 	table.MoveAndResize (0, 0, dx, dy);
+
+	// Rangées « articles » (sous le tableau) : descendent avec dy.
+	articlePopup.MoveAndResize (0, dy, dx, 0);
+	assignButton.Move (dx, dy);
+	importButton.Move (0, dy);
+	createClassButton.Move (0, dy);
+	articlesInfo.MoveAndResize (0, dy, dx, 0);
+
+	// Panneau de détails.
 	detailsGroup.MoveAndResize (0, dy, dx, 0);
 	detail1.MoveAndResize (0, dy, dx, 0);
 	detail2.MoveAndResize (0, dy, dx, 0);
 	detail3.MoveAndResize (0, dy, dx, 0);
 	detail4.MoveAndResize (0, dy, dx, 0);
 	detail5.MoveAndResize (0, dy, dx, 0);
+
+	// Boutons du bas.
 	exportJsonButton.Move (0, dy);
 	exportCsvButton.Move (0, dy);
 	closeButton.MoveAndResize (dx, dy, 0, 0);
@@ -466,6 +744,12 @@ void CostWavesDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 		Export (true);
 	} else if (ev.GetSource () == &exportCsvButton) {
 		Export (false);
+	} else if (ev.GetSource () == &importButton) {
+		ImportArticles ();
+	} else if (ev.GetSource () == &createClassButton) {
+		CreateClassification ();
+	} else if (ev.GetSource () == &assignButton) {
+		AssignCurrentArticle ();
 	} else if (ev.GetSource () == &closeButton) {
 		PostCloseRequest (DG::ModalDialog::Cancel);
 	}
@@ -481,6 +765,7 @@ void CostWavesDialog::PopUpChanged (const DG::PopUpChangeEvent& ev)
 		const short selection = systemPopup.GetSelectedItem ();
 		if (selection >= 1 && static_cast<UIndex> (selection) <= systems.GetSize ()) {
 			selectedSystem = systems[static_cast<UIndex> (selection) - 1].guid;
+			ReloadArticlesFromSystem ();
 			RefreshData ();
 		}
 	}

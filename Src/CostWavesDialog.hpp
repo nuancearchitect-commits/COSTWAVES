@@ -9,11 +9,14 @@
 
 namespace CostWaves {
 
-// Fenêtre principale (phase 1) :
+// Fenêtre principale :
 //  - choix du système de classification
 //  - tableau : Type | GUID | ID élément | Étage | Classe | Quantités
 //  - panneau de détails (toutes les quantités + propriétés de composant)
-//  - exports JSON / CSV
+//  - lecture de la sélection courante (case à cocher)
+//  - articles CostWaves : import JSON, création de la classification,
+//    affectation d'un article à l'élément sélectionné
+//  - exports JSON / CSV enrichis de l'article
 class CostWavesDialog final :	public DG::ModalDialog,
 								public DG::PanelObserver,
 								public DG::ButtonItemObserver,
@@ -37,7 +40,14 @@ public:
 		DetailText5Id		= 11,
 		ExportJsonButtonId	= 12,
 		ExportCsvButtonId	= 13,
-		CloseButtonId		= 14
+		CloseButtonId		= 14,
+		SelectionCheckId	= 15,
+		ArticlesLabelId		= 16,
+		ArticlePopupId		= 17,
+		AssignButtonId		= 18,
+		ImportButtonId		= 19,
+		CreateClassButtonId	= 20,
+		ArticlesInfoId		= 21
 	};
 
 	CostWavesDialog ();
@@ -65,15 +75,23 @@ private:
 	void	SetDetailLine (short lineIndex, const GS::UniString& text);
 	void	ClearDetails ();
 
+	// Articles CostWaves (phase 2).
+	void	ReloadArticlesFromSystem ();	// articles = items du système choisi
+	void	LoadArticlesPopup ();			// (re)remplit le popup des articles
+	void	ImportArticles ();				// import JSON (boîte de dialogue fichier)
+	void	CreateClassification ();		// crée/maj le système "CostWaves" (annulable)
+	void	AssignCurrentArticle ();		// affecte l'article choisi à l'élément sélectionné
+
 	// Ligne d'affichage : référence vers un élément ou un de ses composants.
 	struct DisplayRow {
-		RowKind		kind = RowKind::Element;
-		UIndex		elementIndex = 0;
-		UIndex		componentIndex = 0;
+		RowKind	kind = RowKind::Element;
+		UIndex	elementIndex = 0;
+		UIndex	componentIndex = 0;
 	};
 
 	DG::PopUp			systemPopup;
 	DG::Button			refreshButton;
+	DG::CheckBox		selectionCheck;
 	DG::LeftText		statusText;
 	DG::MultiSelListBox	table;
 	DG::GroupBox		detailsGroup;
@@ -82,6 +100,11 @@ private:
 	DG::LeftText		detail3;
 	DG::LeftText		detail4;
 	DG::LeftText		detail5;
+	DG::PopUp			articlePopup;
+	DG::Button			assignButton;
+	DG::Button			importButton;
+	DG::Button			createClassButton;
+	DG::LeftText		articlesInfo;
 	DG::Button			exportJsonButton;
 	DG::Button			exportCsvButton;
 	DG::Button			closeButton;
@@ -90,6 +113,10 @@ private:
 	API_Guid				selectedSystem = APINULLGuid;
 	API_Guid				elemIdPropGuid = APINULLGuid;
 	GS::UniString			elemIdPropNote;
+
+	GS::Array<CWArticle>	articles;			// catalogue courant
+	bool					articlesImported = false;	// true = import JSON (prioritaire)
+	GS::UniString			articlesSourceName;	// nom du système ou du fichier source
 
 	GS::Array<CWElementRow>	rows;
 	CWScanReport			report;

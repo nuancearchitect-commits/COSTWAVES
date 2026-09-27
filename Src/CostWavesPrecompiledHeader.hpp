@@ -15,6 +15,9 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <chrono>
+#include <functional>
+#include <utility>
 
 #if defined (WINDOWS)
 #include "Win32Interface.hpp"

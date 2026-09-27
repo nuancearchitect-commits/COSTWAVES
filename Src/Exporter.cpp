@@ -22,6 +22,20 @@ GS::UniString US (const char* utf8Text)
 	return GS::UniString (utf8Text, CC_UTF8);
 }
 
+// Article correspondant à l'identifiant de classe (nullptr si aucun).
+const CWArticle* FindArticle (const GS::Array<CWArticle>& articles, const GS::UniString& articleId)
+{
+	if (articleId.IsEmpty ())
+		return nullptr;
+
+	for (UIndex i = 0; i < articles.GetSize (); ++i) {
+		if (articles[i].id == articleId)
+			return &articles[i];
+	}
+
+	return nullptr;
+}
+
 // "0.1234" (séparateur point, zéros finaux retirés) — pour JSON.
 GS::UniString FormatDouble (double value)
 {
@@ -40,12 +54,12 @@ GS::UniString FormatDouble (double value)
 } // namespace
 
 
-bool Exporter::BuildExportPath (const char* extension, GS::UniString& outPath, GS::UniString& outError)
+bool Exporter::ResolveProjectLocation (GS::UniString& outFolder, GS::UniString& outProjectName)
 {
-	GS::UniString folder;
-	GS::UniString projectName = FR ("SansTitre");
+	outFolder.Clear ();
+	outProjectName = FR ("SansTitre");
 
-	// 1) Dossier + nom du projet enregistré.
+	// Dossier + nom du projet enregistré.
 	API_ProjectInfo projectInfo;
 	BNZeroMemory (&projectInfo, sizeof (projectInfo));
 
@@ -63,28 +77,36 @@ bool Exporter::BuildExportPath (const char* extension, GS::UniString& outPath, G
 				if (slash != std::wstring::npos) {
 					const std::wstring fileBase = pathW.substr (slash + 1);
 					const std::size_t dot = fileBase.find_last_of (L'.');
-					projectName = GS::ToUniString (dot != std::wstring::npos
+					outProjectName = GS::ToUniString (dot != std::wstring::npos
 						? fileBase.substr (0, dot)
 						: fileBase);
-					folder = GS::ToUniString (pathW.substr (0, slash));
+					outFolder = GS::ToUniString (pathW.substr (0, slash));
 				}
 			}
 		}
 	}
 
-	// 2) Repli : dossier Documents si le projet n'est pas enregistré.
-	if (folder.IsEmpty ()) {
+	// Repli : dossier Documents si le projet n'est pas enregistré.
+	if (outFolder.IsEmpty ()) {
 		API_SpecFolderID specFolder = API_UserDocumentsFolderID;
 		IO::Location documentsLocation;
 		if (ACAPI_ProjectSettings_GetSpecFolder (&specFolder, &documentsLocation) == NoError) {
 			GS::UniString documentsPath;
 			if (documentsLocation.ToPath (&documentsPath) == NoError && !documentsPath.IsEmpty ()) {
-				folder = documentsPath;
+				outFolder = documentsPath;
 			}
 		}
 	}
 
-	if (folder.IsEmpty ()) {
+	return !outFolder.IsEmpty ();
+}
+
+
+bool Exporter::BuildExportPath (const char* extension, GS::UniString& outPath, GS::UniString& outError)
+{
+	GS::UniString folder;
+	GS::UniString projectName;
+	if (!ResolveProjectLocation (folder, projectName)) {
 		outError = FR ("Impossible de déterminer le dossier d'export (enregistrez le projet puis réessayez).");
 		return false;
 	}
@@ -175,7 +197,8 @@ GS::UniString Exporter::JsonString (const GS::UniString& text)
 
 
 GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array<CWElementRow>& rows,
-								const CWScanReport& report, GS::UniString& outPath, GS::UniString& outError)
+								const CWScanReport& report, const GS::Array<CWArticle>& articles,
+								GS::UniString& outPath, GS::UniString& outError)
 {
 	if (!BuildExportPath ("json", outPath, outError))
 		return APIERR_GENERAL;
@@ -207,6 +230,16 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 		json += US ("        \"itemId\": ") + JsonString (row.classItemId) + ",\n";
 		json += US ("        \"itemName\": ") + JsonString (row.classItemName) + "\n";
 		json += "      },\n";
+
+		// Article CostWaves correspondant à la classe (null si non reconnu).
+		const CWArticle* article = FindArticle (articles, row.classItemId);
+		if (article != nullptr) {
+			json += US ("      \"article\": { \"id\": ") + JsonString (article->id)
+				  + US (", \"name\": ") + JsonString (article->name)
+				  + US (", \"unit\": ") + JsonString (article->unit) + " },\n";
+		} else {
+			json += "      \"article\": null,\n";
+		}
 
 		json += "      \"quantities\": [";
 		for (UIndex q = 0; q < row.quantities.GetSize (); ++q) {
@@ -278,7 +311,8 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 
 
 GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<CWElementRow>& rows,
-							   const CWScanReport& report, GS::UniString& outPath, GS::UniString& outError)
+							   const CWScanReport& report, const GS::Array<CWArticle>& articles,
+							   GS::UniString& outPath, GS::UniString& outError)
 {
 	(void) systemName;
 	(void) report;
@@ -287,7 +321,7 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 		return APIERR_GENERAL;
 
 	GS::UniString csv;
-	csv += FR ("Type;GUID;ID élément;Étage;Classe;Libellé;Valeur;Unité\n");
+	csv += FR ("Type;GUID;ID élément;Étage;Classe;Article;Libellé;Valeur;Unité\n");
 
 	// Séparateur CSV : la valeur peut contenir ';' — on protège par des guillemets.
 	const auto protect = [] (const GS::UniString& value) -> GS::UniString {
@@ -308,11 +342,16 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 			? row.classItemName
 			: row.classItemId + " - " + row.classItemName;
 
+		// Article de l'élément (identifiant CostWaves reconnu parmi les articles).
+		const CWArticle* article = FindArticle (articles, row.classItemId);
+		const GS::UniString articleId = (article != nullptr) ? article->id : GS::UniString ();
+
 		const GS::UniString elementPrefix = FR ("Élément") + ";"
 			+ protect (APIGuidToString (row.guid)) + ";"
 			+ protect (row.elementId) + ";"
 			+ protect (story) + ";"
-			+ protect (classe) + ";";
+			+ protect (classe) + ";"
+			+ protect (articleId) + ";";
 
 		if (row.quantities.IsEmpty ()) {
 			csv += elementPrefix + ";;;\n";
@@ -340,7 +379,8 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 				+ protect (componentGuid) + ";"
 				+ protect (row.elementId) + ";"
 				+ protect (story) + ";"
-				+ protect (classe) + ";";
+				+ protect (classe) + ";"
+				+ protect (articleId) + ";";
 
 			if (component.quantities.IsEmpty ()) {
 				csv += componentPrefix + ";;;\n";

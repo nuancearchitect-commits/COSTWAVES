@@ -15,15 +15,21 @@ namespace CostWaves {
 //   <Projet>_CostWaves_<AAAAMMJJ_HHMMSS>.json / .csv
 class Exporter {
 public:
-	static GSErrCode	ExportJSON (const GS::UniString&	systemName,
+	// Dossier du projet (à côté du .PLN) ou dossier Documents si le projet
+	// n'est pas enregistré. Nom du projet ("SansTitre" si non enregistré).
+	static bool		ResolveProjectLocation (GS::UniString& outFolder, GS::UniString& outProjectName);
+
+	static GSErrCode	ExportJSON (const GS::UniString&				systemName,
 								   const GS::Array<CWElementRow>&	rows,
 								   const CWScanReport&				report,
+								   const GS::Array<CWArticle>&		articles,
 								   GS::UniString&					outPath,
 								   GS::UniString&					outError);
 
-	static GSErrCode	ExportCSV (const GS::UniString&		systemName,
+	static GSErrCode	ExportCSV (const GS::UniString&				systemName,
 								  const GS::Array<CWElementRow>&	rows,
 								  const CWScanReport&				report,
+								  const GS::Array<CWArticle>&		articles,
 								  GS::UniString&					outPath,
 								  GS::UniString&					outError);
 

@@ -294,7 +294,49 @@ void ModelReader::ExtractQuantities (API_ElemTypeID typeID, const API_ElementQua
 }
 
 
+GSErrCode ModelReader::GetSelectedElements (GS::Array<API_Guid>& outGuids)
+{
+	outGuids.Clear ();
+
+	API_SelectionInfo selectionInfo;
+	BNZeroMemory (&selectionInfo, sizeof (selectionInfo));
+
+	GS::Array<API_Neig> selNeigs;
+	const GSErrCode err = ACAPI_Selection_Get (&selectionInfo, &selNeigs, false);
+
+	if (selectionInfo.typeID != API_SelEmpty && selectionInfo.marquee.coords != nullptr) {
+		BMKillHandle (reinterpret_cast<GSHandle*> (&selectionInfo.marquee.coords));
+	}
+
+	if (err != NoError)
+		return err;
+
+	if (selectionInfo.typeID == API_SelEmpty)
+		return NoError;		// rien de sélectionné : liste vide, pas une erreur
+
+	for (UIndex i = 0; i < selNeigs.GetSize (); ++i) {
+		const API_Guid& guid = selNeigs[i].guid;
+		if (guid == APINULLGuid)
+			continue;
+
+		// Déduplication (plusieurs neigs peuvent viser le même élément).
+		bool alreadyPresent = false;
+		for (UIndex k = 0; k < outGuids.GetSize (); ++k) {
+			if (outGuids[k] == guid) {
+				alreadyPresent = true;
+				break;
+			}
+		}
+		if (!alreadyPresent)
+			outGuids.Push (guid);
+	}
+
+	return NoError;
+}
+
+
 GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdPropGuid,
+							 const GS::Array<API_Guid>* elemFilter,
 							 GS::Array<CWElementRow>& outRows, CWScanReport& outReport)
 {
 	outRows.Clear ();
@@ -304,13 +346,18 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 	BNZeroMemory (&storyInfo, sizeof (storyInfo));
 	const bool haveStories = (ACAPI_ProjectSetting_GetStorySettings (&storyInfo) == NoError);
 
-	// 2) Tous les éléments du projet, quel que soit leur type.
+	// 2) Éléments à analyser : la sélection courante si un filtre est fourni,
+	//    sinon tous les éléments du projet, quel que soit leur type.
 	GS::Array<API_Guid> elemList;
-	GSErrCode err = ACAPI_Element_GetElemList (API_ZombieElemID, &elemList);
-	if (err != NoError) {
-		if (haveStories)
-			BMKillHandle (reinterpret_cast<GSHandle*> (&storyInfo.data));
-		return err;
+	if (elemFilter != nullptr && !elemFilter->IsEmpty ()) {
+		elemList = *elemFilter;
+	} else {
+		const GSErrCode listErr = ACAPI_Element_GetElemList (API_ZombieElemID, &elemList);
+		if (listErr != NoError) {
+			if (haveStories)
+				BMKillHandle (reinterpret_cast<GSHandle*> (&storyInfo.data));
+			return listErr;
+		}
 	}
 
 	outReport = CWScanReport ();

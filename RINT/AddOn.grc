@@ -9,21 +9,28 @@
 /* [  1] */		"CostWaves - Lecture des quantités... ^E3 ^ES ^EE ^EI ^ED ^ET ^10001"
 }
 
-'GDLG' ID_ADDON_DLG Modal |grow   40   40  620  480  "CostWaves — Lecture des données" {
+'GDLG' ID_ADDON_DLG Modal |grow   40   40  620  560  "CostWaves — Lecture des données" {
 /* [  1] */ LeftText                     10   14  170   18 LargePlain vTop | noTrunc Default "Système de classification :"
 /* [  2] */ PopupControl                185   11  350   22 80 3
 /* [  3] */ Button                       10   42  100   23 LargePlain "Actualiser"
-/* [  4] */ LeftText                    120   46  490   18 LargePlain vTop | noTrunc Default "Sélectionnez un système puis cliquez sur Actualiser."
-/* [  5] */ MultiSelList                 10   74  600  230 SmallPlain PartialItems VScroll 21 HasHeader 21 HasFrame
-/* [  6] */ GroupBox                     10  312  600  128 LargePlain Primary "Détails de la ligne sélectionnée"
-/* [  7] */ LeftText                     20  334  580   18 SmallPlain vTop | noTrunc Default ""
-/* [  8] */ LeftText                     20  354  580   18 SmallPlain vTop | noTrunc Default ""
-/* [  9] */ LeftText                     20  374  580   18 SmallPlain vTop | noTrunc Default ""
-/* [10] */ LeftText                     20  394  580   18 SmallPlain vTop | noTrunc Default ""
-/* [11] */ LeftText                     20  414  580   18 SmallPlain vTop | noTrunc Default ""
-/* [12] */ Button                       10  448  120   23 LargePlain "Exporter JSON"
-/* [13] */ Button                      140  448  110   23 LargePlain "Exporter CSV"
-/* [14] */ Button                      510  448  100   23 LargePlain "Fermer"
+/* [  4] */ LeftText                    285   46  325   18 LargePlain vTop | noTrunc Default ""
+/* [  5] */ MultiSelList                 10   74  600  220 SmallPlain PartialItems VScroll 21 HasHeader 21 HasFrame
+/* [  6] */ GroupBox                     10  362  600  110 LargePlain Primary "Détails de la ligne sélectionnée"
+/* [  7] */ LeftText                     20  380  580   18 SmallPlain vTop | noTrunc Default ""
+/* [  8] */ LeftText                     20  398  580   18 SmallPlain vTop | noTrunc Default ""
+/* [  9] */ LeftText                     20  416  580   18 SmallPlain vTop | noTrunc Default ""
+/* [10] */ LeftText                     20  434  580   18 SmallPlain vTop | noTrunc Default ""
+/* [11] */ LeftText                     20  452  580   18 SmallPlain vTop | noTrunc Default ""
+/* [12] */ Button                       10  508  120   23 LargePlain "Exporter JSON"
+/* [13] */ Button                      140  508  110   23 LargePlain "Exporter CSV"
+/* [14] */ Button                      510  508  100   23 LargePlain "Fermer"
+/* [15] */ CheckBox                    120   44  150   20 LargePlain "Sélection uniquement"
+/* [16] */ LeftText                     10  306   62   18 LargePlain vTop | noTrunc Default "Article :"
+/* [17] */ PopupControl                75  303  370   22 80 3
+/* [18] */ Button                      450  300  160   23 LargePlain "Affecter l'article"
+/* [19] */ Button                       10  332  160   23 LargePlain "Importer des articles…"
+/* [20] */ Button                      180  332  180   23 LargePlain "Créer la classification"
+/* [21] */ LeftText                    370  336  240   18 SmallPlain vTop | noTrunc Default ""
 }
 
 'DLGH' ID_ADDON_DLG DLG_CostWaves {
@@ -41,4 +48,11 @@
 12	""	Button_1
 13	""	Button_2
 14	""	Button_3
+15	""	CheckBox_0
+16	""	LeftText_7
+17	""	PopupControl_1
+18	""	Button_4
+19	""	Button_5
+20	""	Button_6
+21	""	LeftText_8
 }
