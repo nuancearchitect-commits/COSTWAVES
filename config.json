@@ -1,0 +1,13 @@
+{
+    "addOnName": "CostWaves",
+    "defaultLanguage": "INT",
+    "languages": [
+        "INT"
+    ],
+    "version": "0.1.0",
+    "copyright": {
+        "name": "CostWaves",
+        "year": "2026"
+    },
+    "description": "CostWaves - Lecture des classifications, elements, composants et quantites Archicad"
+}

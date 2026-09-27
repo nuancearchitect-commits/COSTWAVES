@@ -1,0 +1,44 @@
+#include "ResourceIds.hpp"
+
+'STR#' ID_ADDON_INFO "Add-on Name and Description" {
+/* [  1] */		"CostWaves"
+/* [  2] */		"Lecture des classifications, elements, composants et quantites vers CostWaves"
+}
+
+'STR#' ID_ADDON_MENU "Strings for the Menu" {
+/* [  1] */		"CostWaves - Lecture des quantités... ^E3 ^ES ^EE ^EI ^ED ^ET ^10001"
+}
+
+'GDLG' ID_ADDON_DLG Modal |grow   40   40  620  480  "CostWaves — Lecture des données" {
+/* [  1] */ LeftText                     10   14  170   18 LargePlain vTop | noTrunc Default "Système de classification :"
+/* [  2] */ PopupControl                185   11  350   22 80 3
+/* [  3] */ Button                       10   42  100   23 LargePlain "Actualiser"
+/* [  4] */ LeftText                    120   46  490   18 LargePlain vTop | noTrunc Default "Sélectionnez un système puis cliquez sur Actualiser."
+/* [  5] */ MultiSelList                 10   74  600  230 SmallPlain PartialItems VScroll 21 HasHeader 21 HasFrame
+/* [  6] */ GroupBox                     10  312  600  128 LargePlain Primary "Détails de la ligne sélectionnée"
+/* [  7] */ LeftText                     20  334  580   18 SmallPlain vTop | noTrunc Default ""
+/* [  8] */ LeftText                     20  354  580   18 SmallPlain vTop | noTrunc Default ""
+/* [  9] */ LeftText                     20  374  580   18 SmallPlain vTop | noTrunc Default ""
+/* [10] */ LeftText                     20  394  580   18 SmallPlain vTop | noTrunc Default ""
+/* [11] */ LeftText                     20  414  580   18 SmallPlain vTop | noTrunc Default ""
+/* [12] */ Button                       10  448  120   23 LargePlain "Exporter JSON"
+/* [13] */ Button                      140  448  110   23 LargePlain "Exporter CSV"
+/* [14] */ Button                      510  448  100   23 LargePlain "Fermer"
+}
+
+'DLGH' ID_ADDON_DLG DLG_CostWaves {
+1	""	LeftText_0
+2	""	PopupControl_0
+3	""	Button_0
+4	""	LeftText_1
+5	""	MultiSelList_0
+6	""	GroupBox_0
+7	""	LeftText_2
+8	""	LeftText_3
+9	""	LeftText_4
+10	""	LeftText_5
+11	""	LeftText_6
+12	""	Button_1
+13	""	Button_2
+14	""	Button_3
+}
