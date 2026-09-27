@@ -21,7 +21,8 @@ class CostWavesDialog final :	public DG::ModalDialog,
 								public DG::PanelObserver,
 								public DG::ButtonItemObserver,
 								public DG::PopUpObserver,
-								public DG::ListBoxObserver
+								public DG::ListBoxObserver,
+								public DG::SearchEditObserver
 {
 public:
 	enum DialogResourceIds {
@@ -47,7 +48,10 @@ public:
 		AssignButtonId		= 18,
 		ImportButtonId		= 19,
 		CreateClassButtonId	= 20,
-		ArticlesInfoId		= 21
+		ArticlesInfoId		= 21,
+		SearchLabelId		= 22,
+		SearchEditId		= 23,
+		CreateMaterialsButtonId	= 24
 	};
 
 	CostWavesDialog ();
@@ -65,6 +69,9 @@ private:
 	// DG::ListBoxObserver
 	virtual void	ListBoxSelectionChanged (const DG::ListBoxSelectionEvent& ev) override;
 
+	// DG::SearchEditObserver
+	virtual void	SearchTextChanged (const DG::SearchEditChangeEvent& ev) override;
+
 	void	InitTable ();
 	void	LoadSystems ();
 	void	RefreshData ();
@@ -81,6 +88,10 @@ private:
 	void	ImportArticles ();				// import JSON (boîte de dialogue fichier)
 	void	CreateClassification ();		// crée/maj le système "CostWaves" (annulable)
 	void	AssignCurrentArticle ();		// affecte l'article choisi à l'élément sélectionné
+	void	CreateMaterials ();				// matériaux + items + affectation item->matériau
+
+	// L'élément correspond-il au filtre de recherche courant ?
+	bool	ElementMatchesFilter (const CWElementRow& element) const;
 
 	// Ligne d'affichage : référence vers un élément ou un de ses composants.
 	struct DisplayRow {
@@ -104,7 +115,10 @@ private:
 	DG::Button			assignButton;
 	DG::Button			importButton;
 	DG::Button			createClassButton;
+	DG::Button			createMaterialsButton;
 	DG::LeftText		articlesInfo;
+	DG::LeftText		searchLabel;
+	DG::SearchEdit		searchEdit;
 	DG::Button			exportJsonButton;
 	DG::Button			exportCsvButton;
 	DG::Button			closeButton;
@@ -121,6 +135,8 @@ private:
 	GS::Array<CWElementRow>	rows;
 	CWScanReport			report;
 	GS::Array<DisplayRow>	displayRows;
+
+	GS::UniString			searchFilter;		// filtre de recherche courant
 
 	bool					isFilling = false;
 };

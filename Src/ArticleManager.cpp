@@ -454,6 +454,72 @@ API_Guid ArticleManager::FindItemGuid (const API_Guid& systemGuid, const GS::Uni
 }
 
 
+const char* ArticleManager::PropertyGroupName ()
+{
+	return "CostWaves";
+}
+
+
+const char* ArticleManager::ArticleIdPropertyName ()
+{
+	return "CW_Article_ID";
+}
+
+
+API_Guid ArticleManager::EnsureCostWavesSystem (GS::UniString& outError)
+{
+	const API_Guid existing = FindCostWavesSystemGuid ();
+	if (existing != APINULLGuid)
+		return existing;
+
+	API_ClassificationSystem system;
+	system.name = GS::UniString (CostWavesSystemName (), CC_UTF8);
+	system.description = FR ("Articles CostWaves (générée par l'Add-On).");
+	system.source = GS::UniString (CostWavesSystemName (), CC_UTF8);
+	system.editionVersion = FR ("1.0");
+	system.editionDate = std::chrono::year_month_day (std::chrono::year (2026),
+													  std::chrono::month (1),
+													  std::chrono::day (1));
+
+	const GSErrCode err = ACAPI_Classification_CreateClassificationSystem (system);
+	if (err != NoError) {
+		outError = FR ("Échec de création du système « CostWaves » (code ")
+				 + ErrorCodeText (err) + FR (").");
+		return APINULLGuid;
+	}
+
+	return system.guid;
+}
+
+
+API_Guid ArticleManager::EnsureArticleItem (const API_Guid& systemGuid, const CWArticle& article,
+											bool& outCreated, GS::UniString& outError)
+{
+	outCreated = false;
+
+	const API_Guid existing = FindItemGuid (systemGuid, article.id);
+	if (existing != APINULLGuid)
+		return existing;
+
+	API_ClassificationItem item;
+	item.id = article.id;
+	item.name = article.name;
+	const GSErrCode err = ACAPI_Classification_CreateClassificationItem (item, systemGuid,
+																		 APINULLGuid, APINULLGuid);
+	if (err == NoError) {
+		outCreated = true;
+		return item.guid;
+	}
+	if (err == APIERR_NAMEALREADYUSED) {
+		return FindItemGuid (systemGuid, article.id);
+	}
+
+	outError = FR ("Échec de création de l'item « ") + article.id
+			 + FR (" » (code ") + ErrorCodeText (err) + FR (").");
+	return APINULLGuid;
+}
+
+
 GSErrCode ArticleManager::EnsureCostWavesClassification (const GS::Array<CWArticle>& articles,
 														 API_Guid& outSystemGuid, USize& outCreatedItems,
 														 GS::UniString& outError)
@@ -472,54 +538,17 @@ GSErrCode ArticleManager::EnsureCostWavesClassification (const GS::Array<CWArtic
 
 	const GSErrCode result = ACAPI_CallUndoableCommand (FR ("CostWaves : création de la classification"),
 		[&]() -> GSErrCode {
-			systemGuid = FindCostWavesSystemGuid ();
-			if (systemGuid == APINULLGuid) {
-				API_ClassificationSystem system;
-				system.name = GS::UniString (CostWavesSystemName (), CC_UTF8);
-				system.description = FR ("Articles CostWaves (générée par l'Add-On).");
-				system.source = GS::UniString (CostWavesSystemName (), CC_UTF8);
-				system.editionVersion = FR ("1.0");
-				system.editionDate = std::chrono::year_month_day (std::chrono::year (2026),
-																  std::chrono::month (1),
-																  std::chrono::day (1));
-
-				const GSErrCode err = ACAPI_Classification_CreateClassificationSystem (system);
-				if (err != NoError) {
-					errorNote = FR ("Échec de création du système « CostWaves » (code ")
-							  + ErrorCodeText (err) + FR (").");
-					return err;
-				}
-				systemGuid = system.guid;
-			}
-
-			// Items déjà présents (pour ne créer que les manquants).
-			GS::Array<API_ClassificationItem> existingItems;
-			EnumerateItems (systemGuid, existingItems);
+			systemGuid = EnsureCostWavesSystem (errorNote);
+			if (systemGuid == APINULLGuid)
+				return APIERR_GENERAL;
 
 			for (UIndex a = 0; a < articles.GetSize (); ++a) {
-				bool exists = false;
-				for (UIndex e = 0; e < existingItems.GetSize (); ++e) {
-					if (existingItems[e].id == articles[a].id) {
-						exists = true;
-						break;
-					}
-				}
-				if (exists)
-					continue;
-
-				API_ClassificationItem item;
-				item.id = articles[a].id;
-				item.name = articles[a].name;
-				const GSErrCode err = ACAPI_Classification_CreateClassificationItem (item, systemGuid,
-																					 APINULLGuid, APINULLGuid);
-				if (err == NoError) {
+				bool created = false;
+				const API_Guid itemGuid = EnsureArticleItem (systemGuid, articles[a], created, errorNote);
+				if (itemGuid == APINULLGuid)
+					return APIERR_GENERAL;
+				if (created)
 					++createdItems;
-					existingItems.Push (item);
-				} else if (err != APIERR_NAMEALREADYUSED) {
-					errorNote = FR ("Échec de création de l'item « ")
-							  + articles[a].id + FR (" » (code ") + ErrorCodeText (err) + FR (").");
-					return err;
-				}
 			}
 
 			return NoError;
@@ -528,7 +557,7 @@ GSErrCode ArticleManager::EnsureCostWavesClassification (const GS::Array<CWArtic
 	outSystemGuid = systemGuid;
 	outCreatedItems = createdItems;
 
-	if (result != NoError) {
+	if (result != NoError && outError.IsEmpty ()) {
 		outError = errorNote.IsEmpty ()
 			? FR ("Création de la classification impossible (code ") + ErrorCodeText (result) + FR (").")
 			: errorNote;
@@ -538,41 +567,141 @@ GSErrCode ArticleManager::EnsureCostWavesClassification (const GS::Array<CWArtic
 }
 
 
+API_Guid ArticleManager::EnsureArticleIdProperty (GS::UniString& outError)
+{
+	// 1) Groupe « CostWaves ».
+	API_Guid groupGuid = APINULLGuid;
+
+	const GS::UniString groupName (PropertyGroupName (), CC_UTF8);
+
+	GS::Array<API_PropertyGroup> groups;
+	if (ACAPI_Property_GetPropertyGroups (groups) == NoError) {
+		for (UIndex i = 0; i < groups.GetSize (); ++i) {
+			if (groups[i].name == groupName) {
+				groupGuid = groups[i].guid;
+				break;
+			}
+		}
+	}
+
+	if (groupGuid == APINULLGuid) {
+		API_PropertyGroup group;
+		group.name = groupName;
+		group.description = FR ("Propriétés CostWaves (générées par l'Add-On).");
+
+		const GSErrCode err = ACAPI_Property_CreatePropertyGroup (group);
+		if (err == NoError) {
+			groupGuid = group.guid;
+		} else {
+			// NAMEALREADYUSED (créé entre-temps) ou erreur : retenter la recherche.
+			groups.Clear ();
+			if (ACAPI_Property_GetPropertyGroups (groups) == NoError) {
+				for (UIndex i = 0; i < groups.GetSize (); ++i) {
+					if (groups[i].name == groupName)
+						groupGuid = groups[i].guid;
+				}
+			}
+		}
+
+		if (groupGuid == APINULLGuid) {
+			outError = FR ("Impossible de créer le groupe de propriétés « CostWaves ».");
+			return APINULLGuid;
+		}
+	}
+
+	// 2) Définition « CW_Article_ID » dans ce groupe.
+	const GS::UniString propertyName (ArticleIdPropertyName (), CC_UTF8);
+
+	GS::Array<API_PropertyDefinition> definitions;
+	if (ACAPI_Property_GetPropertyDefinitions (groupGuid, definitions) == NoError) {
+		for (UIndex i = 0; i < definitions.GetSize (); ++i) {
+			if (definitions[i].name == propertyName)
+				return definitions[i].guid;
+		}
+	}
+
+	API_PropertyDefinition definition;
+	definition.definitionType = API_PropertyCustomDefinitionType;
+	definition.groupGuid = groupGuid;
+	definition.name = propertyName;
+	definition.description = FR ("Identifiant de l'article CostWaves affecté à l'élément.");
+	definition.valueType = API_PropertyStringValueType;
+	definition.collectionType = API_PropertySingleCollectionType;
+	definition.measureType = API_PropertyDefaultMeasureType;
+
+	const GSErrCode err = ACAPI_Property_CreatePropertyDefinition (definition);
+	if (err == NoError)
+		return definition.guid;
+
+	// NAMEALREADYUSED : retenter la recherche.
+	definitions.Clear ();
+	if (ACAPI_Property_GetPropertyDefinitions (groupGuid, definitions) == NoError) {
+		for (UIndex i = 0; i < definitions.GetSize (); ++i) {
+			if (definitions[i].name == propertyName)
+				return definitions[i].guid;
+		}
+	}
+
+	outError = FR ("Impossible de créer la propriété « CW_Article_ID » (code ")
+			 + ErrorCodeText (err) + FR (").");
+	return APINULLGuid;
+}
+
+
 GSErrCode ArticleManager::AssignArticleToElement (const API_Guid& elemGuid, const API_Guid& systemGuid,
-												  const API_Guid& itemGuid, bool& outChanged,
+												  const API_Guid& itemGuid, const GS::UniString& articleId,
+												  const API_Guid& articleIdPropGuid, bool& outChanged,
 												  GS::UniString& outError)
 {
 	outChanged = false;
 
 	bool			changed = false;
 	GS::UniString	errorNote;
+	GS::UniString	warningNote;
 
 	const GSErrCode result = ACAPI_CallUndoableCommand (FR ("CostWaves : affectation d'article"),
 		[&]() -> GSErrCode {
 			// Classe déjà portée par l'élément dans ce système ?
 			API_ClassificationItem current;
 			const GSErrCode getErr = ACAPI_Element_GetClassificationInSystem (elemGuid, systemGuid, current);
-			if (getErr == NoError && current.guid == itemGuid)
-				return NoError;		// déjà affecté
-
-			if (getErr == NoError && current.guid != APINULLGuid) {
-				const GSErrCode removeErr = ACAPI_Element_RemoveClassificationItem (elemGuid, current.guid);
-				if (removeErr != NoError) {
-					errorNote = FR ("Impossible de retirer la classe précédente (code ")
-							  + ErrorCodeText (removeErr) + FR (").");
-					return removeErr;
+			if (getErr != NoError || current.guid != itemGuid) {
+				if (getErr == NoError && current.guid != APINULLGuid) {
+					const GSErrCode removeErr = ACAPI_Element_RemoveClassificationItem (elemGuid, current.guid);
+					if (removeErr != NoError) {
+						errorNote = FR ("Impossible de retirer la classe précédente (code ")
+								  + ErrorCodeText (removeErr) + FR (").");
+						return removeErr;
+					}
+					changed = true;
 				}
+
+				const GSErrCode addErr = ACAPI_Element_AddClassificationItem (elemGuid, itemGuid);
+				if (addErr != NoError) {
+					errorNote = FR ("Impossible d'affecter la classe (code ")
+							  + ErrorCodeText (addErr) + FR (").");
+					return addErr;
+				}
+
 				changed = true;
 			}
 
-			const GSErrCode addErr = ACAPI_Element_AddClassificationItem (elemGuid, itemGuid);
-			if (addErr != NoError) {
-				errorNote = FR ("Impossible d'affecter la classe (code ")
-						  + ErrorCodeText (addErr) + FR (").");
-				return addErr;
+			// Propriété CW_Article_ID (best effort : ne bloque pas l'affectation).
+			if (articleIdPropGuid != APINULLGuid && !articleId.IsEmpty ()) {
+				API_Property property;
+				property.definition.guid = articleIdPropGuid;
+				property.isDefault = false;
+				property.value.singleVariant.variant.type = API_PropertyStringValueType;
+				property.value.singleVariant.variant.uniStringValue = articleId;
+
+				const GSErrCode propErr = ACAPI_Element_SetProperty (elemGuid, property);
+				if (propErr == NoError) {
+					changed = true;
+				} else {
+					warningNote = FR ("Article affecté, mais écriture de la propriété CW_Article_ID impossible (code ")
+								+ ErrorCodeText (propErr) + FR (").");
+				}
 			}
 
-			changed = true;
 			return NoError;
 		});
 
@@ -581,6 +710,116 @@ GSErrCode ArticleManager::AssignArticleToElement (const API_Guid& elemGuid, cons
 	if (result != NoError) {
 		outError = errorNote.IsEmpty ()
 			? FR ("Affectation impossible (code ") + ErrorCodeText (result) + FR (").")
+			: errorNote;
+	} else if (!warningNote.IsEmpty ()) {
+		outError = warningNote;
+	}
+
+	return result;
+}
+
+
+GSErrCode ArticleManager::CreateBuildingMaterials (const GS::Array<CWArticle>& articles,
+												   API_Guid& outSystemGuid,
+												   USize& outCreatedMaterials, USize& outCreatedItems,
+												   USize& outAssigned,
+												   GS::UniString& outError)
+{
+	outSystemGuid = APINULLGuid;
+	outCreatedMaterials = 0;
+	outCreatedItems = 0;
+	outAssigned = 0;
+
+	if (articles.IsEmpty ()) {
+		outError = FR ("Aucun article disponible — importez des articles ou choisissez un système.");
+		return APIERR_GENERAL;
+	}
+
+	API_Guid		systemGuid = APINULLGuid;
+	USize			createdMaterials = 0;
+	USize			createdItems = 0;
+	USize			assigned = 0;
+	GS::UniString	errorNote;
+
+	// NB : la création d'attributs n'est pas annulable (limite de l'API) ;
+	// la partie classification est regroupée dans une commande annulable.
+	const GSErrCode result = ACAPI_CallUndoableCommand (FR ("CostWaves : création des matériaux"),
+		[&]() -> GSErrCode {
+			systemGuid = EnsureCostWavesSystem (errorNote);
+			if (systemGuid == APINULLGuid)
+				return APIERR_GENERAL;
+
+			for (UIndex a = 0; a < articles.GetSize (); ++a) {
+				const CWArticle& article = articles[a];
+
+				// 1) Item de classification de l'article.
+				bool itemCreated = false;
+				const API_Guid itemGuid = EnsureArticleItem (systemGuid, article, itemCreated, errorNote);
+				if (itemGuid == APINULLGuid)
+					return APIERR_GENERAL;
+				if (itemCreated)
+					++createdItems;
+
+				// 2) Matériau de construction « id — nom ». Idempotent : si un
+				//    matériau de ce nom existe déjà, Create renvoie son index.
+				GS::UniString materialName = article.id + US (" — ") + article.name;
+
+				API_Attribute attribute;
+				BNZeroMemory (&attribute, sizeof (attribute));
+				attribute.header.typeID = API_BuildingMaterialID;
+				attribute.header.uniStringNamePtr = &materialName;
+
+				API_AttributeDef defs;
+				BNZeroMemory (&defs, sizeof (defs));
+
+				const GSErrCode err = ACAPI_Attribute_Create (&attribute, &defs);
+				ACAPI_DisposeAttrDefsHdls (&defs);
+
+				if (err != NoError) {
+					errorNote = FR ("Impossible de créer le matériau « ") + materialName
+							 + FR (" » (code ") + ErrorCodeText (err) + FR (").");
+					return err;
+				}
+				++createdMaterials;
+
+				// 3) Affecter l'item au matériau (remplace sa classe précédente
+				//    dans ce système).
+				API_ClassificationItem current;
+				const GSErrCode getErr = ACAPI_Attribute_GetClassificationInSystem (attribute.header,
+																					systemGuid, current);
+				if (getErr == NoError && current.guid == itemGuid)
+					continue;		// déjà affecté
+
+				if (getErr == NoError && current.guid != APINULLGuid) {
+					const GSErrCode removeErr = ACAPI_Attribute_RemoveClassificationItem (attribute.header,
+																						  current.guid);
+					if (removeErr != NoError) {
+						errorNote = FR ("Impossible de retirer la classe précédente du matériau « ")
+								 + materialName + FR (" » (code ") + ErrorCodeText (removeErr) + FR (").");
+						return removeErr;
+					}
+				}
+
+				const GSErrCode addErr = ACAPI_Attribute_AddClassificationItem (attribute.header, itemGuid);
+				if (addErr != NoError) {
+					errorNote = FR ("Impossible d'affecter la classe au matériau « ")
+							 + materialName + FR (" » (code ") + ErrorCodeText (addErr) + FR (").");
+					return addErr;
+				}
+				++assigned;
+			}
+
+			return NoError;
+		});
+
+	outSystemGuid = systemGuid;
+	outCreatedMaterials = createdMaterials;
+	outCreatedItems = createdItems;
+	outAssigned = assigned;
+
+	if (result != NoError && outError.IsEmpty ()) {
+		outError = errorNote.IsEmpty ()
+			? FR ("Création des matériaux impossible (code ") + ErrorCodeText (result) + FR (").")
 			: errorNote;
 	}
 

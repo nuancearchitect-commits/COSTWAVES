@@ -83,7 +83,10 @@ CostWavesDialog::CostWavesDialog ()
 		assignButton (GetReference (), AssignButtonId),
 		importButton (GetReference (), ImportButtonId),
 		createClassButton (GetReference (), CreateClassButtonId),
+		createMaterialsButton (GetReference (), CreateMaterialsButtonId),
 		articlesInfo (GetReference (), ArticlesInfoId),
+		searchLabel (GetReference (), SearchLabelId),
+		searchEdit (GetReference (), SearchEditId),
 		exportJsonButton (GetReference (), ExportJsonButtonId),
 		exportCsvButton (GetReference (), ExportCsvButtonId),
 		closeButton (GetReference (), CloseButtonId)
@@ -97,6 +100,8 @@ CostWavesDialog::CostWavesDialog ()
 	assignButton.Attach (*this);	// ButtonItemObserver
 	importButton.Attach (*this);	// ButtonItemObserver
 	createClassButton.Attach (*this);// ButtonItemObserver
+	createMaterialsButton.Attach (*this);	// ButtonItemObserver
+	searchEdit.Attach (*this);		// SearchEditObserver
 	exportJsonButton.Attach (*this);
 	exportCsvButton.Attach (*this);
 	closeButton.Attach (*this);
@@ -207,6 +212,31 @@ void CostWavesDialog::RefreshData ()
 }
 
 
+bool CostWavesDialog::ElementMatchesFilter (const CWElementRow& element) const
+{
+	if (searchFilter.IsEmpty ())
+		return true;
+
+	const GS::UniString needle = searchFilter.ToUpperCase ();
+
+	const GS::UniString haystacks[] = {
+		element.typeName,
+		APIGuidToString (element.guid),
+		element.elementId,
+		element.storyName,
+		element.classItemId,
+		element.classItemName
+	};
+
+	for (UIndex i = 0; i < sizeof (haystacks) / sizeof (haystacks[0]); ++i) {
+		if (haystacks[i].ToUpperCase ().Contains (needle))
+			return true;
+	}
+
+	return false;
+}
+
+
 void CostWavesDialog::FillTable ()
 {
 	table.SetHeaderSynchronState (true);
@@ -218,6 +248,11 @@ void CostWavesDialog::FillTable ()
 
 	for (UIndex e = 0; e < rows.GetSize (); ++e) {
 		const CWElementRow& element = rows[e];
+
+		// Filtre de recherche : l'élément et ses composants sont masqués
+		// si aucune de ses colonnes ne correspond.
+		if (!ElementMatchesFilter (element))
+			continue;
 
 		const GS::UniString floorText = element.storyName.IsEmpty ()
 			? GS::ToUniString (std::to_wstring (static_cast<int> (element.floorInd)))
@@ -524,11 +559,15 @@ void CostWavesDialog::AssignCurrentArticle ()
 		return;
 	}
 
-	// 4) Affectation (annulable).
+	// 4) Affectation (annulable) + propriété CW_Article_ID (créée si absente).
+	GS::UniString propError;
+	const API_Guid articleIdPropGuid = ArticleManager::EnsureArticleIdProperty (propError);
+
 	bool changed = false;
 	GS::UniString error;
 	const GSErrCode err = ArticleManager::AssignArticleToElement (element.guid, targetSystem, itemGuid,
-																   changed, error);
+																   article.id, articleIdPropGuid, changed,
+																   error);
 	if (err != NoError) {
 		DG::ErrorAlert (FR ("Échec de l'affectation."), error, FR ("OK"));
 		return;
@@ -536,13 +575,66 @@ void CostWavesDialog::AssignCurrentArticle ()
 
 	RefreshData ();
 
-	if (!changed) {
+	if (!error.IsEmpty ()) {
+		// Affectation réussie mais propriété non écrite.
+		DG::WarningAlert (FR ("Article affecté (avec réserve)."), error, FR ("OK"));
+	} else if (!changed) {
 		DG::InformationAlert (FR ("Aucun changement."), FR ("Cet élément porte déjà cet article."), FR ("OK"));
 	} else if (targetSystem != selectedSystem) {
 		DG::InformationAlert (FR ("Article affecté."),
 							  FR ("Affecté dans le système « CostWaves » — basculez le système en haut pour le voir dans la colonne Classe."),
 							  FR ("OK"));
+	} else {
+		DG::InformationAlert (FR ("Article affecté."),
+							  FR ("Classe mise à jour et propriété CW_Article_ID écrite sur l'élément."),
+							  FR ("OK"));
 	}
+}
+
+
+void CostWavesDialog::CreateMaterials ()
+{
+	if (articles.IsEmpty ()) {
+		DG::WarningAlert (FR ("Aucun article disponible."),
+						  FR ("Importez des articles (JSON) ou choisissez un système contenant des items."),
+						  FR ("OK"));
+		return;
+	}
+
+	API_Guid	systemGuid = APINULLGuid;
+	USize		createdMaterials = 0;
+	USize		createdItems = 0;
+	USize		assigned = 0;
+	GS::UniString error;
+	if (ArticleManager::CreateBuildingMaterials (articles, systemGuid, createdMaterials, createdItems,
+												  assigned, error) != NoError) {
+		DG::ErrorAlert (FR ("Échec de la création des matériaux."), error, FR ("OK"));
+		return;
+	}
+
+	// Le système « CostWaves » a pu être créé : recharger et resélectionner.
+	LoadSystems ();
+
+	const GS::UniString costWavesName (ArticleManager::CostWavesSystemName (), CC_UTF8);
+	for (UIndex i = 0; i < systems.GetSize (); ++i) {
+		if (systems[i].name == costWavesName) {
+			selectedSystem = systems[i].guid;
+			systemPopup.SelectItem (static_cast<short> (i + 1));
+			break;
+		}
+	}
+
+	ReloadArticlesFromSystem ();
+	RefreshData ();
+
+	DG::InformationAlert (FR ("Matériaux CostWaves prêts."),
+						  GS::ToUniString (std::to_wstring (static_cast<int> (createdMaterials)))
+							  + FR (" matériaux traités · ")
+							  + GS::ToUniString (std::to_wstring (static_cast<int> (createdItems)))
+							  + FR (" items créés · ")
+							  + GS::ToUniString (std::to_wstring (static_cast<int> (assigned)))
+							  + FR (" affectations.\nNB : la création de matériaux n'est pas annulable (limite API)."),
+						  FR ("OK"));
 }
 
 
@@ -708,6 +800,9 @@ void CostWavesDialog::PanelResized (const DG::PanelResizeEvent& ev)
 	// Zone fixe au-dessus du tableau : s'élargit seulement.
 	systemPopup.MoveAndResize (0, 0, dx, 0);
 	statusText.MoveAndResize (0, 0, dx, 0);
+	// Rangée recherche (fixe) : le texte d'info absorbe la largeur.
+	searchEdit.MoveAndResize (0, 0, dx / 2, 0);
+	articlesInfo.MoveAndResize (0, 0, dx - dx / 2, 0);
 
 	// Le tableau absorbe le redimensionnement vertical.
 	table.MoveAndResize (0, 0, dx, dy);
@@ -717,7 +812,7 @@ void CostWavesDialog::PanelResized (const DG::PanelResizeEvent& ev)
 	assignButton.Move (dx, dy);
 	importButton.Move (0, dy);
 	createClassButton.Move (0, dy);
-	articlesInfo.MoveAndResize (0, dy, dx, 0);
+	createMaterialsButton.Move (dx / 2, dy);
 
 	// Panneau de détails.
 	detailsGroup.MoveAndResize (0, dy, dx, 0);
@@ -750,6 +845,8 @@ void CostWavesDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 		CreateClassification ();
 	} else if (ev.GetSource () == &assignButton) {
 		AssignCurrentArticle ();
+	} else if (ev.GetSource () == &createMaterialsButton) {
+		CreateMaterials ();
 	} else if (ev.GetSource () == &closeButton) {
 		PostCloseRequest (DG::ModalDialog::Cancel);
 	}
@@ -779,6 +876,27 @@ void CostWavesDialog::ListBoxSelectionChanged (const DG::ListBoxSelectionEvent& 
 
 	if (ev.GetSource () == &table)
 		UpdateDetails (table.GetSelectedItem ());
+}
+
+
+void CostWavesDialog::SearchTextChanged (const DG::SearchEditChangeEvent& ev)
+{
+	if (ev.GetSource () != &searchEdit)
+		return;
+
+	const GS::UniString text = searchEdit.GetText ();
+
+	if (text == searchFilter)
+		return;		// rien de nouveau
+
+	searchFilter = text;
+
+	// Réafficher le tableau avec le nouveau filtre, sans relire le modèle.
+	isFilling = true;
+	FillTable ();
+	isFilling = false;
+
+	UpdateDetails (table.GetItemCount () > 0 ? 1 : 0);
 }
 
 } // namespace CostWaves

@@ -12,10 +12,17 @@ namespace CostWaves {
 //  - collecte des articles depuis les items d'un système de classification
 //  - création (annulable) du système "CostWaves" avec un item par article
 //  - affectation (annulable) d'un item de classification à un élément
+//     + écriture de la propriété CW_Article_ID sur l'élément
+//  - création des matériaux de construction : un matériau par article,
+//    son item de classification, et l'affectation item -> matériau
 class ArticleManager {
 public:
 	// Nom du système de classification créé par l'add-on.
 	static const char* CostWavesSystemName ();
+
+	// Nom du groupe de propriétés et de la propriété texte créés par l'add-on.
+	static const char* PropertyGroupName ();
+	static const char* ArticleIdPropertyName ();
 
 	// Importe les articles d'un fichier JSON. Retourne false + outError en cas
 	// d'échec (fichier illisible, JSON invalide, aucun article).
@@ -40,17 +47,45 @@ public:
 													  API_Guid& outSystemGuid, USize& outCreatedItems,
 													  GS::UniString& outError);
 
+	// Crée (si absents) le groupe de propriétés "CostWaves" et la propriété
+	// texte CW_Article_ID. Retourne le guid de la définition
+	// (APINULLGuid + outError en cas d'échec).
+	static API_Guid	EnsureArticleIdProperty (GS::UniString& outError);
+
 	// Affecte l'item à l'élément dans le système donné ; remplace la classe
-	// éventuellement déjà portée par l'élément dans ce système.
-	// Opération annulable. outChanged = true si l'élément a été modifié.
+	// éventuellement déjà portée par l'élément dans ce système. Si
+	// articleIdPropGuid est valide, écrit aussi articleId dans la propriété
+	// CW_Article_ID de l'élément. Opération annulable.
+	// outChanged = true si l'élément a été modifié.
 	static GSErrCode	AssignArticleToElement (const API_Guid& elemGuid, const API_Guid& systemGuid,
-												const API_Guid& itemGuid, bool& outChanged,
+												const API_Guid& itemGuid, const GS::UniString& articleId,
+												const API_Guid& articleIdPropGuid, bool& outChanged,
+												GS::UniString& outError);
+
+	// Bouton « Créer les matériaux » : pour chaque article —
+	//  1) matériau de construction "id — nom" (créé s'il n'existe pas déjà :
+	//     la création d'attribut est idempotente par nom)
+	//  2) item de classification dans le système "CostWaves" (créé si absent)
+	//  3) affectation de l'item au matériau (remplace la classe précédente)
+	// La création d'attributs n'est PAS annulable (limite API) ; la partie
+	// classification est regroupée dans une commande annulable.
+	static GSErrCode	CreateBuildingMaterials (const GS::Array<CWArticle>& articles,
+												API_Guid& outSystemGuid,
+												USize& outCreatedMaterials, USize& outCreatedItems,
+												USize& outAssigned,
 												GS::UniString& outError);
 
 private:
 	// Enumère tous les items (racines + enfants récursifs) du système.
 	static void		EnumerateItems (const API_Guid& systemGuid, GS::Array<API_ClassificationItem>& outItems);
 	static void		CollectChildren (const API_Guid& parentGuid, GS::Array<API_ClassificationItem>& outItems);
+
+	// Système "CostWaves" existant ou créé (APINULLGuid + outError si échec).
+	static API_Guid	EnsureCostWavesSystem (GS::UniString& outError);
+
+	// Item de l'article dans le système, créé s'il est absent.
+	static API_Guid	EnsureArticleItem (const API_Guid& systemGuid, const CWArticle& article,
+										bool& outCreated, GS::UniString& outError);
 };
 
 } // namespace CostWaves
