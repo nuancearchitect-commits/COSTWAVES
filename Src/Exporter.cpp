@@ -227,6 +227,7 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 	json += US ("    \"components\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.componentCount))) + ",\n";
 	json += US ("    \"skins\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.skinCount))) + ",\n";
 	json += US ("    \"groups\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.groupCount))) + ",\n";
+	json += US ("    \"numberedGroups\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.numberedGroupCount))) + ",\n";
 	json += US ("    \"consumedElements\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.consumedElements))) + "\n";
 	json += "  },\n";
 
@@ -243,6 +244,7 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 				+ ", \"unit\": " + JsonString (entry.unit)
 				+ ", \"elementCount\": " + GS::ToUniString (std::to_wstring (static_cast<int> (entry.elementCount)))
 				+ ", \"groupCount\": " + GS::ToUniString (std::to_wstring (static_cast<int> (entry.groupCount)))
+				+ ", \"numberedGroupCount\": " + GS::ToUniString (std::to_wstring (static_cast<int> (entry.numberedGroupCount)))
 				+ ", \"totalQuantity\": " + FormatDouble (entry.totalQuantity) + " }";
 			if (s + 1 < summary.GetSize ())
 				json += ",";
@@ -267,7 +269,10 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 
 			json += "    {\n";
 			json += US ("      \"kind\": \"group\",\n");
+			json += US ("      \"groupType\": \"") + (row.isNumberedGroup ? US ("numbered") : US ("ensemble")) + US ("\",\n");
 			json += US ("      \"groupId\": ") + JsonString (row.groupId) + ",\n";
+			if (row.isNumberedGroup)
+				json += US ("      \"groupNumber\": ") + GS::ToUniString (std::to_wstring (row.groupNumber)) + ",\n";
 			json += US ("      \"floorIndex\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (row.floorInd))) + ",\n";
 			json += US ("      \"story\": ") + JsonString (row.storyName) + ",\n";
 			json += "      \"classification\": {\n";
@@ -451,7 +456,9 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 
 		// Type de ligne : élément, membre consommé, ou ensemble (phase 4).
 		const GS::UniString rowType = row.isGroupRow
-			? FR ("Ensemble")
+			? (row.isNumberedGroup
+				? FR ("Groupe n ") + GS::ToUniString (std::to_wstring (row.groupNumber))
+				: FR ("Ensemble"))
 			: (row.consumed ? FR ("Membre (consommé)") : FR ("Élément"));
 
 		const GS::UniString elementPrefix = rowType + ";"

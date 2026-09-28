@@ -9,7 +9,7 @@
 /* [  1] */		"CostWaves - Lecture des quantités... ^E3 ^ES ^EE ^EI ^ED ^ET ^10001"
 }
 
-'GDLG' ID_ADDON_DLG Modal |grow   40   40  620  600  "CostWaves — Lecture des données" {
+'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  620  600  "CostWaves — Lecture des données" {
 /* [  1] */ LeftText                     10   14  170   18 LargePlain vTop | noTrunc Default "Système de classification :"
 /* [  2] */ PopupControl                185   11  350   22 80 3
 /* [  3] */ Button                       10   42  100   23 LargePlain "Actualiser"
@@ -33,10 +33,11 @@
 /* [21] */ LeftText                    315   72  295   18 SmallPlain vTop | noTrunc Default ""
 /* [22] */ LeftText                     10   72   70   18 LargePlain vTop | noTrunc Default "Recherche :"
 /* [23] */ SearchEdit                   85   69  200   22 LargePlain frame | update | absolute | editable 60
-/* [24] */ Button                      370  348  150   23 LargePlain "Créer les matériaux"
-/* [25] */ Button                       10  514  160   23 LargePlain "Grouper en ensemble"
-/* [26] */ Button                      180  514  170   23 LargePlain "Dissoudre l'ensemble"
-/* [27] */ Button                      360  514  250   23 LargePlain "Récapitulatif par article"
+/* [24] */ Button                      370  348  150   23 LargePlain "Créer le matériau…"
+/* [25] */ Button                       10  514  150   23 LargePlain "Créer un ensemble"
+/* [26] */ Button                      316  514  294   23 LargePlain "Dissoudre ensemble / groupe"
+/* [27] */ Button                      258  548  242   23 LargePlain "Récapitulatif par article"
+/* [28] */ Button                      168  514  140   23 LargePlain "Créer un groupe"
 }
 
 'DLGH' ID_ADDON_DLG DLG_CostWaves {
@@ -66,5 +67,6 @@
 24	""	Button_7
 25	""	Button_8
 26	""	Button_9
-27	""	Button_10
+27    ""        Button_10
+28    ""        Button_11
 }

@@ -58,17 +58,23 @@ SummaryDialog::SummaryDialog (const GS::Array<CWArticleSummary>& summary)
 
 void SummaryDialog::InitTable ()
 {
-	const short columnCount = 5;
+	const short columnCount = 7;
 
 	table.SetHeaderItemCount (columnCount);
 	table.SetHeaderItemText (1, FR ("Article"));
 	table.SetHeaderItemText (2, FR ("Libellé"));
 	table.SetHeaderItemText (3, FR ("Unité"));
 	table.SetHeaderItemText (4, FR ("Éléments"));
-	table.SetHeaderItemText (5, FR ("Quantité totale"));
+	table.SetHeaderItemText (5, FR ("Ensembles"));
+	table.SetHeaderItemText (6, FR ("Groupes"));
+	table.SetHeaderItemText (7, FR ("Quantité totale"));
+
+	// Le contrôle est créé en code : définir les champs de tabulation
+	// (sans cela, seule la première colonne s'affiche).
+	table.SetTabFieldCount (columnCount);
 
 	const short tableWidth = table.GetWidth ();
-	const short proportions[columnCount] = { 14, 34, 10, 14, 28 };
+	const short proportions[columnCount] = { 13, 30, 8, 11, 11, 11, 16 };
 
 	const short totalProportion = 100;
 	short position = 0;
@@ -94,11 +100,12 @@ void SummaryDialog::Fill (const GS::Array<CWArticleSummary>& summary)
 		table.SetTabItemText (itemIndex, 2, entry.articleName);
 		table.SetTabItemText (itemIndex, 3, entry.unit);
 		table.SetTabItemText (itemIndex, 4,
-			GS::ToUniString (std::to_wstring (static_cast<int> (entry.elementCount)))
-			+ (entry.groupCount > 0
-				? FR (" + ") + GS::ToUniString (std::to_wstring (static_cast<int> (entry.groupCount))) + FR (" ens.")
-				: GS::UniString ()));
-		table.SetTabItemText (itemIndex, 5, FormatValue (entry.totalQuantity));
+			GS::ToUniString (std::to_wstring (static_cast<int> (entry.elementCount))));
+		table.SetTabItemText (itemIndex, 5,
+			GS::ToUniString (std::to_wstring (static_cast<int> (entry.groupCount))));
+		table.SetTabItemText (itemIndex, 6,
+			GS::ToUniString (std::to_wstring (static_cast<int> (entry.numberedGroupCount))));
+		table.SetTabItemText (itemIndex, 7, FormatValue (entry.totalQuantity));
 	}
 }
 

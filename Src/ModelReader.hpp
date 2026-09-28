@@ -52,18 +52,25 @@ public:
 	// elemFilter (optionnel) : si non nul et non vide, seuls ces éléments sont
 	// analysés (utilisé pour la lecture de la sélection courante).
 	// groupPropGuid (optionnel) : guid de la propriété CW_Group_ID — si valide,
-	// chaque élément groupé est marqué « consommé » et une ligne « Ensemble »
-	// virtuelle est ajoutée par groupe (phase 4).
+	// chaque élément groupé est marqué « consommé » et une ligne virtuelle
+	// « Ensemble » (ou « Groupe n », valeurs CW-N-…) est ajoutée par groupe.
 	static GSErrCode		Scan (const API_Guid&			systemGuid,
-								 const API_Guid&			elemIdPropGuid,
-								 const API_Guid&			groupPropGuid,
-								 const GS::Array<API_Guid>*	elemFilter,
-								 GS::Array<CWElementRow>&	outRows,
-								 CWScanReport&				outReport);
+							 const API_Guid&			elemIdPropGuid,
+							 const API_Guid&			groupPropGuid,
+							 const GS::Array<API_Guid>*	elemFilter,
+							 GS::Array<CWElementRow>&	outRows,
+							 CWScanReport&				outReport);
 
 	// Éléments actuellement sélectionnés dans Archicad (dédupliqués).
 	// Err si aucun / base invalide — outGuids reste vide.
 	static GSErrCode		GetSelectedElements (GS::Array<API_Guid>& outGuids);
+
+	// Valeurs CW_Group_ID de tous les éléments du projet (paires guid -> valeur,
+	// seuls les éléments portant une valeur non vide sont retournés).
+	// Sert à numéroter les nouveaux groupes et à éviter de voler les éléments
+	// déjà groupés.
+	static GSErrCode		CollectGroupValues (const API_Guid& groupPropGuid,
+											 GS::Array<GS::Pair<API_Guid, GS::UniString>>& outValues);
 
 	// Propriétés d'un composant (lecture à la demande, pour le panneau de détails).
 	static GS::Array<CWPropertyEntry>	GetComponentProperties (const API_ElemComponentID& component);

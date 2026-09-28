@@ -66,11 +66,13 @@ struct CWElementRow {
 	GS::Array<CWQuantity>		quantities;
 	GS::Array<CWComponentRow>	components;	// composants + skins
 
-	// Phase 4 — ensembles CostWaves :
-	bool					isGroupRow = false;		// ligne "ensemble" (virtuelle)
+	// Phase 4/5 — ensembles et groupes CostWaves :
+	bool					isGroupRow = false;		// ligne "ensemble"/"groupe" (virtuelle)
+	bool					isNumberedGroup = false;	// groupe numéroté (facturé 1 par groupe)
+	int						groupNumber = 0;		// numéro du groupe (0 = ensemble ou aucun)
 	GS::UniString			groupId;				// CW_Group_ID (vide = aucun)
-	bool					consumed = false;		// membre d'un ensemble (non facturé seul)
-	GS::Array<API_Guid>		groupMembers;			// lignes ensemble : GUIDs des membres
+	bool					consumed = false;		// membre d'un ensemble/groupe (non facturé seul)
+	GS::Array<API_Guid>		groupMembers;			// lignes ensemble/groupe : GUIDs des membres
 };
 
 // --- Système de classification -------------------------------------------------
@@ -97,15 +99,28 @@ struct CWArticle {
 		: id (inId), name (inName), unit (inUnit) {}
 };
 
+// --- Attributs d'un matériau de construction (phase 5) ---------------------------
+
+struct CWMaterialAttributes {
+	Int32					connPriority = 500;	// "puissance" : priorité de connexion (1..1000)
+	API_AttributeIndex		cutFill = ACAPI_CreateAttributeIndex (1);		// hachure (remplissage en coupe)
+	short					cutFillPen = 1;						// stylo avant-plan du remplissage
+	short					cutFillBackgroundPen = 1;			// stylo arrière-plan du remplissage
+	API_AttributeIndex		cutMaterial = ACAPI_CreateAttributeIndex (1);	// surface de coupe
+
+	CWMaterialAttributes () = default;
+};
+
 // --- Récapitulatif par article (phase 4) -----------------------------------------
 
 struct CWArticleSummary {
 	GS::UniString	articleId;			// identifiant d'article (= classe)
 	GS::UniString	articleName;		// libellé
 	GS::UniString	unit;				// unité de facturation ("?" si article inconnu)
-	USize			elementCount = 0;	// éléments facturés individuellement
-	USize			groupCount = 0;		// ensembles facturés
-	double			totalQuantity = 0.0;	// somme des quantités facturées
+	USize					elementCount = 0;	// éléments facturés individuellement
+	USize					groupCount = 0;		// ensembles facturés
+	USize					numberedGroupCount = 0;	// groupes numérotés facturés (1 par groupe)
+	double					totalQuantity = 0.0;	// somme des quantités facturées
 
 	CWArticleSummary () = default;
 };
@@ -118,8 +133,9 @@ struct CWScanReport {
 	USize	componentCount = 0;			// composants (API 25+) sur les éléments classés
 	USize	skinCount = 0;				// skins composites sur les éléments classés
 	USize	quantityErrors = 0;			// échecs ACAPI_Element_GetQuantities
-	USize	groupCount = 0;				// ensembles CostWaves (phase 4)
-	USize	consumedElements = 0;		// éléments membres d'un ensemble (consommés)
+	USize					groupCount = 0;				// ensembles CostWaves (phase 4)
+	USize					numberedGroupCount = 0;		// groupes numérotés CostWaves (phase 5)
+	USize					consumedElements = 0;		// éléments membres d'un ensemble/groupe (consommés)
 	GS::UniString	elementIdPropertyNote; // note sur la résolution de la propriété Element ID
 };
 

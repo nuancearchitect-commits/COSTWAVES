@@ -67,18 +67,44 @@ public:
 												USize&						outFailedCount,
 												GS::UniString&				outError);
 
-	// Bouton « Créer les matériaux » : pour chaque article —
-	//  1) matériau de construction "id — nom" (créé s'il n'existe pas déjà :
-	//     la création d'attribut est idempotente par nom)
-	//  2) item de classification dans le système "CostWaves" (créé si absent)
-	//  3) affectation de l'item au matériau (remplace la classe précédente)
-	// La création d'attributs n'est PAS annulable (limite API) ; la partie
-	// classification est regroupée dans une commande annulable.
-	static GSErrCode	CreateBuildingMaterials (const GS::Array<CWArticle>& articles,
-											  API_Guid& outSystemGuid,
-											  USize& outCreatedMaterials, USize& outCreatedItems,
-											  USize& outAssigned,
-											  GS::UniString& outError);
+	// Bouton « Créer le matériau… » (phase 5) : crée (ou met à jour) UN matériau
+	// de construction avec ses attributs (hachure, surface, stylos, puissance)
+	// et le lie à une classe de classification :
+	//  - createNewClass : crée l'item classId/className sous parentItemGuid
+	//    dans systemGuid (annulable), puis affecte l'item au matériau ;
+	//  - sinon : affecte existingItemGuid au matériau.
+	// La création d'attributs n'est PAS annulable (limite API) ; tout le reste
+	// est regroupé dans UNE commande annulable.
+	static GSErrCode	CreateMaterialWithClass (const GS::UniString&	materialName,
+										   const CWMaterialAttributes&	attributes,
+										   bool							createNewClass,
+										   const API_Guid&				systemGuid,
+										   const API_Guid&				parentItemGuid,
+										   const GS::UniString&			classId,
+										   const GS::UniString&			className,
+										   const API_Guid&				existingItemGuid,
+										   API_Guid&					outItemGuid,
+										   bool&						outMaterialCreated,
+										   bool&						outClassCreated,
+										   GS::UniString&				outError);
+
+	// Crée un item de classification sous un parent donné (APINULLGuid = racine).
+	// L'identifiant doit être libre dans tout le système. Retourne le guid de
+	// l'item créé (APINULLGuid + outError en cas d'échec).
+	static GSErrCode	CreateClassificationItem (const API_Guid& systemGuid, const API_Guid& parentItemGuid,
+											const GS::UniString& itemId, const GS::UniString& itemName,
+											API_Guid& outItemGuid, GS::UniString& outError);
+
+	// Premier identifiant disponible parmi les enfants du parent (entiers
+	// croissants à partir de 1), garanti libre dans tout le système.
+	static GS::UniString	FirstAvailableChildId (const API_Guid& systemGuid, const API_Guid& parentItemGuid);
+
+	// Tous les items d'un système (ordre de parcours), avec leur profondeur
+	// (0 = racine) pour un affichage indenté. Retourne false si le système est
+	// illisible.
+	static bool		CollectItems (const API_Guid& systemGuid,
+							 GS::Array<API_ClassificationItem>& outItems,
+							 GS::Array<short>& outDepths);
 
 	// --- Phase 4 : ensembles CostWaves ---------------------------------------
 
@@ -93,25 +119,41 @@ public:
 	// (APINULLGuid sinon) — utilisé pour la lecture au scan.
 	static API_Guid		FindGroupIdPropertyGuid ();
 
-	// Génère un identifiant d'ensemble unique ("CW-G-…") parmi les
+	// Génère un identifiant d'ensemble unique ("CW-E-…") parmi les
 	// identifiants déjà utilisés (existingIds).
 	static GS::UniString	GenerateGroupId (const GS::Array<GS::UniString>& existingIds);
 
-	// « Grouper en ensemble » : affecte l'article (classe + CW_Article_ID,
-	// comme AssignArticleToElements) et pose groupId dans CW_Group_ID sur
-	// chaque élément — le tout dans UNE seule commande annulable.
-	// Les membres du groupe sont « consommés » : ils ne sont plus facturés
-	// individuellement, l'ensemble l'est à leur place.
+	// --- Groupes numérotés (phase 5) ------------------------------------------
+
+	// La valeur CW_Group_ID désigne-t-elle un groupe numéroté ("CW-N-<n>") ?
+	static bool		IsNumberedGroupValue (const GS::UniString& groupValue);
+
+	// Extrait le numéro d'un groupe numéroté (false si ce n'en est pas un).
+	static bool		ParseNumberedGroupValue (const GS::UniString& groupValue, int& outNumber);
+
+	// Valeur CW_Group_ID d'un groupe numéroté ("CW-N-<n>").
+	static GS::UniString	NumberedGroupValue (int number);
+
+	// Numéro du prochain groupe numéroté (max des numéros existants + 1).
+	static int		NextGroupNumber (const GS::Array<GS::UniString>& existingValues);
+
+	// « Créer un ensemble » / « Créer un groupe » : affecte l'article (classe +
+	// CW_Article_ID, comme AssignArticleToElements) et pose groupValue dans
+	// CW_Group_ID sur chaque élément — le tout dans UNE seule commande
+	// annulable (undoTitle = libellé de la commande d'annulation).
+	// Les membres sont « consommés » : ils ne sont plus facturés
+	// individuellement, l'ensemble (ou le groupe) l'est à leur place.
 	static GSErrCode	CreateGroupFromElements (const GS::Array<API_Guid>&	elemGuids,
-												const API_Guid&			systemGuid,
-												const API_Guid&			itemGuid,
-												const GS::UniString&		articleId,
-												const API_Guid&			articleIdPropGuid,
-												const GS::UniString&		groupId,
-												const API_Guid&			groupIdPropGuid,
-												USize&					outChangedCount,
-												USize&					outFailedCount,
-												GS::UniString&				outError);
+											const API_Guid&			systemGuid,
+											const API_Guid&			itemGuid,
+											const GS::UniString&		articleId,
+											const API_Guid&			articleIdPropGuid,
+											const GS::UniString&		groupId,
+											const API_Guid&			groupIdPropGuid,
+											const GS::UniString&		undoTitle,
+											USize&					outChangedCount,
+											USize&					outFailedCount,
+											GS::UniString&			outError);
 
 	// « Dissoudre l'ensemble » : retire CW_Group_ID (valeur vidée) sur chaque
 	// élément — une seule commande annulable. La classe et CW_Article_ID sont
@@ -123,10 +165,12 @@ public:
 												  GS::UniString&			outError);
 
 	// Quantité facturée d'une ligne pour l'article donné :
+	//  - groupe numéroté : 1 par groupe (le nombre de groupes est la quantité
+	//    réelle du métré)
 	//  - unité ENS (ou vide) : forfait, 1 par ligne facturée (élément ou ensemble)
 	//  - autre unité : première quantité de la ligne portant cette unité ;
 	//    pour une ligne ensemble, somme des quantités de ses membres
-	//  - ligne consommée : 0 (facturée via son ensemble)
+	//  - ligne consommée : 0 (facturée via son ensemble/groupe)
 	// outUnit reçoit l'unité de facturation effective.
 	static double	ComputeBilledQuantity (const CWArticle&			article,
 										  const CWElementRow&			row,

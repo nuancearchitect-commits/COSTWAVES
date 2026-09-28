@@ -29,6 +29,10 @@ GS::UniString ErrorCodeText (GSErrCode err)
 	return GS::ToUniString (std::to_wstring (static_cast<int> (err)));
 }
 
+// Préfixe des groupes numérotés dans CW_Group_ID ("CW-N-12" = groupe n° 12).
+// Les autres valeurs non vides ("CW-E-…", "CW-G-…" historiques) désignent des ensembles.
+const char* NumberedGroupPrefix = "CW-N-";
+
 // ---------------------------------------------------------------------------
 // Lecture d'un fichier texte UTF-8 (BOM toléré) dans un std::string (octets).
 // ---------------------------------------------------------------------------
@@ -746,107 +750,257 @@ GSErrCode ArticleManager::AssignArticleToElements (const GS::Array<API_Guid>& el
 }
 
 
-GSErrCode ArticleManager::CreateBuildingMaterials (const GS::Array<CWArticle>& articles,
-												   API_Guid& outSystemGuid,
-												   USize& outCreatedMaterials, USize& outCreatedItems,
-												   USize& outAssigned,
-												   GS::UniString& outError)
+GSErrCode ArticleManager::CreateClassificationItem (const API_Guid& systemGuid, const API_Guid& parentItemGuid,
+													const GS::UniString& itemId, const GS::UniString& itemName,
+													API_Guid& outItemGuid, GS::UniString& outError)
 {
-	outSystemGuid = APINULLGuid;
-	outCreatedMaterials = 0;
-	outCreatedItems = 0;
-	outAssigned = 0;
+	outItemGuid = APINULLGuid;
 
-	if (articles.IsEmpty ()) {
-		outError = FR ("Aucun article disponible — importez des articles ou choisissez un système.");
-		return APIERR_GENERAL;
+	if (itemId.IsEmpty ()) {
+		outError = FR ("L'identifiant de la classe est vide.");
+		return APIERR_BADNAME;
 	}
 
-	API_Guid		systemGuid = APINULLGuid;
-	USize			createdMaterials = 0;
-	USize			createdItems = 0;
-	USize			assigned = 0;
+	API_ClassificationItem item;
+	item.id = itemId;
+	item.name = itemName.IsEmpty () ? itemId : itemName;
+	const GSErrCode err = ACAPI_Classification_CreateClassificationItem (item, systemGuid, parentItemGuid, APINULLGuid);
+	if (err == NoError) {
+		outItemGuid = item.guid;
+		return NoError;
+	}
+	if (err == APIERR_NAMEALREADYUSED) {
+		outError = FR ("L'identifiant de classe « ") + itemId
+				 + FR (" » est déjà utilisé dans ce système.");
+		return err;
+	}
+
+	outError = FR ("Échec de création de la classe « ") + itemId
+			 + FR (" » (code ") + ErrorCodeText (err) + FR (").");
+	return err;
+}
+
+
+namespace {
+
+// Identifiants purement numériques ("1", "2", "10"…) d'une liste d'items.
+// Les identifiants texte sont ignorés.
+GS::Array<int> NumericIdsOf (const GS::Array<API_ClassificationItem>& items)
+{
+	GS::Array<int> result;
+	for (UIndex i = 0; i < items.GetSize (); ++i) {
+		const std::wstring text = GS::ToWString (items[i].id);
+		if (text.empty ())
+			continue;
+
+		bool numeric = true;
+		for (UIndex c = 0; c < text.length (); ++c) {
+			if (text[c] < L'0' || text[c] > L'9') {
+				numeric = false;
+				break;
+			}
+		}
+		if (numeric)
+			result.Push (std::stoi (text));
+	}
+	return result;
+}
+
+} // namespace
+
+
+GS::UniString ArticleManager::FirstAvailableChildId (const API_Guid& systemGuid, const API_Guid& parentItemGuid)
+{
+	GS::Array<API_ClassificationItem> children;
+	if (parentItemGuid == APINULLGuid)
+		ACAPI_Classification_GetClassificationSystemRootItems (systemGuid, children);
+	else
+		ACAPI_Classification_GetClassificationItemChildren (parentItemGuid, children);
+
+	const GS::Array<int> used = NumericIdsOf (children);
+
+	// Premier entier libre parmi les enfants ET dans tout le système.
+	for (int candidate = 1; candidate < 100000; ++candidate) {
+		bool takenByChild = false;
+		for (UIndex i = 0; i < used.GetSize (); ++i) {
+			if (used[i] == candidate) {
+				takenByChild = true;
+				break;
+			}
+		}
+		if (takenByChild)
+			continue;
+
+		const GS::UniString candidateText = GS::ToUniString (std::to_wstring (candidate));
+		if (FindItemGuid (systemGuid, candidateText) != APINULLGuid)
+			continue;	// pris ailleurs dans le système
+
+		return candidateText;
+	}
+
+	return GS::UniString ("1");
+}
+
+
+namespace {
+
+void CollectItemsRecursive (const API_ClassificationItem& item, short depth,
+							GS::Array<API_ClassificationItem>& outItems, GS::Array<short>& outDepths)
+{
+	outItems.Push (item);
+	outDepths.Push (depth);
+
+	GS::Array<API_ClassificationItem> children;
+	if (ACAPI_Classification_GetClassificationItemChildren (item.guid, children) != NoError)
+		return;
+
+	for (UIndex i = 0; i < children.GetSize (); ++i)
+		CollectItemsRecursive (children[i], static_cast<short> (depth + 1), outItems, outDepths);
+}
+
+} // namespace
+
+
+bool ArticleManager::CollectItems (const API_Guid& systemGuid,
+								   GS::Array<API_ClassificationItem>& outItems,
+								   GS::Array<short>& outDepths)
+{
+	outItems.Clear ();
+	outDepths.Clear ();
+
+	GS::Array<API_ClassificationItem> roots;
+	if (ACAPI_Classification_GetClassificationSystemRootItems (systemGuid, roots) != NoError)
+		return false;
+
+	for (UIndex i = 0; i < roots.GetSize (); ++i)
+		CollectItemsRecursive (roots[i], 0, outItems, outDepths);
+
+	return true;
+}
+
+
+GSErrCode ArticleManager::CreateMaterialWithClass (const GS::UniString& materialName,
+												   const CWMaterialAttributes& attributes,
+												   bool createNewClass,
+												   const API_Guid& systemGuid,
+												   const API_Guid& parentItemGuid,
+												   const GS::UniString& classId,
+												   const GS::UniString& className,
+												   const API_Guid& existingItemGuid,
+												   API_Guid& outItemGuid,
+												   bool& outMaterialCreated,
+												   bool& outClassCreated,
+												   GS::UniString& outError)
+{
+	outItemGuid = APINULLGuid;
+	outMaterialCreated = false;
+	outClassCreated = false;
+
+	if (materialName.IsEmpty ()) {
+		outError = FR ("Le nom du matériau est vide.");
+		return APIERR_BADNAME;
+	}
+
+	if (systemGuid == APINULLGuid || (!createNewClass && existingItemGuid == APINULLGuid)) {
+		outError = FR ("Aucune classe cible : choisissez une classe existante ou créez-en une nouvelle.");
+		return APIERR_BADID;
+	}
+
+	API_Guid		itemGuid = APINULLGuid;
+	bool			classCreated = false;
+	bool			materialCreated = false;
 	GS::UniString	errorNote;
 
-	// NB : la création d'attributs n'est pas annulable (limite de l'API) ;
-	// la partie classification est regroupée dans une commande annulable.
-	const GSErrCode result = ACAPI_CallUndoableCommand (FR ("CostWaves : création des matériaux"),
+	// NB : la création d'attributs n'est pas annulable (limite de l'API) ; la
+	// partie classification est regroupée dans la même commande annulable.
+	const GSErrCode result = ACAPI_CallUndoableCommand (FR ("CostWaves : création d'un matériau"),
 		[&]() -> GSErrCode {
-			systemGuid = EnsureCostWavesSystem (errorNote);
-			if (systemGuid == APINULLGuid)
-				return APIERR_GENERAL;
+			// 1) Classe de classification (nouvelle ou existante).
+			if (createNewClass) {
+				const GSErrCode classErr = CreateClassificationItem (systemGuid, parentItemGuid,
+																	 classId, className, itemGuid, errorNote);
+				if (classErr != NoError)
+					return classErr;
+				classCreated = true;
+			} else {
+				itemGuid = existingItemGuid;
+			}
 
-			for (UIndex a = 0; a < articles.GetSize (); ++a) {
-				const CWArticle& article = articles[a];
+			// 2) Matériau de construction : créé s'il n'existe pas, mis à
+			//    jour sinon (recherche par nom).
+			GS::UniString nameCopy = materialName;
 
-				// 1) Item de classification de l'article.
-				bool itemCreated = false;
-				const API_Guid itemGuid = EnsureArticleItem (systemGuid, article, itemCreated, errorNote);
-				if (itemGuid == APINULLGuid)
-					return APIERR_GENERAL;
-				if (itemCreated)
-					++createdItems;
+			API_Attr_Head searchHead;
+			BNZeroMemory (&searchHead, sizeof (searchHead));
+			searchHead.typeID = API_BuildingMaterialID;
+			searchHead.uniStringNamePtr = &nameCopy;
 
-				// 2) Matériau de construction « id — nom ». Idempotent : si un
-				//    matériau de ce nom existe déjà, Create renvoie son index.
-				GS::UniString materialName = article.id + US (" — ") + article.name;
+			bool exists = false;
+			if (ACAPI_Attribute_Search (&searchHead) == NoError && searchHead.index.IsPositive ())
+				exists = true;
 
-				API_Attribute attribute;
-				BNZeroMemory (&attribute, sizeof (attribute));
-				attribute.header.typeID = API_BuildingMaterialID;
-				attribute.header.uniStringNamePtr = &materialName;
+			API_Attribute attribute;
+			BNZeroMemory (&attribute, sizeof (attribute));
+			attribute.header.typeID = API_BuildingMaterialID;
+			attribute.header.index = exists ? searchHead.index : APIInvalidAttributeIndex;
+			attribute.header.uniStringNamePtr = &nameCopy;
+			attribute.buildingMaterial.connPriority = attributes.connPriority;
+			attribute.buildingMaterial.cutFill = attributes.cutFill;
+			attribute.buildingMaterial.cutFillPen = attributes.cutFillPen;
+			attribute.buildingMaterial.cutFillBackgroundPen = attributes.cutFillBackgroundPen;
+			attribute.buildingMaterial.cutMaterial = attributes.cutMaterial;
 
-				API_AttributeDef defs;
-				BNZeroMemory (&defs, sizeof (defs));
+			API_AttributeDef defs;
+			BNZeroMemory (&defs, sizeof (defs));
 
-				const GSErrCode err = ACAPI_Attribute_Create (&attribute, &defs);
-				ACAPI_DisposeAttrDefsHdls (&defs);
+			GSErrCode err;
+			if (exists)
+				err = ACAPI_Attribute_Modify (&attribute, &defs);
+			else
+				err = ACAPI_Attribute_Create (&attribute, &defs);
+			ACAPI_DisposeAttrDefsHdls (&defs);
 
-				if (err != NoError) {
-					errorNote = FR ("Impossible de créer le matériau « ") + materialName
-							 + FR (" » (code ") + ErrorCodeText (err) + FR (").");
-					return err;
+			if (err != NoError) {
+				errorNote = FR ("Impossible de créer le matériau « ") + materialName
+						 + FR (" » (code ") + ErrorCodeText (err) + FR (").");
+				return err;
+			}
+			materialCreated = !exists;
+
+			// 3) Affectation de la classe au matériau (remplace la classe
+			//    précédente dans ce système).
+			API_ClassificationItem current;
+			const GSErrCode getErr = ACAPI_Attribute_GetClassificationInSystem (attribute.header,
+																				systemGuid, current);
+			if (getErr == NoError && current.guid == itemGuid)
+				return NoError;		// déjà affectée
+
+			if (getErr == NoError && current.guid != APINULLGuid) {
+				const GSErrCode removeErr = ACAPI_Attribute_RemoveClassificationItem (attribute.header, current.guid);
+				if (removeErr != NoError) {
+					errorNote = FR ("Impossible de retirer la classe précédente du matériau « ")
+							 + materialName + FR (" » (code ") + ErrorCodeText (removeErr) + FR (").");
+					return removeErr;
 				}
-				++createdMaterials;
+			}
 
-				// 3) Affecter l'item au matériau (remplace sa classe précédente
-				//    dans ce système).
-				API_ClassificationItem current;
-				const GSErrCode getErr = ACAPI_Attribute_GetClassificationInSystem (attribute.header,
-																					systemGuid, current);
-				if (getErr == NoError && current.guid == itemGuid)
-					continue;		// déjà affecté
-
-				if (getErr == NoError && current.guid != APINULLGuid) {
-					const GSErrCode removeErr = ACAPI_Attribute_RemoveClassificationItem (attribute.header,
-																						  current.guid);
-					if (removeErr != NoError) {
-						errorNote = FR ("Impossible de retirer la classe précédente du matériau « ")
-								 + materialName + FR (" » (code ") + ErrorCodeText (removeErr) + FR (").");
-						return removeErr;
-					}
-				}
-
-				const GSErrCode addErr = ACAPI_Attribute_AddClassificationItem (attribute.header, itemGuid);
-				if (addErr != NoError) {
-					errorNote = FR ("Impossible d'affecter la classe au matériau « ")
-							 + materialName + FR (" » (code ") + ErrorCodeText (addErr) + FR (").");
-					return addErr;
-				}
-				++assigned;
+			const GSErrCode addErr = ACAPI_Attribute_AddClassificationItem (attribute.header, itemGuid);
+			if (addErr != NoError) {
+				errorNote = FR ("Impossible d'affecter la classe au matériau « ")
+						 + materialName + FR (" » (code ") + ErrorCodeText (addErr) + FR (").");
+				return addErr;
 			}
 
 			return NoError;
 		});
 
-	outSystemGuid = systemGuid;
-	outCreatedMaterials = createdMaterials;
-	outCreatedItems = createdItems;
-	outAssigned = assigned;
+	outItemGuid = itemGuid;
+	outMaterialCreated = materialCreated;
+	outClassCreated = classCreated;
 
 	if (result != NoError && outError.IsEmpty ()) {
 		outError = errorNote.IsEmpty ()
-			? FR ("Création des matériaux impossible (code ") + ErrorCodeText (result) + FR (").")
+			? FR ("Création du matériau impossible (code ") + ErrorCodeText (result) + FR (").")
 			: errorNote;
 	}
 
@@ -945,7 +1099,7 @@ GS::UniString ArticleManager::GenerateGroupId (const GS::Array<GS::UniString>& e
 #endif
 
 	wchar_t buffer[32];
-	swprintf (buffer, 32, L"CW-G-%04d%02d%02d-%02d%02d%02d",
+	swprintf (buffer, 32, L"CW-E-%04d%02d%02d-%02d%02d%02d",
 			  localTime.tm_year + 1900, localTime.tm_mon + 1, localTime.tm_mday,
 			  localTime.tm_hour, localTime.tm_min, localTime.tm_sec);
 	GS::UniString base = GS::ToUniString (std::wstring (buffer));
@@ -967,10 +1121,62 @@ GS::UniString ArticleManager::GenerateGroupId (const GS::Array<GS::UniString>& e
 }
 
 
+bool ArticleManager::IsNumberedGroupValue (const GS::UniString& groupValue)
+{
+	int number = 0;
+	return ParseNumberedGroupValue (groupValue, number);
+}
+
+
+bool ArticleManager::ParseNumberedGroupValue (const GS::UniString& groupValue, int& outNumber)
+{
+	outNumber = 0;
+
+	const std::wstring prefix = GS::ToWString (GS::UniString (NumberedGroupPrefix, CC_UTF8));
+	const std::wstring text = GS::ToWString (groupValue);
+	if (text.length () <= prefix.length ())
+		return false;
+
+	if (text.compare (0, prefix.length (), prefix) != 0)
+		return false;
+
+	const std::wstring numberText = text.substr (prefix.length ());
+	if (numberText.empty ())
+		return false;
+
+	for (UIndex i = 0; i < numberText.length (); ++i) {
+		if (numberText[i] < L'0' || numberText[i] > L'9')
+			return false;
+	}
+
+	outNumber = std::stoi (numberText);
+	return outNumber > 0;
+}
+
+
+GS::UniString ArticleManager::NumberedGroupValue (int number)
+{
+	return GS::UniString (NumberedGroupPrefix, CC_UTF8) + GS::ToUniString (std::to_wstring (number));
+}
+
+
+int ArticleManager::NextGroupNumber (const GS::Array<GS::UniString>& existingValues)
+{
+	int maxNumber = 0;
+	for (UIndex i = 0; i < existingValues.GetSize (); ++i) {
+		int number = 0;
+		if (ParseNumberedGroupValue (existingValues[i], number) && number > maxNumber)
+			maxNumber = number;
+	}
+	return maxNumber + 1;
+}
+
+
 GSErrCode ArticleManager::CreateGroupFromElements (const GS::Array<API_Guid>& elemGuids,
 												   const API_Guid& systemGuid, const API_Guid& itemGuid,
 												   const GS::UniString& articleId, const API_Guid& articleIdPropGuid,
 												   const GS::UniString& groupId, const API_Guid& groupIdPropGuid,
+												   const GS::UniString& undoTitle,
 												   USize& outChangedCount, USize& outFailedCount,
 												   GS::UniString& outError)
 {
@@ -991,7 +1197,7 @@ GSErrCode ArticleManager::CreateGroupFromElements (const GS::Array<API_Guid>& el
 	USize	 failedCount = 0;
 	GS::UniString firstError;
 
-	const GSErrCode result = ACAPI_CallUndoableCommand (FR ("CostWaves : création d'un ensemble"),
+	const GSErrCode result = ACAPI_CallUndoableCommand (undoTitle.IsEmpty () ? FR ("CostWaves : création d'un groupe") : undoTitle,
 		[&]() -> GSErrCode {
 			for (UIndex i = 0; i < elemGuids.GetSize (); ++i) {
 				const API_Guid& elemGuid = elemGuids[i];
@@ -1140,9 +1346,14 @@ double ArticleManager::ComputeBilledQuantity (const CWArticle& article, const CW
 {
 	outUnit = article.unit.IsEmpty () ? FR ("ENS") : article.unit;
 
-	// Membre d'un ensemble : facturé via l'ensemble, jamais seul.
+	// Membre d'un ensemble/groupe : facturé via son groupe, jamais seul.
 	if (row.consumed)
 		return 0.0;
+
+	// Groupe numéroté : 1 par groupe — le nombre de groupes est la quantité
+	// réelle du métré (3 groupes = 3).
+	if (row.isNumberedGroup)
+		return 1.0;
 
 	// Facturation à l'ensemble (forfait) : 1 par ligne facturée.
 	if (IsEnsUnit (article.unit))
@@ -1218,7 +1429,9 @@ void ArticleManager::BuildArticleSummary (const GS::Array<CWElementRow>& rows,
 		}
 		// Article inconnu : comptage sans total (unité "?").
 
-		if (row.isGroupRow)
+		if (row.isNumberedGroup)
+			++entry.numberedGroupCount;
+		else if (row.isGroupRow)
 			++entry.groupCount;
 		else
 			++entry.elementCount;

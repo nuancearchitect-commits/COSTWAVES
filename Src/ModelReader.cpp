@@ -2,6 +2,7 @@
 
 #include "ModelReader.hpp"
 
+#include "ArticleManager.hpp"
 #include "UniStringWStringConversion.hpp"
 
 #include <cwchar>
@@ -583,6 +584,37 @@ GSErrCode ModelReader::GetSelectedElements (GS::Array<API_Guid>& outGuids)
 }
 
 
+GSErrCode ModelReader::CollectGroupValues (const API_Guid& groupPropGuid,
+										   GS::Array<GS::Pair<API_Guid, GS::UniString>>& outValues)
+{
+	outValues.Clear ();
+
+	if (groupPropGuid == APINULLGuid)
+		return NoError;
+
+	GS::Array<API_Guid> elemList;
+	if (ACAPI_Element_GetElemList (API_ZombieElemID, &elemList) != NoError)
+		return APIERR_GENERAL;
+
+	for (UIndex i = 0; i < elemList.GetSize (); ++i) {
+		API_Property property;
+		if (ACAPI_Element_GetPropertyValue (elemList[i], groupPropGuid, property) != NoError)
+			continue;
+
+		if (property.status != API_Property_HasValue)
+			continue;
+		if (property.value.singleVariant.variant.type != API_PropertyStringValueType)
+			continue;
+
+		GS::Pair<API_Guid, GS::UniString> entry (elemList[i],
+												 property.value.singleVariant.variant.uniStringValue);
+		outValues.Push (entry);
+	}
+
+	return NoError;
+}
+
+
 void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemTypeID typeID,
 										  const API_ElementQuantity& elementQuantity,
 										  const GS::Array<API_CompositeQuantity>& compositeQuantities,
@@ -827,10 +859,12 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		}
 	}
 
-	// --- Passe 4 : lignes « Ensemble » (phase 4) ---------------------------------
-	// Une ligne virtuelle par CW_Group_ID distinct : l'ensemble est facturé
-	// comme une seule ligne, ses membres sont « consommés » (affichés en
-	// sous-lignes, exclus de la facturation individuelle).
+	// --- Passe 4/5 : lignes « Ensemble » et « Groupe n » -------------------------
+	// Une ligne virtuelle par CW_Group_ID distinct : l'ensemble (ou le groupe
+	// numéroté, valeurs « CW-N-<n> ») est facturé comme une seule ligne, ses
+	// membres sont « consommés » (affichés en sous-lignes, exclus de la
+	// facturation individuelle). Pour un groupe numéroté, la quantité réelle
+	// du métré est le NOMBRE de groupes de l'article.
 	if (haveGroupProp) {
 		GS::Array<GS::UniString>	groupIds;		// groupes déjà vus (ordre d'apparition)
 		GS::Array<UIndex>			groupRowIndices;	// index de la ligne ensemble correspondante
@@ -851,22 +885,35 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 			}
 
 			if (!found) {
+				int groupNumber = 0;
+				const bool numbered = ArticleManager::ParseNumberedGroupValue (row.groupId, groupNumber);
+
 				CWElementRow groupRow;
 				groupRow.guid = APINULLGuid;
 				groupRow.isGroupRow = true;
+				groupRow.isNumberedGroup = numbered;
+				groupRow.groupNumber = groupNumber;
 				groupRow.groupId = row.groupId;
-				groupRow.elementId = row.groupId;
-				groupRow.typeName = FR ("Ensemble");
 				groupRow.floorInd = row.floorInd;
 				groupRow.storyName = row.storyName;
 				groupRow.classItemId = row.classItemId;
 				groupRow.classItemName = row.classItemName;
 
+				if (numbered) {
+					groupRow.typeName = FR ("Groupe");
+					groupRow.elementId = FR ("Groupe ")
+						+ GS::ToUniString (std::to_wstring (groupNumber));
+					++outReport.numberedGroupCount;
+				} else {
+					groupRow.typeName = FR ("Ensemble");
+					groupRow.elementId = row.groupId;
+					++outReport.groupCount;
+				}
+
 				groupIds.Push (row.groupId);
 				groupRowIndices.Push (outRows.GetSize ());
 				outRows.Push (groupRow);
 				groupIndex = groupIds.GetSize () - 1;
-				++outReport.groupCount;
 			}
 
 			outRows[groupRowIndices[groupIndex]].groupMembers.Push (row.guid);

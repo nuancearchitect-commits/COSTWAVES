@@ -21,8 +21,15 @@ GSErrCode MenuCommandHandler (const API_MenuParams* menuParams)
 			switch (menuParams->menuItemRef.itemIndex) {
 				case AddOnCommandID:
 					{
-						CostWaves::CostWavesDialog dialog;
-						dialog.Invoke ();
+						// Palette (modeless) : bascule afficher/masquer.
+						// Elle ne bloque ni la navigation ni la sélection
+						// dans Archicad (phase 5).
+						if (CostWaves::CostWavesDialog::HasInstance ()
+							&& CostWaves::CostWavesDialog::Instance ().IsVisible ()) {
+							CostWaves::CostWavesDialog::Instance ().HidePalette ();
+						} else {
+							CostWaves::CostWavesDialog::Instance ().ShowPalette ();
+						}
 					}
 					break;
 			}
@@ -53,13 +60,24 @@ GSErrCode RegisterInterface (void)
 GSErrCode Initialize (void)
 {
 #ifdef ServerMainVers_2700
-	return ACAPI_MenuItem_InstallMenuHandler (AddOnMenuID, MenuCommandHandler);
+	GSErrCode err = ACAPI_MenuItem_InstallMenuHandler (AddOnMenuID, MenuCommandHandler);
 #else
-	return ACAPI_Install_MenuHandler (AddOnMenuID, MenuCommandHandler);
+	GSErrCode err = ACAPI_Install_MenuHandler (AddOnMenuID, MenuCommandHandler);
 #endif
+
+	// Palette flottante enregistrée auprès d'Archicad (messages de gestion,
+	// mémorisation de la position dans l'environnement de travail).
+	err |= CostWaves::CostWavesDialog::RegisterPalette ();
+
+	// Suivi de la sélection : la palette s'actualise quand la sélection
+	// change dans le plan (si « Sélection uniquement » est cochée).
+	err |= ACAPI_Notification_CatchSelectionChange (CostWaves::CostWavesDialog::SelectionChangeHandler);
+
+	return err;
 }
 
 GSErrCode FreeData (void)
 {
+	ACAPI_Notification_CatchSelectionChange (nullptr);
 	return NoError;
 }

@@ -32,11 +32,14 @@ Code livré, à compiler sur Windows.
 
 ---
 
-## 2. Périmètre codé (phases 1 → 4)
+## 2. Périmètre codé (phases 1 → 5)
 
-L'Add-On ajoute une commande **« CostWaves – Lecture des quantités… »** (menu Options).
+L'Add-On ajoute une commande **« CostWaves – Lecture des quantités… »** (menu Options) qui
+ouvre/ferme la **palette CostWaves** (fenêtre flottante *modeless* : elle ne bloque ni la
+navigation, ni la sélection dans Archicad, se range dans l'environnement de travail et revient
+à sa position d'une session à l'autre).
 
-La fenêtre :
+La palette :
 
 1. **Sélecteur de système de classification** — liste tous les systèmes du projet
    (Archicad, CostWaves, Uniclass, etc.) ; changer de système relance la lecture.
@@ -68,11 +71,12 @@ La fenêtre :
 
 3. **Panneau de détails** — ligne sélectionnée : GUID complet, ID, étage, classe,
    toutes les quantités, et pour un composant : ses **propriétés** (lues à la demande).
-4. **Boutons** : `Actualiser` · `Exporter JSON` · `Exporter CSV` · `Fermer`.
-   Phase 4 : `Grouper en ensemble` · `Dissoudre l'ensemble` · `Récapitulatif par article`.
+4. **Boutons** : `Actualiser` · `Exporter JSON` · `Exporter CSV` · `Récapitulatif par article` · `Fermer`.
+   Phases 4-5 : `Créer un ensemble` · `Créer un groupe` · `Dissoudre ensemble / groupe` · `Créer le matériau…`.
 5. **Ligne d'état** : `N éléments classés · N composants · N skins · N éléments analysés`.
-6. **Articles (phase 2)** : case `Sélection uniquement`, popup d'articles,
-   `Affecter l'article` · `Importer des articles…` · `Créer la classification`.
+6. **Articles (phase 2)** : case `Sélection uniquement` (cochée par défaut : la palette
+ **suit la sélection du plan en direct** — on sélectionne dans Archicad, le tableau s'actualise),
+   popup d'articles, `Affecter l'article` · `Importer des articles…` · `Créer la classification`.
 
 ### Ce que la phase 1 lit dans Archicad
 
@@ -130,7 +134,18 @@ Propriétés utilisées (groupe « CostWaves », créées à la demande) :
 `CW_Article_ID` (déjà phase 2) et **`CW_Group_ID`** (texte, lu au scan —
 résolu sans création pour ne rien écrire lors des lectures).
 
-### Exports
+### Ce que la phase 5 ajoute — palette, matériaux, groupes numérotés
+
+| Fonction | Détail |
+|---|---|
+| **Palette modeless** | La fenêtre principale devient une **palette flottante** : on navigue et on sélectionne dans Archicad pendant qu'elle reste ouverte (elle se masque automatiquement pendant les opérations qui le demandent, et mémorise sa position). La case `Sélection uniquement` est cochée par défaut et la palette **s'actualise à chaque changement de sélection**. |
+| **Tableau 6 colonnes** | Correctif : les colonnes `GUID`, `ID élément`, `Étage`, `Classe` et `Quantités` s'affichent désormais (les champs de tabulation n'étaient pas créés). Même correctif sur le récapitulatif. |
+| **Créer le matériau…** | Nouvelle fenêtre : nom du matériau, **nouvelle classe** (système + classe parente + **ID pré-rempli au premier disponible parmi les enfants** + nom) ou **classe existante** (sélecteur), puis **hachure** (remplissage en coupe), **surface de coupe**, **stylos avant/arrière-plan**, **puissance** (priorité de connexion 1–1000). Le matériau est créé — ou mis à jour s'il existe déjà — et **lié à la classe** (qui sert d'article dans le métré). |
+| **Créer un ensemble** | Nouveau flux : on sélectionne des éléments **dans le plan**, on clique, une fenêtre propose de choisir **l'article (classe)** ; chaque membre reçoit la classe, `CW_Article_ID` et `CW_Group_ID` (identifiant `CW-E-…`). Une seule commande annulable. |
+| **Créer un groupe** | Même flux que l'ensemble, mais chaque groupe reçoit un **numéro** (`CW-N-1`, `CW-N-2`, …). **La quantité réelle du métré est le nombre de groupes** de l'article : 3 groupes créés = quantité 3 (les membres sont consommés, comme pour les ensembles). |
+| **Dissoudre ensemble / groupe** | Fonctionne sur les lignes `Ensemble` et `Groupe n° …` (ou leurs membres) : retire `CW_Group_ID`, une commande annulable. |
+| **Récapitulatif enrichi** | Colonnes `Éléments` · `Ensembles` · `Groupes` · `Quantité totale` ; les exports JSON/CSV portent `groupType` (`ensemble`/`numbered`), `groupNumber`, `numberedGroups` et `numberedGroupCount`. |
+
 
 Fichiers écrits **à côté du .PLN** (ou dans *Documents* si projet non enregistré) :
 
@@ -267,10 +282,9 @@ Options utiles : `-b Debug` (configuration) · `-p` (package zip) ·
 
 ### Phase 2 — matériaux & propriété
 
-- [ ] « Créer les matériaux » : les matériaux `id — nom` apparaissent dans
-      Options > Gestionnaire de matériaux… de construction, chacun porte la
-      classe de son article (Options > Classifications > CostWaves)
-- [ ] Relancer « Créer les matériaux » ne crée rien de plus (idempotent)
+- [ ] « Créer le matériau… » (voir plan de test phase 5) : le matériau
+      apparaît dans Options > Gestionnaire de matériaux de construction et
+      porte la classe choisie (Options > Classifications)
 - [ ] « Affecter l'article » : la propriété `CW_Article_ID` (groupe CostWaves)
       apparaît sur l'élément avec l'identifiant d'article (sélectionner
       l'élément > Paramètres / nomenclature)
@@ -311,9 +325,9 @@ Options utiles : `-b Debug` (configuration) · `-p` (package zip) ·
 
 ### Phase 4 — ensembles, consommés, ENS, récapitulatif
 
-- [ ] Sélectionner 2-3 éléments classés, choisir un article **à l'unité ENS**
-      (ou vide), cliquer « Grouper en ensemble » → message avec l'identifiant
-      `CW-G-…`, le tableau montre une ligne `Ensemble` suivi de ses membres
+- [ ] Sélectionner 2-3 éléments **dans le plan**, cliquer « Créer un
+      ensemble », choisir un article **à l'unité ENS** (ou vide) → message avec
+      l'identifiant `CW-E-…`, le tableau montre une ligne `Ensemble` suivi de ses membres
       `Membre (consommé)` ; **Ctrl+Z annule tout** (les éléments redeviennent
       des lignes `Élément` normales)
 - [ ] Les membres portent `CW_Group_ID` (sélectionner un élément dans Archicad >
@@ -337,6 +351,34 @@ Options utiles : `-b Debug` (configuration) · `-p` (package zip) ·
 - [ ] Recréer un ensemble dans la même seconde → identifiants distincts
       (suffixe `-2`)
 
+### Phase 5 — palette, matériaux, groupes numérotés
+
+- [ ] La fenêtre s'ouvre depuis le menu et **ne bloque pas** : on peut zoomer,
+      sélectionner, éditer pendant qu'elle est ouverte ; le menu la bascule
+      (afficher/masquer), la croix la masque aussi
+- [ ] **Suivi de sélection** : cocher `Sélection uniquement` (défaut), cliquer des
+      éléments dans le plan → le tableau se met à jour à chaque clic ; décocher →
+      le tableau redevient statique (bouton `Actualiser`)
+- [ ] **Tableau complet** : les colonnes GUID, ID élément, Étage, Classe et
+      Quantités sont remplies (plus seulement « Type »)
+- [ ] **Créer le matériau…** : saisir un nom, cocher « nouvelle classe »,
+      choisir le système et la classe parente → l'ID proposé est le premier
+      disponible parmi les enfants ; choisir hachure, surface, stylos, puissance →
+      le matériau apparaît avec ces réglages et porte la classe ; recliquer avec
+      le même nom → le matériau est **mis à jour** (attributs modifiés)
+- [ ] **Créer le matériau…** avec « classe existante » : le matériau est lié à la
+      classe choisie sans créer d'item
+- [ ] **Créer un ensemble** : sélection dans le plan → bouton → choix de
+      l'article → ligne `Ensemble` + membres consommés (comme phase 4) ;
+      Ctrl+Z annule tout
+- [ ] **Créer un groupe** : sélectionner des éléments dans le plan, bouton,
+      article → message `Groupe n° 1` ; recommencer avec d'autres éléments →
+      `Groupe n° 2`, etc. ; le récapitulatif montre **quantité = nombre de
+      groupes** (3 groupes → 3) ; Ctrl+Z annule
+- [ ] **Dissoudre** fonctionne sur une ligne `Groupe n° …` comme sur `Ensemble`
+- [ ] Récapitulatif : colonnes Éléments / Ensembles / Groupes / Quantité totale
+      toutes remplies ; exports JSON/CSV avec `groupType`, `groupNumber`)
+
 ### Exports (toutes phases)
 
 - [ ] Export JSON valide (ouvrir dans un éditeur / validator)
@@ -358,12 +400,15 @@ COSTWAVES/
 │   └── Images/              # icône du menu
 ├── RFIX.win/                # ressource Windows (icône .ico)
 ├── RINT/
-│   └── AddOn.grc            # interface française : menu + fenêtre principale
+│   └── AddOn.grc            # interface française : menu + palette principale (GDLG Palette)
 └── Src/
-    ├── AddOnMain.cpp        # points d'entrée de l'Add-On (menu)
-    ├── CostWavesDialog.*    # fenêtre : système + tableau + détails + articles + exports
+    ├── AddOnMain.cpp        # points d'entrée (menu, palette, suivi de sélection)
+    ├── CostWavesDialog.*    # palette : système + tableau + détails + articles + exports
+    ├── ArticlePickerDialog.*# choix de l'article pour « Créer un ensemble / un groupe »
+    ├── MaterialDialog.*     # fenêtre « Créer le matériau… » (classe + attributs)
     ├── ModelReader.*        # lecture Archicad (classification, sélection, quantités, composants)
-    ├── ArticleManager.*     # articles CostWaves : import JSON, classification, affectation
+    ├── ArticleManager.*     # articles, classification, matériaux, ensembles/groupes
+    ├── SummaryDialog.*      # récapitulatif par article
     ├── Exporter.*           # export JSON / CSV (UTF-8), enrichi de l'article
     ├── DataTypes.hpp        # modèle de données interne
     ├── ResourceIds.hpp
@@ -380,7 +425,8 @@ COSTWAVES/
 | **2 (codée)** | Articles : import JSON/classification, création de la classification CostWaves, affectation, lecture de la sélection, export enrichi | 13, 14, 16, 17, 30 (variante locale) |
 | **3 (codée)** | Finesse : composites avancés (skins enrichis), lecture par lot, tous les types d'éléments | 09, 10 |
 | **4 (codée)** | Ensembles CostWaves facturables (exclusion « consommé » automatique), facturation ENS, récapitulatif par article | 07, 12, 18–21, 23, 24, 29 |
-| 5 | Synchro CostWaves (API `id/name/unit`), détection de modifications | 30, 31, 32, 33 |
+| **5 (codée)** | Palette modeless (navigation/sélection libres, suivi de sélection), tableau 6 colonnes, fenêtre « Créer le matériau… », « Créer un ensemble » / « Créer un groupe » (groupes numérotés, quantité = nombre de groupes) | 02, 05, 15, 22, 26–28 |
+| 6 | Synchro CostWaves (API `id/name/unit`), détection de modifications | 30, 31, 32, 33 |
 
 Les choix définitifs de contenu des phases suivantes seront revalidés avant codage.
 
@@ -407,6 +453,22 @@ Les choix définitifs de contenu des phases suivantes seront revalidés avant co
   la valeur : il n'existe pas d'API pour « détacher » une valeur de propriété
   d'un élément (`ACAPI_Element_SetProperty` avec texte vide). Le guid de la
   définition est résolu **sans création** au scan (aucune écriture à la lecture).
+- **Palette (phase 5)** : la fenêtre principale est un `DG::Palette` (GDLG `Palette`),
+  singleton enregistré par `ACAPI_RegisterModelessWindow` (messages `APIPalMsg_*`,
+  mémorisation de la position). Le suivi de la sélection utilise
+  `ACAPI_Notification_CatchSelectionChange` : la palette ne se réactualise que si elle
+  est visible et si `Sélection uniquement` est cochée (garde anti-réentrance).
+- **Groupes numérotés (phase 5)** : la valeur `CW_Group_ID` encode le type —
+  `CW-N-<n>` = groupe numéroté n° n (quantité facturée = 1 par groupe, le nombre de
+  groupes de l'article est la quantité réelle du métré) ; toute autre valeur non vide
+  (`CW-E-…` nouveaux, `CW-G-…` historiques) = ensemble (facturation phase 4 inchangée).
+  Le prochain numéro = max des numéros existants + 1 (lecture de `CW_Group_ID` sur
+  tous les éléments du projet au moment de la création).
+- **Matériaux (phase 5)** : `ACAPI_Attribute_Create` / `Modify` sur
+  `API_BuildingMaterialID` avec `connPriority` (puissance), `cutFill` (hachure),
+  `cutFillPen`/`cutFillBackgroundPen` (stylos), `cutMaterial` (surface de coupe) ;
+  la classe est affectée au matériau par `ACAPI_Attribute_AddClassificationItem`.
+  La création d'attributs n'est pas annulable (limite API).
 - **Fenêtre récapitulative** : créée entièrement en code
   (`DG::ModalDialog` programmatique + `DG::MultiSelListBox` avec en-têtes
   posés par `SetHeaderItemCount`/`SetHeaderItemText`/`SetTabFieldProperties`),

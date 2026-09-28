@@ -3,7 +3,9 @@
 #include "CostWavesDialog.hpp"
 
 #include "ArticleManager.hpp"
+#include "ArticlePickerDialog.hpp"
 #include "Exporter.hpp"
+#include "MaterialDialog.hpp"
 #include "ModelReader.hpp"
 #include "SummaryDialog.hpp"
 
@@ -84,6 +86,14 @@ const CWArticle* FindArticleById (const GS::Array<CWArticle>& articles, const GS
 	return nullptr;
 }
 
+// Garde anti-réentrance : remet le drapeau à false en sortant de portée,
+// quelle que soit la façon de sortir (return anticipé compris).
+struct BoolFlagGuard {
+	bool&	flag;
+	explicit BoolFlagGuard (bool& inFlag) : flag (inFlag) { flag = true; }
+	~BoolFlagGuard () { flag = false; }
+};
+
 // a < b selon la colonne de tri (1..6) ?
 bool RowLess (const CWElementRow& a, const CWElementRow& b, short column)
 {
@@ -115,8 +125,111 @@ bool RowLess (const CWElementRow& a, const CWElementRow& b, short column)
 } // namespace
 
 
+// --- Singleton de la palette (phase 5) -----------------------------------------
+
+const GS::Guid CostWavesDialog::paletteGuid ("{2F7C4D18-A5B3-4E69-9C0D-71E8B4A2D935");
+GS::Ref<CostWavesDialog> CostWavesDialog::instance;
+
+
+bool CostWavesDialog::HasInstance ()
+{
+	return instance != nullptr;
+}
+
+
+CostWavesDialog& CostWavesDialog::Instance ()
+{
+	if (!HasInstance ())
+		instance = new CostWavesDialog ();
+	return *instance;
+}
+
+
+GSErrCode CostWavesDialog::PaletteControlCallBack (Int32 /*paletteId*/, API_PaletteMessageID messageID, GS::IntPtr param)
+{
+	switch (messageID) {
+		case APIPalMsg_OpenPalette:
+			Instance ().ShowPalette ();
+			break;
+
+		case APIPalMsg_ClosePalette:
+			if (HasInstance ())
+				Instance ().HidePalette ();
+			break;
+
+		case APIPalMsg_HidePalette_Begin:
+			if (HasInstance () && Instance ().IsVisible ())
+				Instance ().HidePalette ();
+			break;
+
+		case APIPalMsg_HidePalette_End:
+			if (HasInstance () && !Instance ().IsVisible ())
+				Instance ().ShowPalette ();
+			break;
+
+		case APIPalMsg_IsPaletteVisible:
+			*(reinterpret_cast<bool*> (param)) = HasInstance () && Instance ().IsVisible ();
+			break;
+
+		default:
+			break;
+	}
+
+	return NoError;
+}
+
+
+GSErrCode CostWavesDialog::RegisterPalette ()
+{
+	return ACAPI_RegisterModelessWindow (
+					static_cast<Int32> (GS::CalculateHashValue (paletteGuid)),
+					PaletteControlCallBack,
+					API_PalEnabled_FloorPlan + API_PalEnabled_Section + API_PalEnabled_Elevation +
+					API_PalEnabled_InteriorElevation + API_PalEnabled_3D + API_PalEnabled_Detail +
+					API_PalEnabled_Worksheet + API_PalEnabled_Layout + API_PalEnabled_DocumentFrom3D,
+					GSGuid2APIGuid (paletteGuid));
+}
+
+
+GSErrCode CostWavesDialog::SelectionChangeHandler (const API_Neig* /*selElemNeig*/)
+{
+	if (HasInstance ())
+		Instance ().RefreshFromSelectionChange ();
+	return NoError;
+}
+
+
+void CostWavesDialog::ShowPalette ()
+{
+	DG::Palette::Show ();
+}
+
+
+void CostWavesDialog::HidePalette ()
+{
+	DG::Palette::Hide ();
+}
+
+
+bool CostWavesDialog::WantsSelectionFollow () const
+{
+	return selectionCheck.IsChecked ();
+}
+
+
+void CostWavesDialog::RefreshFromSelectionChange ()
+{
+	// Ne rien faire si une boîte modale est ouverte, si une lecture est en
+	// cours, ou si la palette ne suit pas la sélection.
+	if (inModalDialog || refreshing || !IsVisible () || !WantsSelectionFollow ())
+		return;
+
+	RefreshData ();
+}
+
+
 CostWavesDialog::CostWavesDialog ()
-	:	DG::ModalDialog (ACAPI_GetOwnResModule (), DialogResourceId, ACAPI_GetOwnResModule ()),
+	:	DG::Palette (ACAPI_GetOwnResModule (), DialogResourceId, ACAPI_GetOwnResModule (), paletteGuid),
 		systemPopup (GetReference (), SystemPopupId),
 		refreshButton (GetReference (), RefreshButtonId),
 		selectionCheck (GetReference (), SelectionCheckId),
@@ -134,6 +247,7 @@ CostWavesDialog::CostWavesDialog ()
 		createClassButton (GetReference (), CreateClassButtonId),
 		createMaterialsButton (GetReference (), CreateMaterialsButtonId),
 		groupButton (GetReference (), GroupButtonId),
+		createGroupButton (GetReference (), CreateGroupButtonId),
 		ungroupButton (GetReference (), UngroupButtonId),
 		summaryButton (GetReference (), SummaryButtonId),
 		articlesInfo (GetReference (), ArticlesInfoId),
@@ -150,12 +264,13 @@ CostWavesDialog::CostWavesDialog ()
 	refreshButton.Attach (*this);	// ButtonItemObserver
 	table.Attach (*this);			// ListBoxObserver
 	assignButton.Attach (*this);	// ButtonItemObserver
-	importButton.Attach (*this);	// ButtonItemObserver
+	importButton.Attach (*this);		// ButtonItemObserver
 	createClassButton.Attach (*this);// ButtonItemObserver
 	createMaterialsButton.Attach (*this);	// ButtonItemObserver
 	groupButton.Attach (*this);		// ButtonItemObserver
-	ungroupButton.Attach (*this);		// ButtonItemObserver
-	summaryButton.Attach (*this);		// ButtonItemObserver
+	createGroupButton.Attach (*this);	// ButtonItemObserver
+	ungroupButton.Attach (*this);	// ButtonItemObserver
+	summaryButton.Attach (*this);	// ButtonItemObserver
 	searchEdit.Attach (*this);		// SearchEditObserver
 	exportJsonButton.Attach (*this);
 	exportCsvButton.Attach (*this);
@@ -168,10 +283,22 @@ CostWavesDialog::CostWavesDialog ()
 	LoadSystems ();
 	ReloadArticlesFromSystem ();
 
+	// La palette suit par défaut la sélection du plan (case cochée) : on
+	// sélectionne dans Archicad, la palette affiche et actualise.
+	selectionCheck.Check ();
+
 	if (selectedSystem != APINULLGuid)
 		RefreshData ();
 	else
 		ClearDetails ();
+
+	BeginEventProcessing ();
+}
+
+
+CostWavesDialog::~CostWavesDialog ()
+{
+	EndEventProcessing ();
 }
 
 
@@ -187,6 +314,10 @@ void CostWavesDialog::InitTable ()
 	table.SetHeaderItemText (4, FR ("Étage"));
 	table.SetHeaderItemText (5, FR ("Classe"));
 	table.SetHeaderItemText (6, FR ("Quantités disponibles"));
+
+	// Le GRC ne définit pas les colonnes : créer les 6 champs de tabulation
+	// (sans cela, seule la première colonne s'affiche).
+	table.SetTabFieldCount (columnCount);
 
 	// Colonnes : positions calculées sur la largeur du contrôle.
 	const short tableWidth = table.GetWidth ();
@@ -227,6 +358,11 @@ void CostWavesDialog::LoadSystems ()
 
 void CostWavesDialog::RefreshData ()
 {
+	// Anti-réentrance (callback de sélection pendant une lecture).
+	if (refreshing)
+		return;
+	BoolFlagGuard refreshingGuard (refreshing);
+
 	if (selectedSystem == APINULLGuid) {
 		SetDetailLine (1, FR ("Aucun système de classification trouvé dans le projet."));
 		SetDetailLine (2, FR ("Créez / importez un système dans Archicad (Option > Classifications…) puis Actualiser."));
@@ -361,7 +497,8 @@ void CostWavesDialog::FillTable ()
 			? element.classItemName
 			: element.classItemId + " - " + element.classItemName;
 
-		// Quantité facturée (ensembles : forfait ENS ou somme des membres).
+		// Quantité facturée (ensembles : forfait ENS ou somme des membres ;
+		// groupes numérotés : 1 par groupe).
 		GS::UniString quantitiesText = QuantitiesSummary (element.quantities, 3);
 		if (element.isGroupRow) {
 			const CWArticle* article = FindArticleById (articles, element.classItemId);
@@ -369,6 +506,9 @@ void CostWavesDialog::FillTable ()
 				GS::UniString unit;
 				const double quantity = ArticleManager::ComputeBilledQuantity (*article, element, rows, unit);
 				quantitiesText = article->id + " · " + FormatValue (quantity) + " " + unit;
+				if (element.isNumberedGroup)
+					quantitiesText += FR (" · groupe n° ")
+						+ GS::ToUniString (std::to_wstring (element.groupNumber));
 			} else {
 				quantitiesText = FR ("Article inconnu");
 			}
@@ -376,7 +516,12 @@ void CostWavesDialog::FillTable ()
 
 		table.AppendItem ();
 		const short itemIndex = table.GetItemCount ();
-		table.SetTabItemText (itemIndex, 1, element.isGroupRow ? FR ("Ensemble") : FR ("Élément"));
+		table.SetTabItemText (itemIndex, 1,
+			element.isGroupRow
+				? (element.isNumberedGroup
+					? FR ("Groupe n° ") + GS::ToUniString (std::to_wstring (element.groupNumber))
+					: FR ("Ensemble"))
+				: FR ("Élément"));
 		table.SetTabItemText (itemIndex, 2, APIGuidToString (element.guid));
 		table.SetTabItemText (itemIndex, 3, element.elementId);
 		table.SetTabItemText (itemIndex, 4, floorText);
@@ -473,10 +618,12 @@ void CostWavesDialog::UpdateStatus ()
 		+ GS::ToUniString (std::to_wstring (static_cast<int> (report.scannedElements)))
 		+ FR (" éléments analysés");
 
-	if (report.groupCount > 0) {
+	if (report.groupCount > 0 || report.numberedGroupCount > 0) {
 		status += FR (" · ")
 			+ GS::ToUniString (std::to_wstring (static_cast<int> (report.groupCount)))
 			+ FR (" ensemble(s) · ")
+			+ GS::ToUniString (std::to_wstring (static_cast<int> (report.numberedGroupCount)))
+			+ FR (" groupe(s) numéroté(s) · ")
 			+ GS::ToUniString (std::to_wstring (static_cast<int> (report.consumedElements)))
 			+ FR (" consommé(s)");
 	}
@@ -813,33 +960,37 @@ void CostWavesDialog::AssignCurrentArticle ()
 
 void CostWavesDialog::CreateMaterials ()
 {
-	if (articles.IsEmpty ()) {
-		DG::WarningAlert (FR ("Aucun article disponible."),
-						  FR ("Importez des articles (JSON) ou choisissez un système contenant des items."),
+	if (systems.IsEmpty ()) {
+		DG::WarningAlert (FR ("Aucun système de classification."),
+						  FR ("Importez des articles ou créez la classification avant de créer un matériau."),
 						  FR ("OK"));
 		return;
 	}
 
-	API_Guid	systemGuid = APINULLGuid;
-	USize		createdMaterials = 0;
-	USize		createdItems = 0;
-	USize		assigned = 0;
+	inModalDialog = true;
+	MaterialDialog dialog (systems);
+	dialog.Invoke ();
+	inModalDialog = false;
+
+	if (!dialog.IsAccepted ())
+		return;
+
+	GS::UniString summary;
 	GS::UniString error;
-	if (ArticleManager::CreateBuildingMaterials (articles, systemGuid, createdMaterials, createdItems,
-												  assigned, error) != NoError) {
-		DG::ErrorAlert (FR ("Échec de la création des matériaux."), error, FR ("OK"));
+	if (!dialog.Apply (summary, error)) {
+		DG::ErrorAlert (FR ("Échec de la création du matériau."), error, FR ("OK"));
 		return;
 	}
 
-	// Le système « CostWaves » a pu être créé : recharger et resélectionner
-	// (sans déclencher la relecture via PopUpChanged).
+	// Une classe a pu être créée : recharger les systèmes et les articles en
+	// conservant la sélection courante si possible.
+	const API_Guid previousSystem = selectedSystem;
 	LoadSystems ();
 
 	isFilling = true;
-	const GS::UniString costWavesName (ArticleManager::CostWavesSystemName (), CC_UTF8);
 	for (UIndex i = 0; i < systems.GetSize (); ++i) {
-		if (systems[i].name == costWavesName) {
-			selectedSystem = systems[i].guid;
+		if (systems[i].guid == previousSystem) {
+			selectedSystem = previousSystem;
 			systemPopup.SelectItem (static_cast<short> (i + 1));
 			break;
 		}
@@ -849,14 +1000,7 @@ void CostWavesDialog::CreateMaterials ()
 	ReloadArticlesFromSystem ();
 	RefreshData ();
 
-	DG::InformationAlert (FR ("Matériaux CostWaves prêts."),
-						  GS::ToUniString (std::to_wstring (static_cast<int> (createdMaterials)))
-							  + FR (" matériaux traités · ")
-							  + GS::ToUniString (std::to_wstring (static_cast<int> (createdItems)))
-							  + FR (" items créés · ")
-							  + GS::ToUniString (std::to_wstring (static_cast<int> (assigned)))
-							  + FR (" affectations.\nNB : la création de matériaux n'est pas annulable (limite API)."),
-						  FR ("OK"));
+	DG::InformationAlert (FR ("Matériau CostWaves prêt."), summary, FR ("OK"));
 }
 
 
@@ -907,20 +1051,28 @@ void CostWavesDialog::UpdateDetails (short listItem)
 		return;
 	}
 
-	// --- Ligne ensemble (phase 4) ---
+	// --- Ligne ensemble / groupe numéroté (phases 4-5) ---
 	if (displayRow.kind == RowKind::Group) {
-		SetDetailLine (1, FR ("Ensemble — ") + element.groupId);
+		if (element.isNumberedGroup) {
+			SetDetailLine (1, FR ("Groupe n° ")
+				+ GS::ToUniString (std::to_wstring (element.groupNumber))
+				+ FR (" — ") + element.classItemId);
+		} else {
+			SetDetailLine (1, FR ("Ensemble — ") + element.groupId);
+		}
 		SetDetailLine (2, FR ("Article : ") + element.classItemId + " (" + element.classItemName + ")"
-			+ FR (" · Étage : ") + floorText);
+		+ FR (" · Étage : ") + floorText);
 
 		const CWArticle* article = FindArticleById (articles, element.classItemId);
 		GS::UniString billedLine = FR ("Membres : ")
-			+ GS::ToUniString (std::to_wstring (static_cast<int> (element.groupMembers.GetSize ())))
-			+ FR (" (consommés, facturés via l'ensemble)");
+		+ GS::ToUniString (std::to_wstring (static_cast<int> (element.groupMembers.GetSize ())))
+		+ FR (" (consommés, facturés via leur groupe)");
 		if (article != nullptr) {
 			GS::UniString unit;
 			const double quantity = ArticleManager::ComputeBilledQuantity (*article, element, rows, unit);
 			billedLine += FR (" · Facturé : ") + FormatValue (quantity) + " " + unit;
+			if (element.isNumberedGroup)
+				billedLine += FR (" — la quantité réelle du métré est le nombre de groupes de l'article");
 		} else {
 			billedLine += FR (" · Article inconnu (importez-le pour la facturation)");
 		}
@@ -1093,66 +1245,37 @@ bool CostWavesDialog::ResolveArticleTarget (const GS::UniString& articleId,
 }
 
 
-void CostWavesDialog::GroupSelected ()
+void CostWavesDialog::CreateEnsembleOrGroup (bool numbered)
 {
-	// 1) Article choisi dans le popup.
-	const short articleIndex = articlePopup.GetSelectedItem ();
-	if (articleIndex < 1 || static_cast<UIndex> (articleIndex) > articles.GetSize ()) {
-		DG::WarningAlert (FR ("Aucun article sélectionné."),
-						  FR ("Importez des articles ou choisissez-en un dans la liste."),
+	// 1) Éléments sélectionnés DANS LE PLAN (la palette ne bloque pas la
+	//    sélection : on sélectionne dans Archicad puis on clique ici).
+	GS::Array<API_Guid> selection;
+	if (ModelReader::GetSelectedElements (selection) != NoError || selection.IsEmpty ()) {
+		DG::WarningAlert (FR ("Aucun élément sélectionné dans le plan."),
+						  FR ("Sélectionnez un ou plusieurs éléments dans Archicad, puis cliquez sur le bouton : la fenêtre de choix de l'article s'ouvrira."),
 						  FR ("OK"));
 		return;
 	}
-	const CWArticle& article = articles[static_cast<UIndex> (articleIndex) - 1];
 
-	// 2) Lignes sélectionnées : uniquement des éléments libres.
-	GS::Array<API_Guid>	elemGuids;
-	USize			skippedComponents = 0;
-	USize			skippedGrouped = 0;
-
-	const GS::Array<short> selectedItems = table.GetSelectedItems ();
-	for (UIndex i = 0; i < selectedItems.GetSize (); ++i) {
-		const short listItem = selectedItems[i];
-		if (listItem < 1 || static_cast<UIndex> (listItem) > displayRows.GetSize ())
-			continue;
-
-		const DisplayRow& displayRow = displayRows[static_cast<UIndex> (listItem) - 1];
-		if (displayRow.elementIndex >= rows.GetSize ())
-			continue;
-
-		if (displayRow.kind == RowKind::Group || displayRow.kind == RowKind::GroupMember
-			|| rows[displayRow.elementIndex].consumed) {
-			++skippedGrouped;
-			continue;
-		}
-
-		if (displayRow.kind != RowKind::Element) {
-			++skippedComponents;
-			continue;
-		}
-
-		elemGuids.Push (rows[displayRow.elementIndex].guid);
-	}
-
-	if (elemGuids.IsEmpty ()) {
-		if (skippedGrouped > 0) {
-			DG::WarningAlert (FR ("Ces éléments appartiennent déjà à un ensemble."),
-							  FR ("Dissolvez l'ensemble concerné avant de regrouper ces éléments (bouton « Dissoudre l'ensemble »)."),
-							  FR ("OK"));
-		} else if (skippedComponents > 0) {
-			DG::WarningAlert (FR ("Le regroupement se fait sur des éléments."),
-							  GS::ToUniString (std::to_wstring (static_cast<int> (skippedComponents)))
-							  + FR (" ligne(s) composant ignorée(s) — sélectionnez des lignes d'élément."),
-							  FR ("OK"));
-		} else {
-			DG::WarningAlert (FR ("Aucune ligne sélectionnée."),
-							  FR ("Sélectionnez un ou plusieurs éléments dans le tableau (Ctrl+clic), puis choisissez l'article de l'ensemble."),
-							  FR ("OK"));
-		}
+	// 2) Choix de l'article (classe) dans une fenêtre dédiée.
+	if (articles.IsEmpty ()) {
+		DG::WarningAlert (FR ("Aucun article disponible."),
+						  FR ("Importez des articles (JSON) ou choisissez un système contenant des items."),
+						  FR ("OK"));
 		return;
 	}
 
-	// 3) Item de classification de l'article.
+	inModalDialog = true;
+	ArticlePickerDialog picker (articles, selection.GetSize (), numbered);
+	picker.Invoke ();
+	inModalDialog = false;
+
+	if (!picker.IsAccepted ())
+		return;
+	const CWArticle article = picker.GetSelectedArticle ();
+
+	// 3) Item de classification de l'article (système « CostWaves » en
+	//    priorité, sinon le système courant).
 	API_Guid targetSystem = APINULLGuid;
 	API_Guid itemGuid = APINULLGuid;
 	if (!ResolveArticleTarget (article.id, targetSystem, itemGuid)) {
@@ -1169,48 +1292,98 @@ void CostWavesDialog::GroupSelected ()
 	GS::UniString groupPropError;
 	const API_Guid groupIdPropGuid = ArticleManager::EnsureGroupIdProperty (groupPropError);
 	if (groupIdPropGuid == APINULLGuid) {
-		DG::ErrorAlert (FR ("Création de l'ensemble impossible."),
+		DG::ErrorAlert (numbered ? FR ("Création du groupe impossible.") : FR ("Création de l'ensemble impossible."),
 						groupPropError.IsEmpty () ? FR ("Propriété CW_Group_ID indisponible.") : groupPropError,
 						FR ("OK"));
 		return;
 	}
 
-	// 5) Identifiant d'ensemble unique.
-	GS::Array<GS::UniString> existingIds;
-	for (UIndex i = 0; i < rows.GetSize (); ++i) {
-		if (!rows[i].groupId.IsEmpty ())
-			existingIds.Push (rows[i].groupId);
-	}
-	const GS::UniString groupId = ArticleManager::GenerateGroupId (existingIds);
+	// 5) Valeur du groupe : numéro séquentiel pour un groupe numéroté,
+	//    identifiant horodaté pour un ensemble. Les valeurs existantes sont
+	//    lues sur TOUT le projet (pas seulement les lignes affichées).
+	GS::Array<GS::Pair<API_Guid, GS::UniString>> groupValues;
+	ModelReader::CollectGroupValues (groupIdPropGuid, groupValues);
 
-	// 6) Création (une seule commande annulable pour tout l'ensemble).
+	GS::Array<GS::UniString> existingIds;
+	for (UIndex i = 0; i < groupValues.GetSize (); ++i)
+		existingIds.Push (groupValues[i].second);
+
+	// 6) Écarter les éléments déjà groupés (ils appartiennent à un autre
+	//    ensemble/groupe : il faudrait le dissoudre d'abord).
+	GS::Array<API_Guid> elemGuids;
+	USize skippedGrouped = 0;
+	for (UIndex s = 0; s < selection.GetSize (); ++s) {
+		bool alreadyGrouped = false;
+		for (UIndex g = 0; g < groupValues.GetSize (); ++g) {
+			if (groupValues[g].first == selection[s] && !groupValues[g].second.IsEmpty ()) {
+				alreadyGrouped = true;
+				break;
+			}
+		}
+		if (alreadyGrouped) {
+			++skippedGrouped;
+			continue;
+		}
+		elemGuids.Push (selection[s]);
+	}
+
+	if (elemGuids.IsEmpty ()) {
+		DG::WarningAlert (FR ("Ces éléments appartiennent déjà à un ensemble ou un groupe."),
+						  FR ("Dissolvez l'ensemble/le groupe concerné avant de les regrouper ailleurs (bouton « Dissoudre ensemble / groupe »)."),
+						  FR ("OK"));
+		return;
+	}
+
+	const GS::UniString groupValue = numbered
+		? ArticleManager::NumberedGroupValue (ArticleManager::NextGroupNumber (existingIds))
+		: ArticleManager::GenerateGroupId (existingIds);
+
+	// 7) Création (une seule commande annulable pour tout le groupe).
 	USize changedCount = 0;
 	USize failedCount = 0;
 	GS::UniString error;
 	const GSErrCode err = ArticleManager::CreateGroupFromElements (elemGuids, targetSystem, itemGuid,
-																   article.id, articleIdPropGuid,
-																   groupId, groupIdPropGuid,
-																   changedCount, failedCount, error);
+															   article.id, articleIdPropGuid,
+															   groupValue, groupIdPropGuid,
+															   numbered ? FR ("CostWaves : création d'un groupe")
+																		: FR ("CostWaves : création d'un ensemble"),
+															   changedCount, failedCount, error);
 	if (err != NoError) {
-		DG::ErrorAlert (FR ("Échec de la création de l'ensemble."), error, FR ("OK"));
+		DG::ErrorAlert (numbered ? FR ("Échec de la création du groupe.") : FR ("Échec de la création de l'ensemble."),
+						error, FR ("OK"));
 		return;
 	}
 
 	RefreshData ();
 
-	GS::UniString summary = FR ("Ensemble ") + groupId + FR (" créé — ")
-		+ GS::ToUniString (std::to_wstring (static_cast<int> (changedCount)))
-		+ FR (" élément(s) regroupé(s) sur l'article ") + article.id + " (" + article.name + ").";
+	GS::UniString summary;
+	if (numbered) {
+		int createdNumber = 0;
+		ArticleManager::ParseNumberedGroupValue (groupValue, createdNumber);
+		summary = FR ("Groupe n° ")
+			+ GS::ToUniString (std::to_wstring (createdNumber))
+			+ FR (" créé — ")
+			+ GS::ToUniString (std::to_wstring (static_cast<int> (changedCount)))
+			+ FR (" élément(s) regroupé(s) sur l'article ") + article.id + " (" + article.name + ").";
+		summary += FR ("\nLa quantité facturée de cet article est le NOMBRE de groupes : créez autant de groupes que d'unités à facturer.");
+	} else {
+		summary = FR ("Ensemble ") + groupValue + FR (" créé — ")
+			+ GS::ToUniString (std::to_wstring (static_cast<int> (changedCount)))
+			+ FR (" élément(s) regroupé(s) sur l'article ") + article.id + " (" + article.name + ").";
+		if (ArticleManager::IsEnsUnit (article.unit))
+			summary += FR ("\nFacturation à l'ensemble : 1 ENS.");
+		else
+			summary += FR ("\nFacturé à l'unité de l'article (") + article.unit
+					 + FR (") : somme des quantités des membres.");
+	}
 	if (failedCount > 0)
 		summary += FR ("\n") + GS::ToUniString (std::to_wstring (static_cast<int> (failedCount)))
 				 + FR (" échec(s).");
-	if (ArticleManager::IsEnsUnit (article.unit))
-		summary += FR ("\nFacturation à l'ensemble : 1 ENS.");
-	else
-		summary += FR ("\nFacturé à l'unité de l'article (") + article.unit
-				 + FR (") : somme des quantités des membres.");
+	if (skippedGrouped > 0)
+		summary += FR ("\n") + GS::ToUniString (std::to_wstring (static_cast<int> (skippedGrouped)))
+				 + FR (" élément(s) ignoré(s) — déjà groupé(s).");
 
-	DG::InformationAlert (FR ("Ensemble créé."), summary, FR ("OK"));
+	DG::InformationAlert (numbered ? FR ("Groupe créé.") : FR ("Ensemble créé."), summary, FR ("OK"));
 }
 
 
@@ -1247,8 +1420,8 @@ void CostWavesDialog::UngroupSelected ()
 	}
 
 	if (elemGuids.IsEmpty ()) {
-		DG::WarningAlert (FR ("Aucun ensemble sélectionné."),
-						  FR ("Sélectionnez une ligne « Ensemble » ou un de ses membres, puis « Dissoudre l'ensemble »."),
+		DG::WarningAlert (FR ("Aucun ensemble ni groupe sélectionné."),
+						  FR ("Sélectionnez une ligne « Ensemble » / « Groupe n° … » ou un de ses membres, puis « Dissoudre ensemble / groupe »."),
 						  FR ("OK"));
 		return;
 	}
@@ -1316,8 +1489,10 @@ void CostWavesDialog::ShowSummary ()
 		return;
 	}
 
+	inModalDialog = true;
 	SummaryDialog summaryDialog (summary);
 	summaryDialog.Invoke ();
+	inModalDialog = false;
 }
 
 
@@ -1386,8 +1561,14 @@ void CostWavesDialog::PanelResized (const DG::PanelResizeEvent& ev)
 	detail5.MoveAndResize (0, dy, dx, 0);
 
 	// Boutons du bas.
+	// Rangée ensembles/groupes : le bouton « Dissoudre » absorbe la largeur.
+	groupButton.Move (0, dy);
+	createGroupButton.Move (0, dy);
+	ungroupButton.MoveAndResize (0, dy, dx, 0);
+	// Rangée exports : le récapitulatif absorbe la largeur.
 	exportJsonButton.Move (0, dy);
 	exportCsvButton.Move (0, dy);
+	summaryButton.MoveAndResize (0, dy, dx, 0);
 	closeButton.MoveAndResize (dx, dy, 0, 0);
 
 	EndMoveResizeItems ();
@@ -1411,14 +1592,25 @@ void CostWavesDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 	} else if (ev.GetSource () == &createMaterialsButton) {
 		CreateMaterials ();
 	} else if (ev.GetSource () == &groupButton) {
-		GroupSelected ();
+		CreateEnsembleOrGroup (false);
+	} else if (ev.GetSource () == &createGroupButton) {
+		CreateEnsembleOrGroup (true);
 	} else if (ev.GetSource () == &ungroupButton) {
 		UngroupSelected ();
 	} else if (ev.GetSource () == &summaryButton) {
 		ShowSummary ();
 	} else if (ev.GetSource () == &closeButton) {
-		PostCloseRequest (DG::ModalDialog::Cancel);
+		HidePalette ();
 	}
+}
+
+
+void CostWavesDialog::PanelCloseRequested (const DG::PanelCloseRequestEvent& /*ev*/, bool* accepted)
+{
+	// Croix de fermeture de la palette : on la masque (elle se rouvre depuis
+	// le menu, l'instance reste en vie).
+	HidePalette ();
+	*accepted = true;
 }
 
 
