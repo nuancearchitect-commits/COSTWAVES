@@ -129,3 +129,26 @@ jobs:
             --notes-file notes.md
 
           Write-Host "Release publiée : https://github.com/${{ github.repository }}/releases/tag/apx-latest"
+
+      # Canal de livraison complémentaire : le .apx est aussi poussé sur une
+      # branche dédiée (force-push, fichier unique) — lisible via l'API GitHub
+      # (contents) là où le CDN des releases n'est pas accessible.
+      - name: Publication du .apx sur la branche apx-delivery
+        shell: pwsh
+        run: |
+          git config user.name "ci-costwaves"
+          git config user.email "ci@users.noreply.github.com"
+          $sha = '${{ github.sha }}'.Substring(0, 7)
+
+          git switch --orphan apx-delivery
+          if ($LASTEXITCODE -ne 0) { throw "git switch --orphan a échoué" }
+
+          Copy-Item staging/CostWaves-AC29.apx .
+          git add -f CostWaves-AC29.apx
+          git commit -m "Livraison du .apx (build $sha)"
+          git push -f origin HEAD:apx-delivery
+          if ($LASTEXITCODE -ne 0) { throw "push apx-delivery a échoué" }
+
+          $hash = (Get-FileHash CostWaves-AC29.apx -Algorithm SHA256).Hash
+          Write-Host "SHA256 : $hash"
+          Write-Host "Branche apx-delivery mise à jour."
