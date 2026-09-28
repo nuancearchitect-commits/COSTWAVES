@@ -2,6 +2,7 @@
 
 #include "Exporter.hpp"
 #include "ModelReader.hpp"
+#include "ArticleManager.hpp"
 
 #include "UniStringWStringConversion.hpp"
 
@@ -33,6 +34,16 @@ const CWArticle* FindArticle (const GS::Array<CWArticle>& articles, const GS::Un
 			return &articles[i];
 	}
 
+	return nullptr;
+}
+
+// Ligne d'un élément par GUID (nullptr si absente) — phase 4.
+const CWElementRow* FindRowByGuid (const GS::Array<CWElementRow>& rows, const API_Guid& guid)
+{
+	for (UIndex i = 0; i < rows.GetSize (); ++i) {
+		if (rows[i].guid == guid)
+			return &rows[i];
+	}
 	return nullptr;
 }
 
@@ -213,12 +224,83 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 	json += US ("    \"scannedElements\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.scannedElements))) + ",\n";
 	json += US ("    \"classifiedElements\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.classifiedElements))) + ",\n";
 	json += US ("    \"components\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.componentCount))) + ",\n";
-	json += US ("    \"skins\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.skinCount))) + "\n";
+	json += US ("    \"skins\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.skinCount))) + ",\n";
+	json += US ("    \"groups\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.groupCount))) + ",\n";
+	json += US ("    \"consumedElements\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.consumedElements))) + "\n";
 	json += "  },\n";
+
+	// Récapitulatif par article (phase 4) : totaux facturés.
+	{
+		GS::Array<CWArticleSummary> summary;
+		ArticleManager::BuildArticleSummary (rows, articles, summary);
+
+		json += "  \"summary\": [\n";
+		for (UIndex s = 0; s < summary.GetSize (); ++s) {
+			const CWArticleSummary& entry = summary[s];
+			json += "    { \"articleId\": " + JsonString (entry.articleId)
+				+ ", \"name\": " + JsonString (entry.articleName)
+				+ ", \"unit\": " + JsonString (entry.unit)
+				+ ", \"elementCount\": " + GS::ToUniString (std::to_wstring (static_cast<int> (entry.elementCount)))
+				+ ", \"groupCount\": " + GS::ToUniString (std::to_wstring (static_cast<int> (entry.groupCount)))
+				+ ", \"totalQuantity\": " + FormatDouble (entry.totalQuantity) + " }";
+			if (s + 1 < summary.GetSize ())
+				json += ",";
+			json += "\n";
+		}
+		json += "  ],\n";
+	}
+
 	json += "  \"elements\": [\n";
 
 	for (UIndex e = 0; e < rows.GetSize (); ++e) {
 		const CWElementRow& row = rows[e];
+
+		// Ligne « Ensemble » (phase 4) : bloc spécifique avec ses membres
+		// consommés et la quantité facturée.
+		if (row.isGroupRow) {
+			const CWArticle* groupArticle = FindArticle (articles, row.classItemId);
+			GS::UniString billedUnit = FR ("?");
+			const double billedQuantity = (groupArticle != nullptr)
+				? ArticleManager::ComputeBilledQuantity (*groupArticle, row, rows, billedUnit)
+				: 0.0;
+
+			json += "    {\n";
+			json += US ("      \"kind\": \"group\",\n");
+			json += US ("      \"groupId\": ") + JsonString (row.groupId) + ",\n";
+			json += US ("      \"floorIndex\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (row.floorInd))) + ",\n";
+			json += US ("      \"story\": ") + JsonString (row.storyName) + ",\n";
+			json += "      \"classification\": {\n";
+			json += US ("        \"itemId\": ") + JsonString (row.classItemId) + ",\n";
+			json += US ("        \"itemName\": ") + JsonString (row.classItemName) + "\n";
+			json += "      },\n";
+			if (groupArticle != nullptr) {
+				json += US ("      \"article\": { \"id\": ") + JsonString (groupArticle->id)
+					+ US (", \"name\": ") + JsonString (groupArticle->name)
+					+ US (", \"unit\": ") + JsonString (groupArticle->unit) + " },\n";
+			} else {
+				json += "      \"article\": null,\n";
+			}
+			json += US ("      \"billedQuantity\": ") + FormatDouble (billedQuantity) + ",\n";
+			json += US ("      \"billedUnit\": ") + JsonString (billedUnit) + ",\n";
+			json += "      \"members\": [\n";
+			for (UIndex m = 0; m < row.groupMembers.GetSize (); ++m) {
+				const CWElementRow* member = FindRowByGuid (rows, row.groupMembers[m]);
+				if (member == nullptr)
+					continue;
+				json += US ("        { \"guid\": ") + JsonString (APIGuidToString (member->guid))
+					+ US (", \"type\": ") + JsonString (member->typeName)
+					+ US (", \"elementId\": ") + JsonString (member->elementId) + " }";
+				if (m + 1 < row.groupMembers.GetSize ())
+					json += ",";
+				json += "\n";
+			}
+			json += "      ]\n";
+			json += "    }";
+			if (e + 1 < rows.GetSize ())
+				json += ",";
+			json += "\n";
+			continue;
+		}
 
 		json += "    {\n";
 		json += US ("      \"guid\": ") + JsonString (APIGuidToString (row.guid)) + ",\n";
@@ -239,6 +321,12 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 				  + US (", \"unit\": ") + JsonString (article->unit) + " },\n";
 		} else {
 			json += "      \"article\": null,\n";
+		}
+
+		// Membre d'un ensemble (phase 4) : consommé, facturé via l'ensemble.
+		if (!row.groupId.IsEmpty ()) {
+			json += US ("      \"groupId\": ") + JsonString (row.groupId) + ",\n";
+			json += "      \"consumed\": true,\n";
 		}
 
 		json += "      \"quantities\": [";
@@ -360,14 +448,29 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 		const CWArticle* article = FindArticle (articles, row.classItemId);
 		const GS::UniString articleId = (article != nullptr) ? article->id : GS::UniString ();
 
-		const GS::UniString elementPrefix = FR ("Élément") + ";"
+		// Type de ligne : élément, membre consommé, ou ensemble (phase 4).
+		const GS::UniString rowType = row.isGroupRow
+			? FR ("Ensemble")
+			: (row.consumed ? FR ("Membre (consommé)") : FR ("Élément"));
+
+		const GS::UniString elementPrefix = rowType + ";"
 			+ protect (APIGuidToString (row.guid)) + ";"
 			+ protect (row.elementId) + ";"
 			+ protect (story) + ";"
 			+ protect (classe) + ";"
 			+ protect (articleId) + ";";
 
-		if (row.quantities.IsEmpty ()) {
+		if (row.isGroupRow) {
+			// Ensemble : une ligne « Quantité facturée » (phase 4).
+			GS::UniString billedUnit = FR ("?");
+			const double billedQuantity = (article != nullptr)
+				? ArticleManager::ComputeBilledQuantity (*article, row, rows, billedUnit)
+				: 0.0;
+			csv += elementPrefix
+				+ protect (FR ("Quantité facturée")) + ";"
+				+ protect (FormatDouble (billedQuantity)) + ";"
+				+ protect (billedUnit) + "\n";
+		} else if (row.quantities.IsEmpty ()) {
 			csv += elementPrefix + ";;;\n";
 		} else {
 			for (UIndex q = 0; q < row.quantities.GetSize (); ++q) {
@@ -412,6 +515,24 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 						+ protect (FormatDouble (component.quantities[q].value)) + ";"
 						+ protect (component.quantities[q].unit) + "\n";
 				}
+			}
+		}
+	}
+
+	// Récapitulatif par article (phase 4) : une ligne par article facturé.
+	{
+		GS::Array<CWArticleSummary> summary;
+		ArticleManager::BuildArticleSummary (rows, articles, summary);
+
+		if (!summary.IsEmpty ()) {
+			csv += "\n";
+			for (UIndex s = 0; s < summary.GetSize (); ++s) {
+				const CWArticleSummary& entry = summary[s];
+				csv += FR ("Récapitulatif") + ";;;;;"
+					+ protect (entry.articleId) + ";"
+					+ protect (entry.articleName) + ";"
+					+ protect (FormatDouble (entry.totalQuantity)) + ";"
+					+ protect (entry.unit) + "\n";
 			}
 		}
 	}

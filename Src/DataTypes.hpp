@@ -10,7 +10,9 @@ namespace CostWaves {
 enum class RowKind {
 	Element,
 	Component,	// composant "properties" (API 25+)
-	Skin		// skin d'une structure composite (API_CompositeQuantity)
+	Skin,		// skin d'une structure composite (API_CompositeQuantity)
+	Group,		// ligne "ensemble CostWaves" (facturée comme une seule ligne)
+	GroupMember	// élément membre d'un ensemble (consommé, non facturé seul)
 };
 
 // --- Quantité unitaire -------------------------------------------------------
@@ -53,16 +55,22 @@ struct CWComponentRow {
 // --- Ligne "élément" ----------------------------------------------------------
 
 struct CWElementRow {
-	API_Guid					guid = APINULLGuid;
-	API_ElemType				type;
-	GS::UniString				typeName;		// nom localisé (ex. "Mur")
-	GS::UniString				elementId;		// propriété intégrée "Element ID"
-	short						floorInd = 0;
-	GS::UniString				storyName;		// nom de l'étage
-	GS::UniString				classItemId;	// ex. "CW-MUR"
-	GS::UniString				classItemName;	// ex. "Mur exterieur"
+	API_Guid				guid = APINULLGuid;
+	API_ElemType			type;
+	GS::UniString			typeName;		// nom localisé (ex. "Mur")
+	GS::UniString			elementId;		// propriété intégrée "Element ID"
+	short					floorInd = 0;
+	GS::UniString			storyName;		// nom de l'étage
+	GS::UniString			classItemId;	// ex. "CW-MUR"
+	GS::UniString			classItemName;	// ex. "Mur exterieur"
 	GS::Array<CWQuantity>		quantities;
-	GS::Array<CWComponentRow>	components;		// composants + skins
+	GS::Array<CWComponentRow>	components;	// composants + skins
+
+	// Phase 4 — ensembles CostWaves :
+	bool					isGroupRow = false;		// ligne "ensemble" (virtuelle)
+	GS::UniString			groupId;				// CW_Group_ID (vide = aucun)
+	bool					consumed = false;		// membre d'un ensemble (non facturé seul)
+	GS::Array<API_Guid>		groupMembers;			// lignes ensemble : GUIDs des membres
 };
 
 // --- Système de classification -------------------------------------------------
@@ -89,6 +97,19 @@ struct CWArticle {
 		: id (inId), name (inName), unit (inUnit) {}
 };
 
+// --- Récapitulatif par article (phase 4) -----------------------------------------
+
+struct CWArticleSummary {
+	GS::UniString	articleId;			// identifiant d'article (= classe)
+	GS::UniString	articleName;		// libellé
+	GS::UniString	unit;				// unité de facturation ("?" si article inconnu)
+	USize			elementCount = 0;	// éléments facturés individuellement
+	USize			groupCount = 0;		// ensembles facturés
+	double			totalQuantity = 0.0;	// somme des quantités facturées
+
+	CWArticleSummary () = default;
+};
+
 // --- Rapport de scan -----------------------------------------------------------
 
 struct CWScanReport {
@@ -97,6 +118,8 @@ struct CWScanReport {
 	USize	componentCount = 0;			// composants (API 25+) sur les éléments classés
 	USize	skinCount = 0;				// skins composites sur les éléments classés
 	USize	quantityErrors = 0;			// échecs ACAPI_Element_GetQuantities
+	USize	groupCount = 0;				// ensembles CostWaves (phase 4)
+	USize	consumedElements = 0;		// éléments membres d'un ensemble (consommés)
 	GS::UniString	elementIdPropertyNote; // note sur la résolution de la propriété Element ID
 };
 

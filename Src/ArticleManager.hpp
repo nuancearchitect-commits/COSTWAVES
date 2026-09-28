@@ -75,12 +75,80 @@ public:
 	// La création d'attributs n'est PAS annulable (limite API) ; la partie
 	// classification est regroupée dans une commande annulable.
 	static GSErrCode	CreateBuildingMaterials (const GS::Array<CWArticle>& articles,
-												API_Guid& outSystemGuid,
-												USize& outCreatedMaterials, USize& outCreatedItems,
-												USize& outAssigned,
-												GS::UniString& outError);
+											  API_Guid& outSystemGuid,
+											  USize& outCreatedMaterials, USize& outCreatedItems,
+											  USize& outAssigned,
+											  GS::UniString& outError);
+
+	// --- Phase 4 : ensembles CostWaves ---------------------------------------
+
+	// Nom de la propriété texte CW_Group_ID (groupe « CostWaves »).
+	static const char*	GroupPropertyName ();
+
+	// Crée (si absents) le groupe « CostWaves » et la propriété texte
+	// CW_Group_ID. Retourne le guid de la définition (APINULLGuid + outError).
+	static API_Guid		EnsureGroupIdProperty (GS::UniString& outError);
+
+	// Guid de la définition CW_Group_ID si elle existe déjà, sans rien créer
+	// (APINULLGuid sinon) — utilisé pour la lecture au scan.
+	static API_Guid		FindGroupIdPropertyGuid ();
+
+	// Génère un identifiant d'ensemble unique ("CW-G-…") parmi les
+	// identifiants déjà utilisés (existingIds).
+	static GS::UniString	GenerateGroupId (const GS::Array<GS::UniString>& existingIds);
+
+	// « Grouper en ensemble » : affecte l'article (classe + CW_Article_ID,
+	// comme AssignArticleToElements) et pose groupId dans CW_Group_ID sur
+	// chaque élément — le tout dans UNE seule commande annulable.
+	// Les membres du groupe sont « consommés » : ils ne sont plus facturés
+	// individuellement, l'ensemble l'est à leur place.
+	static GSErrCode	CreateGroupFromElements (const GS::Array<API_Guid>&	elemGuids,
+												const API_Guid&			systemGuid,
+												const API_Guid&			itemGuid,
+												const GS::UniString&		articleId,
+												const API_Guid&			articleIdPropGuid,
+												const GS::UniString&		groupId,
+												const API_Guid&			groupIdPropGuid,
+												USize&					outChangedCount,
+												USize&					outFailedCount,
+												GS::UniString&				outError);
+
+	// « Dissoudre l'ensemble » : retire CW_Group_ID (valeur vidée) sur chaque
+	// élément — une seule commande annulable. La classe et CW_Article_ID sont
+	// conservées : l'élément redevient facturable individuellement.
+	static GSErrCode	DissolveGroupFromElements (const GS::Array<API_Guid>&	elemGuids,
+												  const API_Guid&			groupIdPropGuid,
+												  USize&					outChangedCount,
+												  USize&					outFailedCount,
+												  GS::UniString&			outError);
+
+	// Quantité facturée d'une ligne pour l'article donné :
+	//  - unité ENS (ou vide) : forfait, 1 par ligne facturée (élément ou ensemble)
+	//  - autre unité : première quantité de la ligne portant cette unité ;
+	//    pour une ligne ensemble, somme des quantités de ses membres
+	//  - ligne consommée : 0 (facturée via son ensemble)
+	// outUnit reçoit l'unité de facturation effective.
+	static double	ComputeBilledQuantity (const CWArticle&			article,
+										  const CWElementRow&			row,
+										  const GS::Array<CWElementRow>&	allRows,
+										  GS::UniString&				outUnit);
+
+	// L'unité est-elle une facturation « à l'ensemble » (forfait) ?
+	static bool		IsEnsUnit (const GS::UniString& unit);
+
+	// Récapitulatif par article : parcourt les lignes facturables (éléments
+	// libres + ensembles ; les membres consommés sont exclus) et totalise
+	// les quantités facturées par article (identifié par la classe).
+	static void	BuildArticleSummary (const GS::Array<CWElementRow>&	rows,
+									   const GS::Array<CWArticle>&		articles,
+									   GS::Array<CWArticleSummary>&	outSummary);
 
 private:
+	// Crée (si absents) le groupe « CostWaves » et la propriété texte donnée
+	// dans ce groupe ; retourne le guid de la définition.
+	static API_Guid		EnsureTextProperty (const char* nameUtf8, const GS::UniString& description,
+											  GS::UniString& outError);
+
 	// Enumère tous les items (racines + enfants récursifs) du système.
 	static void		EnumerateItems (const API_Guid& systemGuid, GS::Array<API_ClassificationItem>& outItems);
 	static void		CollectChildren (const API_Guid& parentGuid, GS::Array<API_ClassificationItem>& outItems);

@@ -567,7 +567,8 @@ GSErrCode ArticleManager::EnsureCostWavesClassification (const GS::Array<CWArtic
 }
 
 
-API_Guid ArticleManager::EnsureArticleIdProperty (GS::UniString& outError)
+API_Guid ArticleManager::EnsureTextProperty (const char* nameUtf8, const GS::UniString& description,
+											  GS::UniString& outError)
 {
 	// 1) Groupe « CostWaves ».
 	API_Guid groupGuid = APINULLGuid;
@@ -609,8 +610,8 @@ API_Guid ArticleManager::EnsureArticleIdProperty (GS::UniString& outError)
 		}
 	}
 
-	// 2) Définition « CW_Article_ID » dans ce groupe.
-	const GS::UniString propertyName (ArticleIdPropertyName (), CC_UTF8);
+	// 2) Définition dans ce groupe.
+	const GS::UniString propertyName (nameUtf8, CC_UTF8);
 
 	GS::Array<API_PropertyDefinition> definitions;
 	if (ACAPI_Property_GetPropertyDefinitions (groupGuid, definitions) == NoError) {
@@ -624,7 +625,7 @@ API_Guid ArticleManager::EnsureArticleIdProperty (GS::UniString& outError)
 	definition.definitionType = API_PropertyCustomDefinitionType;
 	definition.groupGuid = groupGuid;
 	definition.name = propertyName;
-	definition.description = FR ("Identifiant de l'article CostWaves affecté à l'élément.");
+	definition.description = description;
 	definition.valueType = API_PropertyStringValueType;
 	definition.collectionType = API_PropertySingleCollectionType;
 	definition.measureType = API_PropertyDefaultMeasureType;
@@ -642,9 +643,17 @@ API_Guid ArticleManager::EnsureArticleIdProperty (GS::UniString& outError)
 		}
 	}
 
-	outError = FR ("Impossible de créer la propriété « CW_Article_ID » (code ")
-			 + ErrorCodeText (err) + FR (").");
+	outError = FR ("Impossible de créer la propriété « ") + propertyName
+			 + FR (" » (code ") + ErrorCodeText (err) + FR (").");
 	return APINULLGuid;
+}
+
+
+API_Guid ArticleManager::EnsureArticleIdProperty (GS::UniString& outError)
+{
+	return EnsureTextProperty (ArticleIdPropertyName (),
+							   FR ("Identifiant de l'article CostWaves affecté à l'élément."),
+							   outError);
 }
 
 
@@ -836,6 +845,378 @@ GSErrCode ArticleManager::CreateBuildingMaterials (const GS::Array<CWArticle>& a
 	}
 
 	return result;
+}
+
+// --- Phase 4 : ensembles CostWaves --------------------------------------------
+
+namespace {
+
+// Normalise une unité pour comparaison : majuscules, "m²" -> "M2", "m³" -> "M3".
+GS::UniString NormalizeUnit (const GS::UniString& unit)
+{
+	std::wstring text = GS::ToWString (unit.ToUpperCase ());
+	for (wchar_t& ch : text) {
+		if (ch == L'\u00B2')
+			ch = L'2';
+		else if (ch == L'\u00B3')
+			ch = L'3';
+	}
+	return GS::ToUniString (text);
+}
+
+// Première quantité de la ligne portant l'unité donnée (0 sinon).
+double ElementQuantityForUnit (const CWElementRow& row, const GS::UniString& unit)
+{
+	const GS::UniString wanted = NormalizeUnit (unit);
+	for (UIndex q = 0; q < row.quantities.GetSize (); ++q) {
+		if (NormalizeUnit (row.quantities[q].unit) == wanted)
+			return row.quantities[q].value;
+	}
+	return 0.0;
+}
+
+// Ligne d'un élément par GUID (nullptr si absente).
+const CWElementRow* FindRowByGuid (const GS::Array<CWElementRow>& rows, const API_Guid& guid)
+{
+	for (UIndex i = 0; i < rows.GetSize (); ++i) {
+		if (rows[i].guid == guid)
+			return &rows[i];
+	}
+	return nullptr;
+}
+
+} // namespace
+
+
+const char* ArticleManager::GroupPropertyName ()
+{
+	return "CW_Group_ID";
+}
+
+
+API_Guid ArticleManager::EnsureGroupIdProperty (GS::UniString& outError)
+{
+	return EnsureTextProperty (GroupPropertyName (),
+							   FR ("Identifiant de l'ensemble CostWaves auquel appartient l'élément (les membres d'un ensemble sont facturés via l'ensemble)."),
+							   outError);
+}
+
+
+API_Guid ArticleManager::FindGroupIdPropertyGuid ()
+{
+	const GS::UniString groupName (PropertyGroupName (), CC_UTF8);
+	const GS::UniString propertyName (GroupPropertyName (), CC_UTF8);
+
+	GS::Array<API_PropertyGroup> groups;
+	if (ACAPI_Property_GetPropertyGroups (groups) != NoError)
+		return APINULLGuid;
+
+	for (UIndex g = 0; g < groups.GetSize (); ++g) {
+		if (groups[g].name != groupName)
+			continue;
+
+		GS::Array<API_PropertyDefinition> definitions;
+		if (ACAPI_Property_GetPropertyDefinitions (groups[g].guid, definitions) == NoError) {
+			for (UIndex d = 0; d < definitions.GetSize (); ++d) {
+				if (definitions[d].name == propertyName)
+					return definitions[d].guid;
+			}
+		}
+	}
+
+	return APINULLGuid;
+}
+
+
+GS::UniString ArticleManager::GenerateGroupId (const GS::Array<GS::UniString>& existingIds)
+{
+	const std::time_t now = std::time (nullptr);
+	std::tm localTime;
+#if defined (WINDOWS)
+	localtime_s (&localTime, &now);
+#else
+	localtime_r (&now, &localTime);
+#endif
+
+	wchar_t buffer[32];
+	swprintf (buffer, 32, L"CW-G-%04d%02d%02d-%02d%02d%02d",
+			  localTime.tm_year + 1900, localTime.tm_mon + 1, localTime.tm_mday,
+			  localTime.tm_hour, localTime.tm_min, localTime.tm_sec);
+	GS::UniString base = GS::ToUniString (std::wstring (buffer));
+
+	// Suffixe numérique si l'identifiant est déjà pris.
+	GS::UniString candidate = base;
+	for (USize suffix = 2; ; ++suffix) {
+		bool taken = false;
+		for (UIndex i = 0; i < existingIds.GetSize (); ++i) {
+			if (existingIds[i] == candidate) {
+				taken = true;
+				break;
+			}
+		}
+		if (!taken)
+			return candidate;
+		candidate = base + "-" + GS::ToUniString (std::to_wstring (static_cast<int> (suffix)));
+	}
+}
+
+
+GSErrCode ArticleManager::CreateGroupFromElements (const GS::Array<API_Guid>& elemGuids,
+												   const API_Guid& systemGuid, const API_Guid& itemGuid,
+												   const GS::UniString& articleId, const API_Guid& articleIdPropGuid,
+												   const GS::UniString& groupId, const API_Guid& groupIdPropGuid,
+												   USize& outChangedCount, USize& outFailedCount,
+												   GS::UniString& outError)
+{
+	outChangedCount = 0;
+	outFailedCount = 0;
+
+	if (elemGuids.IsEmpty ()) {
+		outError = FR ("Aucun élément à traiter.");
+		return APIERR_GENERAL;
+	}
+
+	if (groupIdPropGuid == APINULLGuid) {
+		outError = FR ("Propriété CW_Group_ID indisponible.");
+		return APIERR_GENERAL;
+	}
+
+	USize	 changedCount = 0;
+	USize	 failedCount = 0;
+	GS::UniString firstError;
+
+	const GSErrCode result = ACAPI_CallUndoableCommand (FR ("CostWaves : création d'un ensemble"),
+		[&]() -> GSErrCode {
+			for (UIndex i = 0; i < elemGuids.GetSize (); ++i) {
+				const API_Guid& elemGuid = elemGuids[i];
+				bool		elementChanged = false;
+				GSErrCode	step = NoError;
+
+				// 1) Classification de l'article (comme AssignArticleToElements).
+				API_ClassificationItem current;
+				const GSErrCode getErr = ACAPI_Element_GetClassificationInSystem (elemGuid, systemGuid, current);
+				if (getErr != NoError || current.guid != itemGuid) {
+					if (getErr == NoError && current.guid != APINULLGuid) {
+						step = ACAPI_Element_RemoveClassificationItem (elemGuid, current.guid);
+						if (step == NoError)
+							elementChanged = true;
+					}
+
+					if (step == NoError) {
+						step = ACAPI_Element_AddClassificationItem (elemGuid, itemGuid);
+						if (step == NoError)
+							elementChanged = true;
+					}
+				}
+
+				// 2) Propriété CW_Article_ID (best effort).
+				if (step == NoError && articleIdPropGuid != APINULLGuid && !articleId.IsEmpty ()) {
+					API_Property property;
+					property.definition.guid = articleIdPropGuid;
+					property.isDefault = false;
+					property.value.singleVariant.variant.type = API_PropertyStringValueType;
+					property.value.singleVariant.variant.uniStringValue = articleId;
+
+					if (ACAPI_Element_SetProperty (elemGuid, property) == NoError)
+						elementChanged = true;
+				}
+
+				// 3) Propriété CW_Group_ID (l'appartenance à l'ensemble).
+				if (step == NoError) {
+					API_Property property;
+					property.definition.guid = groupIdPropGuid;
+					property.isDefault = false;
+					property.value.singleVariant.variant.type = API_PropertyStringValueType;
+					property.value.singleVariant.variant.uniStringValue = groupId;
+
+					step = ACAPI_Element_SetProperty (elemGuid, property);
+					if (step == NoError)
+						elementChanged = true;
+				}
+
+				if (step != NoError) {
+					++failedCount;
+					if (firstError.IsEmpty ())
+						firstError = FR ("Élément ") + APIGuidToString (elemGuid)
+								   + FR (" : code ") + ErrorCodeText (step) + FR (".");
+				} else if (elementChanged) {
+					++changedCount;
+				}
+			}
+
+			// Les échecs individuels sont comptés : la commande réussit
+			// globalement dès qu'au moins un élément a passé.
+			return NoError;
+		});
+
+	outChangedCount = changedCount;
+	outFailedCount = failedCount;
+
+	if (changedCount == 0 && failedCount > 0) {
+		outError = firstError.IsEmpty () ? FR ("Création de l'ensemble impossible.") : firstError;
+		return APIERR_GENERAL;
+	}
+
+	return result;
+}
+
+
+GSErrCode ArticleManager::DissolveGroupFromElements (const GS::Array<API_Guid>& elemGuids,
+													 const API_Guid& groupIdPropGuid,
+													 USize& outChangedCount, USize& outFailedCount,
+													 GS::UniString& outError)
+{
+	outChangedCount = 0;
+	outFailedCount = 0;
+
+	if (elemGuids.IsEmpty ()) {
+		outError = FR ("Aucun élément à traiter.");
+		return APIERR_GENERAL;
+	}
+
+	if (groupIdPropGuid == APINULLGuid) {
+		outError = FR ("Propriété CW_Group_ID indisponible.");
+		return APIERR_GENERAL;
+	}
+
+	USize	 changedCount = 0;
+	USize	 failedCount = 0;
+	GS::UniString firstError;
+
+	const GSErrCode result = ACAPI_CallUndoableCommand (FR ("CostWaves : dissolution d'un ensemble"),
+		[&]() -> GSErrCode {
+			for (UIndex i = 0; i < elemGuids.GetSize (); ++i) {
+				const API_Guid& elemGuid = elemGuids[i];
+
+				// CW_Group_ID vidée : l'élément quitte l'ensemble (la classe et
+				// CW_Article_ID sont conservées).
+				API_Property property;
+				property.definition.guid = groupIdPropGuid;
+				property.isDefault = false;
+				property.value.singleVariant.variant.type = API_PropertyStringValueType;
+				property.value.singleVariant.variant.uniStringValue = GS::UniString ();
+
+				const GSErrCode step = ACAPI_Element_SetProperty (elemGuid, property);
+				if (step != NoError) {
+					++failedCount;
+					if (firstError.IsEmpty ())
+						firstError = FR ("Élément ") + APIGuidToString (elemGuid)
+								   + FR (" : code ") + ErrorCodeText (step) + FR (".");
+				} else {
+					++changedCount;
+				}
+			}
+
+			return NoError;
+		});
+
+	outChangedCount = changedCount;
+	outFailedCount = failedCount;
+
+	if (changedCount == 0 && failedCount > 0) {
+		outError = firstError.IsEmpty () ? FR ("Dissolution de l'ensemble impossible.") : firstError;
+		return APIERR_GENERAL;
+	}
+
+	return result;
+}
+
+
+bool ArticleManager::IsEnsUnit (const GS::UniString& unit)
+{
+	return unit.IsEmpty () || NormalizeUnit (unit) == GS::UniString ("ENS");
+}
+
+
+double ArticleManager::ComputeBilledQuantity (const CWArticle& article, const CWElementRow& row,
+											  const GS::Array<CWElementRow>& allRows,
+											  GS::UniString& outUnit)
+{
+	outUnit = article.unit.IsEmpty () ? FR ("ENS") : article.unit;
+
+	// Membre d'un ensemble : facturé via l'ensemble, jamais seul.
+	if (row.consumed)
+		return 0.0;
+
+	// Facturation à l'ensemble (forfait) : 1 par ligne facturée.
+	if (IsEnsUnit (article.unit))
+		return 1.0;
+
+	if (row.isGroupRow) {
+		// Ensemble facturé dans l'unité de l'article : somme des quantités
+		// des membres portant cette unité.
+		double total = 0.0;
+		for (UIndex m = 0; m < row.groupMembers.GetSize (); ++m) {
+			const CWElementRow* member = FindRowByGuid (allRows, row.groupMembers[m]);
+			if (member != nullptr)
+				total += ElementQuantityForUnit (*member, article.unit);
+		}
+		return total;
+	}
+
+	return ElementQuantityForUnit (row, article.unit);
+}
+
+
+void ArticleManager::BuildArticleSummary (const GS::Array<CWElementRow>& rows,
+										  const GS::Array<CWArticle>& articles,
+										  GS::Array<CWArticleSummary>& outSummary)
+{
+	outSummary.Clear ();
+
+	for (UIndex i = 0; i < rows.GetSize (); ++i) {
+		const CWElementRow& row = rows[i];
+
+		// Les membres consommés sont facturés via leur ensemble.
+		if (row.consumed)
+			continue;
+
+		if (row.classItemId.IsEmpty ())
+			continue;
+
+		// Entrée du récapitulatif (créée si absente).
+		UIndex entryIndex = 0;
+		bool found = false;
+		for (UIndex s = 0; s < outSummary.GetSize (); ++s) {
+			if (outSummary[s].articleId == row.classItemId) {
+				entryIndex = s;
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			CWArticleSummary entry;
+			entry.articleId = row.classItemId;
+			entry.articleName = row.classItemName;
+			entry.unit = FR ("?");
+			outSummary.Push (entry);
+			entryIndex = outSummary.GetSize () - 1;
+		}
+
+		CWArticleSummary& entry = outSummary[entryIndex];
+
+		// Article connu ? (unité de facturation)
+		const CWArticle* article = nullptr;
+		for (UIndex a = 0; a < articles.GetSize (); ++a) {
+			if (articles[a].id == row.classItemId) {
+				article = &articles[a];
+				break;
+			}
+		}
+
+		if (article != nullptr) {
+			entry.articleName = article->name;
+			GS::UniString unit;
+			entry.totalQuantity += ComputeBilledQuantity (*article, row, rows, unit);
+			entry.unit = unit;
+		}
+		// Article inconnu : comptage sans total (unité "?").
+
+		if (row.isGroupRow)
+			++entry.groupCount;
+		else
+			++entry.elementCount;
+	}
 }
 
 } // namespace CostWaves

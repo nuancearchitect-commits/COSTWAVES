@@ -51,8 +51,12 @@ public:
 	// du système systemGuid. Renvoie le code d'erreur global (APIERR_NOPLAN etc.).
 	// elemFilter (optionnel) : si non nul et non vide, seuls ces éléments sont
 	// analysés (utilisé pour la lecture de la sélection courante).
+	// groupPropGuid (optionnel) : guid de la propriété CW_Group_ID — si valide,
+	// chaque élément groupé est marqué « consommé » et une ligne « Ensemble »
+	// virtuelle est ajoutée par groupe (phase 4).
 	static GSErrCode		Scan (const API_Guid&			systemGuid,
 								 const API_Guid&			elemIdPropGuid,
+								 const API_Guid&			groupPropGuid,
 								 const GS::Array<API_Guid>*	elemFilter,
 								 GS::Array<CWElementRow>&	outRows,
 								 CWScanReport&				outReport);

@@ -639,6 +639,7 @@ void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemType
 
 
 GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdPropGuid,
+							 const API_Guid& groupPropGuid,
 							 const GS::Array<API_Guid>* elemFilter,
 							 GS::Array<CWElementRow>& outRows, CWScanReport& outReport)
 {
@@ -713,6 +714,12 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		row.classItemName = item.name;
 		if (haveElemIdProp)
 			row.elementId = GetElementIdValue (elemGuid, elemIdPropGuid);
+
+		// Phase 4 : appartenance à un ensemble CostWaves (CW_Group_ID).
+		if (haveGroupProp) {
+			row.groupId = GetElementIdValue (elemGuid, groupPropGuid);
+			row.consumed = !row.groupId.IsEmpty ();
+		}
 
 		ItemInfo info;
 		info.guid = elemGuid;
@@ -816,6 +823,53 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 				row.components.Push (compRow);
 				++outReport.componentCount;
 			}
+		}
+	}
+
+	// --- Passe 4 : lignes « Ensemble » (phase 4) ---------------------------------
+	// Une ligne virtuelle par CW_Group_ID distinct : l'ensemble est facturé
+	// comme une seule ligne, ses membres sont « consommés » (affichés en
+	// sous-lignes, exclus de la facturation individuelle).
+	if (haveGroupProp) {
+		GS::Array<GS::UniString>	groupIds;		// groupes déjà vus (ordre d'apparition)
+		GS::Array<UIndex>			groupRowIndices;	// index de la ligne ensemble correspondante
+
+		for (UIndex i = 0; i < outRows.GetSize (); ++i) {
+			const CWElementRow& row = outRows[i];
+			if (!row.consumed)
+				continue;
+
+			UIndex groupIndex = 0;
+			bool found = false;
+			for (UIndex g = 0; g < groupIds.GetSize (); ++g) {
+				if (groupIds[g] == row.groupId) {
+					groupIndex = g;
+					found = true;
+					break;
+				}
+			}
+
+			if (!found) {
+				CWElementRow groupRow;
+				groupRow.guid = APINULLGuid;
+				groupRow.isGroupRow = true;
+				groupRow.groupId = row.groupId;
+				groupRow.elementId = row.groupId;
+				groupRow.typeName = FR ("Ensemble");
+				groupRow.floorInd = row.floorInd;
+				groupRow.storyName = row.storyName;
+				groupRow.classItemId = row.classItemId;
+				groupRow.classItemName = row.classItemName;
+
+				groupIds.Push (row.groupId);
+				groupRowIndices.Push (outRows.GetSize ());
+				outRows.Push (groupRow);
+				groupIndex = groupIds.GetSize () - 1;
+				++outReport.groupCount;
+			}
+
+			outRows[groupRowIndices[groupIndex]].groupMembers.Push (row.guid);
+			++outReport.consumedElements;
 		}
 	}
 

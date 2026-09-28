@@ -5,7 +5,8 @@ pour **CostWaves** :
 
 > classification → éléments → composants → quantités → tableau → export JSON / CSV.
 
-**Statut : Phase 2 codée** — lecture des données + articles + affectation.
+**Statut : Phase 4 codée** — lecture + articles + composites + **ensembles
+facturables (ENS), exclusion « consommé », récapitulatif par article**.
 Code livré, à compiler sur Windows.
 
 ---
@@ -31,7 +32,7 @@ Code livré, à compiler sur Windows.
 
 ---
 
-## 2. Périmètre codé (phases 1 → 3)
+## 2. Périmètre codé (phases 1 → 4)
 
 L'Add-On ajoute une commande **« CostWaves – Lecture des quantités… »** (menu Options).
 
@@ -45,10 +46,14 @@ La fenêtre :
    | Type | GUID | ID élément | Étage | Classe | Quantités disponibles |
    |---|---|---|---|---|---|
    | Élément | `{8C1F…}` | `W-012` | `0 - Rez-de-chaussée` | `CW-MUR - Mur extérieur` | `Volume 12,34 m³ · Surface 45,67 m² · …` |
+   | Ensemble | | `CW-G-20260928-153000` | `0 - RDC` | `CW-PORTE - Porte…` | `CW-PORTE · 1 ENS` |
+   | Membre (consommé) | `{A2B4…}` | `D-007` | `0 - RDC` | `CW-PORTE - …` | `Surface 1,8 m² · …` |
    | Skin — Brique (cœur) | | `W-012` | `0 - RDC` | `CW-MUR - …` | `Épaisseur 200 mm · Volume 1,23 m³ · Surface projetée 4,56 m²` |
    | Composant | `{A2B4…}` | `W-012` | `0 - RDC` | `CW-MUR - …` | *(propriétés dans le panneau détails)* |
 
-   - **Type** : `Élément` / `Skin — <matériau>` (couche d'une structure composite,
+   - **Type** : `Élément` / `Ensemble` (ligne facturable groupant des membres) /
+     `Membre (consommé)` (élément d'un ensemble, non facturé seul) /
+     `Skin — <matériau>` (couche d'une structure composite,
      avec marqueur `(cœur)` si la couche fait partie du noyau) / `Composant`
      (composants « properties » Archicad 25+)
    - **Détails d'un skin (phase 3)** : nom du **composite**, numéro de couche
@@ -64,6 +69,7 @@ La fenêtre :
 3. **Panneau de détails** — ligne sélectionnée : GUID complet, ID, étage, classe,
    toutes les quantités, et pour un composant : ses **propriétés** (lues à la demande).
 4. **Boutons** : `Actualiser` · `Exporter JSON` · `Exporter CSV` · `Fermer`.
+   Phase 4 : `Grouper en ensemble` · `Dissoudre l'ensemble` · `Récapitulatif par article`.
 5. **Ligne d'état** : `N éléments classés · N composants · N skins · N éléments analysés`.
 6. **Articles (phase 2)** : case `Sélection uniquement`, popup d'articles,
    `Affecter l'article` · `Importer des articles…` · `Créer la classification`.
@@ -109,17 +115,40 @@ Tous les membres de l'union `API_ElementQuantity` sont désormais couverts
 multiniveaux) sont lues dans des buffers mais pas encore affichées — piste
 pour une phase ultérieure.
 
+### Ce que la phase 4 ajoute — ensembles facturables
+
+| Fonction | Détail |
+|---|---|
+| **Grouper en ensemble** | Sélection multi-lignes + article du popup → un « ensemble CostWaves » : chaque membre reçoit la classe, `CW_Article_ID` et `CW_Group_ID` (identifiant `CW-G-…` unique). **Une seule commande annulable** (Ctrl+Z dissout tout). |
+| **Exclusion « consommé »** | Les membres d'un ensemble ne sont **pas facturés individuellement** : ils apparaissent en sous-lignes `Membre (consommé)` sous leur ligne `Ensemble`, et sortent du récapitulatif et des quantités facturées. |
+| **Facturation ENS (forfait)** | Article à l'unité `ENS` (ou vide) : quantité facturée = **1 par ligne** (élément seul ou ensemble). Article à l'unité m²/m³/m/U : quantité = première quantité de l'élément portant cette unité ; pour un ensemble = **somme des quantités de ses membres**. |
+| **Dissoudre l'ensemble** | Retire `CW_Group_ID` (valeur vidée) sur les membres — une commande annulable. La classe et l'article sont conservés : les éléments redeviennent facturables individuellement. |
+| **Récapitulatif par article** | Bouton dédié → fenêtre (créée en code, sans ressource) listant par article : identifiant, libellé, unité, nombre d'éléments et d'ensembles, **quantité totale facturée**. Les articles inconnus du catalogue apparaissent avec l'unité `?` (pas de total). |
+| **Affectation sur un ensemble** | `Affecter l'article` sur une ligne `Ensemble` = changer l'article de **tous ses membres** en une commande ; sur une ligne membre consommé → refus explicite (dissoudre d'abord). |
+
+Propriétés utilisées (groupe « CostWaves », créées à la demande) :
+`CW_Article_ID` (déjà phase 2) et **`CW_Group_ID`** (texte, lu au scan —
+résolu sans création pour ne rien écrire lors des lectures).
+
 ### Exports
 
 Fichiers écrits **à côté du .PLN** (ou dans *Documents* si projet non enregistré) :
 
 - `<Projet>_CostWaves_<AAAAMMJJ_HHMMSS>.json` — structure complète :
   éléments, classe, **article** (id/name/unit reconnu d'après la classe),
-  étage, quantités, skins (matériau + volume + surface projetée),
-  composants (GUID + propriétés). Format d'échange pour CostWaves.
+  étage, quantités, skins (matériau + volume + surface projetée +, si la
+  structure composite est reconnue : `composite`, `skinIndex`/`skinCount`,
+  `core`, `finish`), composants (GUID + propriétés) ;
+  **(phase 4)** bloc `summary` (totaux facturés par article), blocs
+  `{ "kind": "group", "groupId", "billedQuantity", "billedUnit", "members": […] }`
+  pour les ensembles et `"groupId"`/`"consumed": true` sur les membres.
+  Format d'échange pour CostWaves.
 - `<Projet>_CostWaves_<AAAAMMJJ_HHMMSS>.csv` — **format long** (une ligne par
   quantité : `Type;GUID;ID élément;Étage;Classe;Article;Libellé;Valeur;Unité`),
-  séparateur `;`, UTF-8 avec BOM → s'ouvre directement dans Excel.
+  séparateur `;`, UTF-8 avec BOM → s'ouvre directement dans Excel. Les lignes
+  skins portent le matériau et le composite ; **(phase 4)** lignes `Ensemble`
+  (avec `Quantité facturée`), lignes `Membre (consommé)` et bloc final
+  `Récapitulatif` (une ligne par article).
 
 ### Phase 2 : articles CostWaves (codée)
 
@@ -263,6 +292,34 @@ Options utiles : `-b Debug` (configuration) · `-p` (package zip) ·
       phase 2 (quantités lues par lot, un appel par type ; noms de matériaux
       et composites mis en cache) ; pas de gel anormal de la fenêtre
 
+### Phase 4 — ensembles, consommés, ENS, récapitulatif
+
+- [ ] Sélectionner 2-3 éléments classés, choisir un article **à l'unité ENS**
+      (ou vide), cliquer « Grouper en ensemble » → message avec l'identifiant
+      `CW-G-…`, le tableau montre une ligne `Ensemble` suivi de ses membres
+      `Membre (consommé)` ; **Ctrl+Z annule tout** (les éléments redeviennent
+      des lignes `Élément` normales)
+- [ ] Les membres portent `CW_Group_ID` (sélectionner un élément dans Archicad >
+      Paramètres > propriétés CostWaves) avec le même identifiant
+- [ ] « Récapitulatif par article » : l'ensemble compte pour **1 ENS** dans le
+      total de son article ; les membres consommés n'apparaissent pas
+      individuellement
+- [ ] Grouper avec un article **en m²/m³/m** : la quantité facturée de
+      l'ensemble = somme des quantités des membres dans cette unité (ex. deux
+      portes → somme des surfaces)
+- [ ] « Affecter l'article » sur une ligne `Ensemble` → tous les membres
+      changent d'article (un seul Ctrl+Z) ; sur une ligne membre → message
+      d'erreur explicite
+- [ ] « Dissoudre l'ensemble » (depuis la ligne Ensemble ou un membre) → les
+      éléments redeviennent facturables individuellement, classe/article
+      conservés ; Ctrl+Z restaure l'ensemble
+- [ ] Ligne d'état : `N ensemble(s) · N consommé(s)` apparaît après regroupement
+- [ ] Export JSON : bloc `summary` + bloc `"kind": "group"` avec `members` ;
+      export CSV : lignes `Ensemble`/`Membre (consommé)` et bloc final
+      `Récapitulatif`
+- [ ] Recréer un ensemble dans la même seconde → identifiants distincts
+      (suffixe `-2`)
+
 ### Exports (toutes phases)
 
 - [ ] Export JSON valide (ouvrir dans un éditeur / validator)
@@ -305,7 +362,7 @@ COSTWAVES/
 | **1 (codée)** | Lecture + tableau + export fichiers | 01, 03, 04, 06, 08, 11, 25, export local |
 | **2 (codée)** | Articles : import JSON/classification, création de la classification CostWaves, affectation, lecture de la sélection, export enrichi | 13, 14, 16, 17, 30 (variante locale) |
 | **3 (codée)** | Finesse : composites avancés (skins enrichis), lecture par lot, tous les types d'éléments | 09, 10 |
-| 4 | Groupes CostWaves, exclusion « consumed », facturation ENS, propriété `CW_Article_ID` | 07, 12, 18–21, 23, 24, 29 |
+| **4 (codée)** | Ensembles CostWaves facturables (exclusion « consommé » automatique), facturation ENS, récapitulatif par article | 07, 12, 18–21, 23, 24, 29 |
 | 5 | Synchro CostWaves (API `id/name/unit`), détection de modifications | 30, 31, 32, 33 |
 
 Les choix définitifs de contenu des phases suivantes seront revalidés avant codage.
@@ -327,6 +384,16 @@ Les choix définitifs de contenu des phases suivantes seront revalidés avant co
 - Les composants « properties » (AC 25+) et les « skins » composites sont
   affichés séparément : c'est un point à valider sur un vrai projet (phase 1 =
   détection de l'existant) avant de choisir comment les mapper aux articles.
+- **Ensembles (phase 4)** : l'appartenance est portée par la propriété texte
+  `CW_Group_ID` sur chaque membre (pas d'élément parent dans Archicad — la
+  ligne « Ensemble » est virtuelle, reconstruite au scan). La dissolution vide
+  la valeur : il n'existe pas d'API pour « détacher » une valeur de propriété
+  d'un élément (`ACAPI_Element_SetProperty` avec texte vide). Le guid de la
+  définition est résolu **sans création** au scan (aucune écriture à la lecture).
+- **Fenêtre récapitulative** : créée entièrement en code
+  (`DG::ModalDialog` programmatique + `DG::MultiSelListBox` avec en-têtes
+  posés par `SetHeaderItemCount`/`SetHeaderItemText`/`SetTabFieldProperties`),
+  sans ressource GRC.
 - **Skins ↔ couches du composite (phase 3)** : `API_CompositeQuantity`
   n'identifie pas sa couche (le `compositeId` ne porte que le GUID du
   sous-élément). La correspondance se fait donc par **position dans le

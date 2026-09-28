@@ -34,6 +34,9 @@
 /* [22] */ LeftText                     10   72   70   18 LargePlain vTop | noTrunc Default "Recherche :"
 /* [23] */ SearchEdit                   85   69  200   22 LargePlain frame | update | absolute | editable 60
 /* [24] */ Button                      370  348  150   23 LargePlain "Créer les matériaux"
+/* [25] */ Button                       10  514  160   23 LargePlain "Grouper en ensemble"
+/* [26] */ Button                      180  514  170   23 LargePlain "Dissoudre l'ensemble"
+/* [27] */ Button                      360  514  250   23 LargePlain "Récapitulatif par article"
 }
 
 'DLGH' ID_ADDON_DLG DLG_CostWaves {
@@ -61,4 +64,7 @@
 22	""	LeftText_9
 23	""	SearchEdit_0
 24	""	Button_7
+25	""	Button_8
+26	""	Button_9
+27	""	Button_10
 }

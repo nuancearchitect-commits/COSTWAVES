@@ -51,7 +51,10 @@ public:
 		ArticlesInfoId		= 21,
 		SearchLabelId		= 22,
 		SearchEditId		= 23,
-		CreateMaterialsButtonId	= 24
+		CreateMaterialsButtonId	= 24,
+		GroupButtonId		= 25,
+		UngroupButtonId		= 26,
+		SummaryButtonId		= 27
 	};
 
 	CostWavesDialog ();
@@ -85,11 +88,21 @@ private:
 
 	// Articles CostWaves (phase 2).
 	void	ReloadArticlesFromSystem ();	// articles = items du système choisi
-	void	LoadArticlesPopup ();			// (re)remplit le popup des articles
-	void	ImportArticles ();				// import JSON (boîte de dialogue fichier)
+	void	LoadArticlesPopup ();		// (re)remplit le popup des articles
+	void	ImportArticles ();			// import JSON (boîte de dialogue fichier)
 	void	CreateClassification ();		// crée/maj le système "CostWaves" (annulable)
 	void	AssignCurrentArticle ();		// affecte l'article aux éléments sélectionnés
-	void	CreateMaterials ();				// matériaux + items + affectation item->matériau
+	void	CreateMaterials ();			// matériaux + items + affectation item->matériau
+
+	// Ensembles CostWaves (phase 4).
+	void	GroupSelected ();			// regroupe les éléments sélectionnés en un ensemble
+	void	UngroupSelected ();			// dissout le(s) ensemble(s) sélectionné(s)
+	void	ShowSummary ();				// fenêtre « Récapitulatif par article »
+
+	// Résout l'item de classification de l'article (système « CostWaves » en
+	// priorité, sinon le système courant). Retourne false si introuvable.
+	bool	ResolveArticleTarget (const GS::UniString& articleId,
+								  API_Guid& outSystemGuid, API_Guid& outItemGuid);
 
 	// L'élément correspond-il au filtre de recherche courant ?
 	bool	ElementMatchesFilter (const CWElementRow& element) const;
@@ -98,11 +111,13 @@ private:
 	// élément). Applique le tri courant à "rows".
 	void	SortRows ();
 
-	// Ligne d'affichage : référence vers un élément ou un de ses composants.
+	// Ligne d'affichage : référence vers un élément, un de ses composants,
+	// ou un membre d'ensemble (phase 4).
 	struct DisplayRow {
 		RowKind	kind = RowKind::Element;
 		UIndex	elementIndex = 0;
 		UIndex	componentIndex = 0;
+		UIndex	memberRowIndex = 0;	// GroupMember : index de la ligne du membre
 	};
 
 	DG::PopUp			systemPopup;
@@ -117,10 +132,13 @@ private:
 	DG::LeftText		detail4;
 	DG::LeftText		detail5;
 	DG::PopUp			articlePopup;
-	DG::Button			assignButton;
-	DG::Button			importButton;
-	DG::Button			createClassButton;
-	DG::Button			createMaterialsButton;
+	DG::Button		assignButton;
+	DG::Button		importButton;
+	DG::Button		createClassButton;
+	DG::Button		createMaterialsButton;
+	DG::Button		groupButton;
+	DG::Button		ungroupButton;
+	DG::Button		summaryButton;
 	DG::LeftText		articlesInfo;
 	DG::LeftText		searchLabel;
 	DG::SearchEdit		searchEdit;
@@ -129,8 +147,9 @@ private:
 	DG::Button			closeButton;
 
 	GS::Array<CWSystemInfo>	systems;
-	API_Guid				selectedSystem = APINULLGuid;
-	API_Guid				elemIdPropGuid = APINULLGuid;
+	API_Guid			selectedSystem = APINULLGuid;
+	API_Guid			elemIdPropGuid = APINULLGuid;
+	API_Guid			groupPropGuid = APINULLGuid;	// CW_Group_ID (phase 4)
 	GS::UniString			elemIdPropNote;
 
 	GS::Array<CWArticle>	articles;			// catalogue courant
