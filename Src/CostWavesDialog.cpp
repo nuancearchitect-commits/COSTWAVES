@@ -4,6 +4,7 @@
 
 #include "ArticleManager.hpp"
 #include "ArticlePickerDialog.hpp"
+#include "CalcRulesDialog.hpp"
 #include "Exporter.hpp"
 #include "MaterialDialog.hpp"
 #include "ModelReader.hpp"
@@ -342,6 +343,7 @@ CostWavesDialog::CostWavesDialog ()
 		modePopup (GetReference (), ModePopupId),
 		draw2DCheck (GetReference (), Draw2DCheckId),
 		draw2DTypePopup (GetReference (), Draw2DTypePopupId),
+		calcRulesButton (GetReference (), CalcRulesButtonId),
 		articlesInfo (GetReference (), ArticlesInfoId),
 		searchLabel (GetReference (), SearchLabelId),
 		searchEdit (GetReference (), SearchEditId),
@@ -367,6 +369,7 @@ CostWavesDialog::CostWavesDialog ()
 	modePopup.Attach (*this);		// PopUpObserver
 	draw2DTypePopup.Attach (*this);	// PopUpObserver
 	draw2DCheck.Attach (*this);	// CheckItemObserver
+	calcRulesButton.Attach (*this);	// ButtonItemObserver
 
 	isFilling = true;
 
@@ -821,7 +824,8 @@ GS::UniString CostWavesDialog::SkinBilledText (const CWComponentRow& skin) const
 		quantity = 1.0;
 		unit = FR ("ENS");
 	} else {
-		quantity = ArticleManager::QuantityForUnit (skin.quantities, article->unit);
+		// Règle de calcul de l'article (fenêtre « Règles de calcul »).
+		quantity = ArticleManager::QuantityForArticle (*article, skin.quantities);
 		unit = article->unit;
 	}
 	return FormatValue (quantity) + " " + unit;
@@ -908,6 +912,10 @@ void CostWavesDialog::ReloadArticlesFromSystem ()
 		}
 	}
 
+	// Règles de calcul mémorisées (CostWaves-calcul.json), par id d'article.
+	GS::UniString calcError;
+	ArticleManager::LoadCalcRules (articles, calcError);	// best effort
+
 	LoadArticlesPopup ();
 }
 
@@ -981,6 +989,11 @@ void CostWavesDialog::ImportArticles ()
 	articles = imported;
 	articlesImported = true;
 
+	// Règles de calcul mémorisées (CostWaves-calcul.json) : réappliquées
+	// après chaque chargement du catalogue, par identifiant d'article.
+	GS::UniString calcError;
+	ArticleManager::LoadCalcRules (articles, calcError);	// best effort
+
 	// Nom du fichier (sans chemin) pour la ligne d'information.
 	std::wstring pathW = GS::ToWString (path);
 	for (wchar_t& ch : pathW) {
@@ -996,6 +1009,38 @@ void CostWavesDialog::ImportArticles ()
 						  GS::ToUniString (std::to_wstring (static_cast<int> (articles.GetSize ())))
 							  + FR (" articles lus depuis ") + articlesSourceName,
 						  FR ("OK"));
+}
+
+
+void CostWavesDialog::OpenCalcRulesDialog ()
+{
+	if (articles.IsEmpty ()) {
+		DG::WarningAlert (FR ("Aucun article disponible."),
+						  FR ("Importez des articles (JSON) ou choisissez un système contenant des items."),
+						  FR ("OK"));
+		return;
+	}
+
+	// inModalDialog : suspend le suivi de sélection pendant la fenêtre modale.
+	inModalDialog = true;
+	CalcRulesDialog dialog (articles, rows);
+	dialog.Invoke ();
+	inModalDialog = false;
+
+	if (!dialog.IsAccepted ())
+		return;
+
+	articles = dialog.GetArticles ();
+
+	// Mémoriser les règles à côté du PLN (best effort : le calcul fonctionne
+	// même sans persistance, pour la session courante).
+	GS::UniString saveError;
+	if (!ArticleManager::SaveCalcRules (articles, saveError))
+		DG::WarningAlert (FR ("Règles appliquées, mais non enregistrées."), saveError, FR ("OK"));
+
+	// Le tableau (colonne Facturé), le récapitulatif et les exports suivent.
+	FillTable ();
+	UpdateStatus ();
 }
 
 
@@ -1973,6 +2018,8 @@ void CostWavesDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 		ShowSummary ();
 	} else if (ev.GetSource () == &sendButton) {
 		SendToCostWaves ();
+	} else if (ev.GetSource () == &calcRulesButton) {
+		OpenCalcRulesDialog ();
 	} else if (ev.GetSource () == &closeButton) {
 		HidePalette ();
 	}

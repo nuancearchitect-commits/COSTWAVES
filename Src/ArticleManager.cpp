@@ -2,6 +2,8 @@
 
 #include "ArticleManager.hpp"
 
+#include "Exporter.hpp"
+
 #include "UniStringWStringConversion.hpp"
 
 #include <chrono>
@@ -374,7 +376,13 @@ bool ArticleManager::ImportFromJsonFile (const GS::UniString& path, GS::Array<CW
 		if (id.IsEmpty ())
 			continue;	// article sans identifiant : ignoré
 
-		outArticles.Push (CWArticle (id, ArticleFieldText (entry, "name"), ArticleFieldText (entry, "unit")));
+		CWArticle article (id, ArticleFieldText (entry, "name"), ArticleFieldText (entry, "unit"));
+		// Règle de calcul optionnelle (fenêtre « Règles de calcul ») :
+		// "calcQuantity" ou l'alias court "quantity".
+		article.calcQuantity = ArticleFieldText (entry, "calcQuantity");
+		if (article.calcQuantity.IsEmpty ())
+			article.calcQuantity = ArticleFieldText (entry, "quantity");
+		outArticles.Push (article);
 	}
 
 	if (outArticles.IsEmpty ()) {
@@ -1040,12 +1048,6 @@ GS::UniString NormalizeUnit (const GS::UniString& unit)
 	return GS::ToUniString (text);
 }
 
-// Première quantité de la ligne portant l'unité donnée (0 sinon).
-double ElementQuantityForUnit (const CWElementRow& row, const GS::UniString& unit)
-{
-	return ArticleManager::QuantityForUnit (row.quantities, unit);
-}
-
 // Ligne d'un élément par GUID (nullptr si absente).
 const CWElementRow* FindRowByGuid (const GS::Array<CWElementRow>& rows, const API_Guid& guid)
 {
@@ -1388,6 +1390,136 @@ bool ArticleManager::IsEnsUnit (const GS::UniString& unit)
 }
 
 
+GS::UniString ArticleManager::NormalizedUnit (const GS::UniString& unit)
+{
+	return NormalizeUnit (unit);
+}
+
+
+double ArticleManager::QuantityForArticle (const CWArticle& article, const GS::Array<CWQuantity>& quantities)
+{
+	// Règle explicite (« Règles de calcul ») : la quantité adoptée est celle
+	// qui porte exactement ce libellé (Surface nette, Surface brute, Volume
+	// conditionné, Surface projetée…). Si la ligne ne la possède pas (autre
+	// type d'élément), repli sur la première quantité de l'unité.
+	if (!article.calcQuantity.IsEmpty ()) {
+		for (UIndex q = 0; q < quantities.GetSize (); ++q) {
+			if (quantities[q].label == article.calcQuantity)
+				return quantities[q].value;
+		}
+	}
+
+	return QuantityForUnit (quantities, article.unit);
+}
+
+
+// --- Règles de calcul : persistance (CostWaves-calcul.json) ----------------------
+
+namespace {
+
+// Chemin du fichier de règles : à côté du PLN (repli : Documents).
+GS::UniString CalcRulesFilePath ()
+{
+	GS::UniString folder;
+	GS::UniString projectName;
+	if (!Exporter::ResolveProjectLocation (folder, projectName))
+		return GS::UniString ();
+	return folder + "/" + US ("CostWaves-calcul.json");
+}
+
+// Échappement minimal d'une chaîne JSON.
+GS::UniString EscapeJsonText (const GS::UniString& text)
+{
+	std::wstring source = GS::ToWString (text);
+	std::wstring escaped;
+	for (wchar_t ch : source) {
+		if (ch == L'\\' || ch == L'"')
+			escaped += L'\\';
+		if (ch < 0x20) {
+			wchar_t buffer[8];
+			swprintf (buffer, 8, L"\\u%04x", static_cast<unsigned int> (ch));
+			escaped += buffer;
+		} else {
+			escaped += ch;
+		}
+	}
+	return GS::ToUniString (escaped);
+}
+
+} // namespace
+
+
+bool ArticleManager::LoadCalcRules (GS::Array<CWArticle>& ioArticles, GS::UniString& outError)
+{
+	outError.Clear ();
+
+	const GS::UniString path = CalcRulesFilePath ();
+	if (path.IsEmpty ())
+		return true;	// dossier inconnu : aucune règle, sans erreur
+
+	std::string content;
+	if (!ReadUtf8File (path, content))
+		return true;	// fichier absent : aucune règle
+
+	JsonParser parser (content);
+	JsonValue root;
+	size_t errorPos = 0;
+	if (!parser.Parse (root, errorPos)) {
+		outError = FR ("CostWaves-calcul.json illisible (vers l'octet ")
+				   + GS::ToUniString (std::to_wstring (static_cast<int> (errorPos))) + FR (").");
+		return false;
+	}
+
+	// Format : {"rules": {"ID": "Libellé"}} (ou l'objet directement).
+	const JsonValue* rules = (root.type == JsonValue::Type::Object) ? root.Find ("rules") : nullptr;
+	if (rules == nullptr && root.type == JsonValue::Type::Object)
+		rules = &root;
+	if (rules == nullptr || rules->type != JsonValue::Type::Object)
+		return true;	// pas de règles lisibles : comportement automatique
+
+	for (UIndex a = 0; a < ioArticles.GetSize (); ++a) {
+		// Les clés JSON sont stockées en UTF-8 brut (JsonValue::objectValue).
+		const auto idUtf8 = ioArticles[a].id.ToCStr (CC_UTF8);
+		const JsonValue* rule = rules->Find (idUtf8.Get ());
+		if (rule == nullptr || rule->type != JsonValue::Type::String)
+			continue;
+		ioArticles[a].calcQuantity = GS::UniString (rule->stringValue.c_str (), CC_UTF8);
+	}
+
+	return true;
+}
+
+
+bool ArticleManager::SaveCalcRules (const GS::Array<CWArticle>& articles, GS::UniString& outError)
+{
+	outError.Clear ();
+
+	const GS::UniString path = CalcRulesFilePath ();
+	if (path.IsEmpty ()) {
+		outError = FR ("Impossible de déterminer le dossier du projet (enregistrez le PLN puis réessayez).");
+		return false;
+	}
+
+	GS::UniString json;
+	json += US ("{\n  \"rules\": {\n");
+	bool first = true;
+	for (UIndex a = 0; a < articles.GetSize (); ++a) {
+		if (articles[a].calcQuantity.IsEmpty ())
+			continue;	// article en automatique : rien à mémoriser
+		json += (first ? US ("") : US (",\n")) + US ("    ") + EscapeJsonText (articles[a].id)
+			+ US (": ") + EscapeJsonText (articles[a].calcQuantity);
+		first = false;
+	}
+	json += US ("\n  }\n}\n");
+
+	if (!Exporter::WriteUtf8File (path, json, false)) {
+		outError = FR ("Écriture de CostWaves-calcul.json impossible.");
+		return false;
+	}
+	return true;
+}
+
+
 double ArticleManager::ComputeBilledQuantity (const CWArticle& article, const CWElementRow& row,
 											  const GS::Array<CWElementRow>& allRows,
 											  GS::UniString& outUnit)
@@ -1409,17 +1541,17 @@ double ArticleManager::ComputeBilledQuantity (const CWArticle& article, const CW
 
 	if (row.isGroupRow) {
 		// Ensemble facturé dans l'unité de l'article : somme des quantités
-		// des membres portant cette unité.
+		// des membres selon la règle de calcul de l'article.
 		double total = 0.0;
 		for (UIndex m = 0; m < row.groupMembers.GetSize (); ++m) {
 			const CWElementRow* member = FindRowByGuid (allRows, row.groupMembers[m]);
 			if (member != nullptr)
-				total += ElementQuantityForUnit (*member, article.unit);
+				total += QuantityForArticle (article, member->quantities);
 		}
 		return total;
 	}
 
-	return ElementQuantityForUnit (row, article.unit);
+	return QuantityForArticle (article, row.quantities);
 }
 
 
@@ -1512,7 +1644,7 @@ void ArticleManager::BuildArticleSummary (const GS::Array<CWElementRow>& rows,
 				GS::UniString unit;
 				const double quantity = IsEnsUnit (skinArticle->unit)
 					? 1.0
-					: QuantityForUnit (component.quantities, skinArticle->unit);
+					: QuantityForArticle (*skinArticle, component.quantities);
 				skinEntry.totalQuantity += quantity;
 				skinEntry.unit = skinArticle->unit.IsEmpty () ? FR ("ENS") : skinArticle->unit;
 			}

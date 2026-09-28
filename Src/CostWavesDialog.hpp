@@ -65,7 +65,8 @@ public:
 		SourceLabelId		= 30,
 		ModePopupId			= 31,
 		Draw2DCheckId		= 32,
-		Draw2DTypePopupId	= 33
+		Draw2DTypePopupId	= 33,
+		CalcRulesButtonId	= 34
 	};
 
 	// Singleton : la palette vit aussi longtemps que l'add-on.
@@ -130,6 +131,7 @@ private:
 	void	ReloadArticlesFromSystem ();	// articles = items du système choisi
 	void	LoadArticlesPopup ();		// (re)remplit le popup des articles
 	void	ImportArticles ();			// import JSON (boîte de dialogue fichier)
+	void	OpenCalcRulesDialog ();		// règle de calcul par article (fenêtre dédiée)
 	void	CreateClassification ();		// crée/maj le système "CostWaves" (annulable)
 	void	AssignCurrentArticle ();	// affecte l'article aux éléments sélectionnés
 	void	CreateMaterials ();			// fenêtre « Créer le matériau… » (phase 5)
@@ -192,6 +194,7 @@ private:
 	DG::PopUp		modePopup;			// Élément / Composants (skins)
 	DG::CheckBox		draw2DCheck;		// inclure les dessins 2D
 	DG::PopUp		draw2DTypePopup;	// filtre par type 2D
+	DG::Button		calcRulesButton;	// « Règles de calcul… »
 	DG::LeftText		articlesInfo;
 	DG::LeftText		searchLabel;
 	DG::SearchEdit		searchEdit;

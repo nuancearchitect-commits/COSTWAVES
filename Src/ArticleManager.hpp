@@ -188,6 +188,21 @@ public:
 	// Comparaison normalisée (majuscules, ² -> 2, ³ -> 3).
 	static double	QuantityForUnit (const GS::Array<CWQuantity>& quantities, const GS::UniString& unit);
 
+	// Règle de calcul (fenêtre « Règles de calcul ») : quantité adoptée pour
+	// l'article — libellé explicite si calcQuantity est défini, sinon repli
+	// sur la première quantité de l'unité.
+	static double	QuantityForArticle (const CWArticle& article, const GS::Array<CWQuantity>& quantities);
+
+	// Unité normalisée pour comparaison ("m²" -> "M2") : exposée aux fenêtres
+	// qui filtrent les quantités candidates par unité.
+	static GS::UniString	NormalizedUnit (const GS::UniString& unit);
+
+	// Règles de calcul persistées dans « CostWaves-calcul.json » à côté du
+	// PLN ({"rules": {"CW-MUR": "Surface nette", …}}) : chargement best effort
+	// (fichier absent = aucune règle), enregistrement des règles définies.
+	static bool		LoadCalcRules (GS::Array<CWArticle>& ioArticles, GS::UniString& outError);
+	static bool		SaveCalcRules (const GS::Array<CWArticle>& articles, GS::UniString& outError);
+
 	// Récapitulatif par article : parcourt les lignes facturables (éléments
 	// libres + ensembles ; les membres consommés sont exclus) et totalise
 	// les quantités facturées par article (identifié par la classe).

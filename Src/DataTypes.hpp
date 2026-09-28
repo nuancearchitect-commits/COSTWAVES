@@ -109,6 +109,9 @@ struct CWArticle {
 	GS::UniString	id;		// identifiant CostWaves = id de l'item de classification
 	GS::UniString	name;	// libellé
 	GS::UniString	unit;	// "m2", "m3", "m", "U"... (vide si inconnue)
+	GS::UniString	calcQuantity;	// règle de calcul : libellé de la quantité à adopter
+								// ("Surface nette", "Surface brute", "Volume conditionné"…).
+								// Vide = automatique (première quantité de l'unité).
 	short			depth = 0;	// profondeur dans la classification (0 = racine, pour l'indentation)
 
 	CWArticle () = default;

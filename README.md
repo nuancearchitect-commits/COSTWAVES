@@ -109,6 +109,23 @@ La palette :
  **suit la sélection du plan en direct** — on sélectionne dans Archicad, le tableau s'actualise),
    popup d'articles **hiérarchique** (indenté comme l'arbre des classifications),
    `Affecter l'article` · `Importer des articles…` · `Créer la classification`.
+7. **Règles de calcul** (bouton `Règles de calcul…`) — **pour chaque article, définir
+   quelle quantité adopter** pour la facturation : une fenêtre dédiée liste les
+   articles (ID, libellé, unité, quantité à facturer) et, **selon le type de
+   l'article (son unité)**, ne propose que les quantités compatibles lues dans
+   le projet :
+   - article au **m²** → Surface nette, Surface brute, Surface projetée, Surface
+     côté ligne de réf., surfaces des skins… ;
+   - article au **m³** → Volume, Volume conditionné, Volume brut… ;
+   - article au **ml** → Longueur, Longueur 3D, Périmètre, Circonférence… ;
+   - article **ENS/U** → comptage (1 par ligne/groupe), pas de règle ;
+   - `Automatique (selon l'unité)` = première quantité de l'unité (défaut) ;
+   si la quantité choisie n'existe pas sur une ligne (autre type d'élément),
+   repli automatique sur l'unité.
+   La règle s'applique à la colonne `Facturé`, au récapitulatif par article,
+   aux exports JSON/CSV et au payload API (`calcQuantity` par article) ; elle est
+   mémorisée dans `CostWaves-calcul.json` à côté du PLN et peut aussi venir du
+   catalogue importé (champ `calcQuantity` ou `quantity` du JSON d'articles).
 
 ### Ce que la phase 1 lit dans Archicad
 
@@ -255,6 +272,23 @@ pas un choix.
    restent ; décocher la case → retour au BIM seul.
 6. Exports : colonnes `Source` et `Calque` dans le CSV, `classified2D` dans le
    JSON, champs `source`/`layer` par élément dans le payload API.
+
+### Phase 7 bis — Règles de calcul (quantité à adopter par article)
+
+1. Ouvrir « Règles de calcul… » : le tableau liste les articles ; sélectionner
+   un article au m² → le popup ne propose que les surfaces lues dans le projet
+   (Surface nette, Surface brute, Surface projetée…) ; un article au m³ → les
+   volumes ; un article ENS → « (comptage) ».
+2. Choisir « Surface nette » pour un article de mur : la colonne `Facturé` du
+   tableau, le récapitulatif par article et l'export CSV/JSON basculent sur la
+   surface nette ; choisir « Volume conditionné » pour un article au m³ et
+   vérifier de même.
+3. Un même article appliqué à des éléments sans cette quantité (ex. hachure
+   pour un article « Surface nette ») : repli automatique sur l'unité.
+4. OK → fermer/réouvrir Archicad : les règles sont conservées
+   (`CostWaves-calcul.json` à côté du PLN) ; Annuler → aucune modification.
+5. Catalogue JSON avec `"calcQuantity": "Surface brute"` : la règle est
+   appliquée dès l'import ; le champ `calcQuantity` part dans le payload API.
 
 ## 3. Build (Windows)
 
@@ -499,7 +533,7 @@ COSTWAVES/
 | **4 (codée)** | Ensembles CostWaves facturables (exclusion « consommé » automatique), facturation ENS, récapitulatif par article | 07, 12, 18–21, 23, 24, 29 |
 | **5 (codée)** | Palette modeless (navigation/sélection libres, suivi de sélection), tableau 6 colonnes, fenêtre « Créer le matériau… », « Créer un ensemble » / « Créer un groupe » (groupes numérotés, quantité = nombre de groupes) | 02, 05, 15, 22, 26–28 |
 | **6 (codée)** | Communication Archicad → CostWaves (spéc. §12/§13) : bouton « Envoyer vers CostWaves… » + commande de menu, fenêtre de réglages (URL, clé API, traitement des articles inconnus §6), payload JSON complet, envoi HTTP(S) via WinHTTP | 30, 31, 32, 33 |
-| **7 (codée)** | Sources de quantification (spéc. repostée §1–§10) : mode **Élément / Composants** exclusif, **dessins 2D** (ligne, polyligne, spline, arc, cercle, hachure) comme objets de métré à part entière dans le même tableau (colonne Source), filtre par type 2D, classe 2D = classification ou propriété CW_Article_ID | — |
+| **7 (codée)** | Sources de quantification (spéc. repostée §1–§10) : mode **Élément / Composants** exclusif, **dessins 2D** (ligne, polyligne, spline, arc, cercle, hachure) comme objets de métré à part entière dans le même tableau (colonne Source), filtre par type 2D, classe 2D = classification ou propriété CW_Article_ID ; **règles de calcul** : quantité à adopter par article (nette, brute, conditionnée, projetée…) choisie dans la fenêtre « Règles de calcul… » | — |
 | 8 | Synchro bidirectionnelle CostWaves ↔ Archicad, détection de modifications de quantités (le module `CostWavesApi` isole déjà le transport) | |
 
 Les choix définitifs de contenu des phases suivantes seront revalidés avant codage.

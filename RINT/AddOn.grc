@@ -33,12 +33,13 @@
 /* [16] */ LeftText                     10  320   62   18 LargePlain vTop | noTrunc Default "Article :"
 /* [17] */ PopupControl                 75  317  370   22 80 3
 /* [18] */ Button                      450  314  160   23 LargePlain "Affecter l'article"
-/* [19] */ Button                       10  348  160   23 LargePlain "Importer des articles…"
-/* [20] */ Button                      180  348  180   23 LargePlain "Créer la classification"
+/* [19] */ Button                       10  348  150   23 LargePlain "Importer des articles…"
+/* [20] */ Button                      158  348  170   23 LargePlain "Créer la classification"
 /* [21] */ LeftText                    315   72  295   18 SmallPlain vTop | noTrunc Default ""
 /* [22] */ LeftText                     10   72   70   18 LargePlain vTop | noTrunc Default "Recherche :"
 /* [23] */ SearchEdit                   85   69  200   22 LargePlain frame | update | absolute | editable 60
-/* [24] */ Button                      370  348  150   23 LargePlain "Créer le matériau…"
+/* [24] */ Button                      334  348  140   23 LargePlain "Créer le matériau…"
+/* [34] */ Button                      480  348  130   23 LargePlain "Règles de calcul…"
 /* [25] */ Button                       10  542  150   23 LargePlain "Créer un ensemble"
 /* [26] */ Button                      316  542  294   23 LargePlain "Dissoudre ensemble / groupe"
 /* [27] */ Button                      258  576  242   23 LargePlain "Récapitulatif par article"
@@ -80,6 +81,7 @@
 31   ""        PopupControl_2
 32   ""        CheckBox_1
 33   ""        PopupControl_3
+34   ""        Button_13
 }
 
 'GDLG' ID_ADDON_DLG_PICKER Modal |noGrow   60   60  440 200  "CostWaves — Article" {
@@ -188,4 +190,22 @@
 7    ""        LeftText_3
 8    ""        Button_0
 9    ""        Button_1
+}
+
+'GDLG' ID_ADDON_DLG_CALC Modal |noGrow   60   60  640 430  "CostWaves — Règles de calcul" {
+/* [  1] */ LeftText                    10   12  620   30 LargePlain vTop | noTrunc Default ""
+/* [  2] */ MultiSelList                10   48  620  240 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */ LeftText                    10  300  170   18 LargePlain vTop | noTrunc Default "Quantité à adopter :"
+/* [  4] */ PopupControl               185  297  445   22 80 3
+/* [  5] */ Button                     420  395  100   23 LargePlain "OK"
+/* [  6] */ Button                     530  395  100   23 LargePlain "Annuler"
+}
+
+'DLGH' ID_ADDON_DLG_CALC DLG_Calc_Rules {
+1    ""        LeftText_0
+2    ""        MultiSelList_0
+3    ""        LeftText_1
+4    ""        PopupControl_0
+5    ""        Button_0
+6    ""        Button_1
 }
