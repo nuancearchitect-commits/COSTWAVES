@@ -632,7 +632,7 @@ void AddGdlDimensionQuantities (const API_Guid& elemGuid, bool withStructSizes,
 	bool hasParamB = false;
 	for (GSIndex p = 0; p < nParams; ++p) {
 		const API_AddParType& par = (*memo.params)[p];
-		if (par.typeID != ParT_Length)
+		if (par.typeID != APIParT_Length)
 			continue;
 		if (strcmp (par.name, "A") == 0) {
 			paramA = par.value.real;
