@@ -8,6 +8,8 @@
 #include "MaterialDialog.hpp"
 #include "ModelReader.hpp"
 #include "SummaryDialog.hpp"
+#include "SendDialog.hpp"
+#include "CostWavesApi.hpp"
 
 #include "UniStringWStringConversion.hpp"
 
@@ -312,6 +314,7 @@ CostWavesDialog::CostWavesDialog ()
 		createGroupButton (GetReference (), CreateGroupButtonId),
 		ungroupButton (GetReference (), UngroupButtonId),
 		summaryButton (GetReference (), SummaryButtonId),
+		sendButton (GetReference (), SendButtonId),
 		articlesInfo (GetReference (), ArticlesInfoId),
 		searchLabel (GetReference (), SearchLabelId),
 		searchEdit (GetReference (), SearchEditId),
@@ -333,6 +336,7 @@ CostWavesDialog::CostWavesDialog ()
 	createGroupButton.Attach (*this);	// ButtonItemObserver
 	ungroupButton.Attach (*this);	// ButtonItemObserver
 	summaryButton.Attach (*this);	// ButtonItemObserver
+	sendButton.Attach (*this);	// ButtonItemObserver
 	searchEdit.Attach (*this);		// SearchEditObserver
 	exportJsonButton.Attach (*this);
 	exportCsvButton.Attach (*this);
@@ -1676,6 +1680,105 @@ void CostWavesDialog::ShowSummary ()
 }
 
 
+void CostWavesDialog::SendToCostWaves ()
+{
+	// Données fraîches si le tableau est vide (envoi depuis le menu).
+	if (rows.IsEmpty ())
+		RefreshData ();
+
+	if (rows.IsEmpty ()) {
+		DG::WarningAlert (FR ("Aucun élément classé à envoyer."),
+						  FR ("Lisez d'abord le modèle avec un système de classification (la palette liste les éléments classés et les skins classés)."),
+						  FR ("OK"));
+		return;
+	}
+
+	// Récapitulatif facturé + comptage du contenu de l'envoi.
+	GS::Array<CWArticleSummary> summary;
+	ArticleManager::BuildArticleSummary (rows, articles, summary);
+
+	USize classifiedElements = 0;
+	USize classifiedSkins = 0;
+	for (UIndex i = 0; i < rows.GetSize (); ++i) {
+		if (!rows[i].consumed && !rows[i].classItemId.IsEmpty ())
+			++classifiedElements;
+		for (UIndex c = 0; c < rows[i].components.GetSize (); ++c) {
+			if (rows[i].components[c].kind == RowKind::Skin
+				&& !rows[i].components[c].classItemId.IsEmpty ())
+				++classifiedSkins;
+		}
+	}
+
+	// Réglages (URL, clé API, traitement des articles inconnus — spéc. §6).
+	CWApiSettings settings;
+	GS::UniString settingsError;
+	CostWavesApi::LoadSettings (settings, settingsError);
+
+	inModalDialog = true;
+	SendDialog sendDialog (settings, classifiedElements, classifiedSkins, articles.GetSize ());
+	sendDialog.Invoke ();
+	inModalDialog = false;
+
+	if (!sendDialog.IsAccepted ())
+		return;
+
+	settings = sendDialog.GetSettings ();
+	CostWavesApi::SaveSettings (settings, settingsError);	// best effort
+
+	// Projet : identifiant = nom du PLN (sans extension).
+	GS::UniString folder;
+	GS::UniString projectName;
+	Exporter::ResolveProjectLocation (folder, projectName);
+
+	const GS::UniString payload = CostWavesApi::BuildPayload (projectName, projectName,
+															  rows, articles, summary, settings);
+
+	DG::InformationAlert (FR ("Envoi en cours…"),
+						  FR ("L'envoi vers CostWaves est bloquant pendant quelques secondes ; le résultat s'affichera ensuite."),
+						  FR ("OK"));
+
+	const CWApiSendResult result = CostWavesApi::Send (settings, payload);
+
+	if (result.err != NoError) {
+		GS::UniString detail = result.error.IsEmpty ()
+			? FR ("Erreur inconnue lors de l'envoi.")
+			: result.error;
+		if (result.httpStatus > 0)
+			detail += FR (" (HTTP ") + GS::ToUniString (std::to_wstring (result.httpStatus)) + FR (")");
+		if (!result.message.IsEmpty ())
+			detail += FR ("\n") + result.message;
+		DG::ErrorAlert (FR ("Échec de l'envoi vers CostWaves."), detail, FR ("OK"));
+		return;
+	}
+
+	// Résultat : lignes créées/mises à jour + articles signalés inconnus.
+	GS::UniString detail = FR ("Projet « ") + projectName + FR (" » envoyé.");
+	if (result.httpStatus > 0)
+		detail += FR (" (HTTP ") + GS::ToUniString (std::to_wstring (result.httpStatus)) + FR (")");
+	detail += FR ("\n");
+	detail += GS::ToUniString (std::to_wstring (static_cast<int> (result.createdLines)))
+		+ FR (" ligne(s) créée(s), ")
+		+ GS::ToUniString (std::to_wstring (static_cast<int> (result.updatedLines)))
+		+ FR (" ligne(s) mise(s) à jour.");
+	if (!result.unknownArticles.IsEmpty ()) {
+		detail += FR ("\nArticles signalés inconnus par le serveur : ");
+		for (UIndex i = 0; i < result.unknownArticles.GetSize (); ++i) {
+			if (i > 0)
+				detail += FR (", ");
+			detail += result.unknownArticles[i];
+		}
+		detail += FR ("\nMode appliqué : ")
+			+ (settings.IsUnknownProjectOnly () ? FR ("ajout au projet uniquement")
+			  : settings.IsUnknownBaseAndProject () ? FR ("ajout à la base + au projet")
+			  : FR ("ignorés"));
+	}
+	if (!result.message.IsEmpty ())
+		detail += FR ("\n") + result.message;
+
+	DG::InformationAlert (FR ("Envoi vers CostWaves effectué."), detail, FR ("OK"));
+}
+
+
 void CostWavesDialog::Export (bool jsonFormat)
 {
 	if (rows.IsEmpty ()) {
@@ -1750,6 +1853,8 @@ void CostWavesDialog::PanelResized (const DG::PanelResizeEvent& ev)
 	exportCsvButton.Move (0, dy);
 	summaryButton.MoveAndResize (0, dy, dx, 0);
 	closeButton.MoveAndResize (dx, dy, 0, 0);
+	// Rangée envoi (bas-gauche) : suit le bas de la palette.
+	sendButton.Move (0, dy);
 
 	EndMoveResizeItems ();
 }
@@ -1779,6 +1884,8 @@ void CostWavesDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 		UngroupSelected ();
 	} else if (ev.GetSource () == &summaryButton) {
 		ShowSummary ();
+	} else if (ev.GetSource () == &sendButton) {
+		SendToCostWaves ();
 	} else if (ev.GetSource () == &closeButton) {
 		HidePalette ();
 	}

@@ -13,6 +13,7 @@ const Int32		AddOnDescriptionID	= 2;
 
 const short		AddOnMenuID			= ID_ADDON_MENU;
 const Int32		AddOnCommandID		= 1;
+const Int32		SendCommandID		= 2;
 
 GSErrCode MenuCommandHandler (const API_MenuParams* menuParams)
 {
@@ -30,6 +31,15 @@ GSErrCode MenuCommandHandler (const API_MenuParams* menuParams)
 						} else {
 							CostWaves::CostWavesDialog::Instance ().ShowPalette ();
 						}
+					}
+					break;
+				case SendCommandID:
+					{
+						// Communication Archicad -> CostWaves (spéc. §12/§13) :
+						// palette ouverte si besoin, puis fenêtre d'envoi.
+						if (!CostWaves::CostWavesDialog::HasInstance ())
+							CostWaves::CostWavesDialog::Instance ().ShowPalette ();
+						CostWaves::CostWavesDialog::Instance ().SendToCostWaves ();
 					}
 					break;
 			}

@@ -59,7 +59,8 @@ public:
 		GroupButtonId		= 25,
 		UngroupButtonId		= 26,
 		SummaryButtonId		= 27,
-		CreateGroupButtonId	= 28
+		CreateGroupButtonId	= 28,
+		SendButtonId		= 29
 	};
 
 	// Singleton : la palette vit aussi longtemps que l'add-on.
@@ -127,7 +128,11 @@ private:
 	//  - numbered = true  : groupe numéroté (CW-N-…), 1 par groupe dans le métré.
 	void	CreateEnsembleOrGroup (bool numbered);
 	void	UngroupSelected ();		// dissout le(s) ensemble(s)/groupe(s) sélectionné(s)
-	void	ShowSummary ();			// fenêtre « Récapitulatif par article »
+	void	ShowSummary ();		// fenêtre « Récapitulatif par article »
+
+	// Communication Archicad -> CostWaves (spéc. §12/§13) : fenêtre de
+	// réglages (URL, clé API, articles inconnus) puis envoi du payload.
+	void	SendToCostWaves ();
 
 	// Résout l'item de classification de l'article (système « CostWaves » en
 	// priorité, sinon le système courant). Retourne false si introuvable.
@@ -173,6 +178,7 @@ private:
 	DG::Button			createGroupButton;
 	DG::Button			ungroupButton;
 	DG::Button			summaryButton;
+	DG::Button			sendButton;			// « Envoyer vers CostWaves… »
 	DG::LeftText		articlesInfo;
 	DG::LeftText		searchLabel;
 	DG::SearchEdit		searchEdit;

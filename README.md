@@ -32,7 +32,7 @@ Code livré, à compiler sur Windows.
 
 ---
 
-## 2. Périmètre codé (phases 1 → 5)
+## 2. Périmètre codé (phases 1 → 6)
 
 L'Add-On ajoute une commande **« CostWaves – Lecture des quantités… »** (menu Options) qui
 ouvre/ferme la **palette CostWaves** (fenêtre flottante *modeless* : elle ne bloque ni la
@@ -196,6 +196,22 @@ l'**élément** (ses composants suivent). C'est une contrainte de l'API 29,
 pas un choix.
 
 ---
+
+### Phase 6 — Communication Archicad → CostWaves
+
+1. Bouton « Envoyer vers CostWaves… » (bas de palette) et commande de menu
+   « CostWaves → Envoyer vers CostWaves… » : la fenêtre de réglages s'ouvre.
+2. URL vide → validation refusée avec message ; URL invalide → erreur claire
+   après clic sur Envoyer (hôte injoignable / URL invalide).
+3. Renseigner l'URL de l'API d'import + la clé API, envoyer : vérifier côté
+   serveur le payload (projectId, articles, summary, elements avec quantités
+   normalisées et components skins classés, membres consommés absents).
+4. Articles inconnus : sélectionner chaque mode dans la fenêtre (projet
+   uniquement par défaut) et vérifier `unknownArticleMode` dans le payload ;
+   la réponse du serveur listant `unknownArticles` s'affiche dans le bilan.
+5. Fermer/réouvrir : `CostWaves-settings.json` à côté du PLN retient URL,
+   clé et mode.
+6. Projet non enregistré : l'envoi utilise « SansTitre » (repli Documents).
 
 ## 3. Build (Windows)
 
@@ -420,6 +436,8 @@ COSTWAVES/
     ├── ModelReader.*        # lecture Archicad (classification, sélection, quantités, composants)
     ├── ArticleManager.*     # articles, classification, matériaux, ensembles/groupes
     ├── SummaryDialog.*      # récapitulatif par article
+    ├── SendDialog.*         # fenêtre « Envoyer vers CostWaves » (URL, clé, articles inconnus)
+    ├── CostWavesApi.*       # communication CostWaves (payload §13, WinHTTP, réglages)
     ├── Exporter.*           # export JSON / CSV (UTF-8), enrichi de l'article
     ├── DataTypes.hpp        # modèle de données interne
     ├── ResourceIds.hpp
@@ -437,7 +455,8 @@ COSTWAVES/
 | **3 (codée)** | Finesse : composites avancés (skins enrichis), lecture par lot, tous les types d'éléments | 09, 10 |
 | **4 (codée)** | Ensembles CostWaves facturables (exclusion « consommé » automatique), facturation ENS, récapitulatif par article | 07, 12, 18–21, 23, 24, 29 |
 | **5 (codée)** | Palette modeless (navigation/sélection libres, suivi de sélection), tableau 6 colonnes, fenêtre « Créer le matériau… », « Créer un ensemble » / « Créer un groupe » (groupes numérotés, quantité = nombre de groupes) | 02, 05, 15, 22, 26–28 |
-| 6 | Synchro CostWaves (API `id/name/unit`), détection de modifications | 30, 31, 32, 33 |
+| **6 (codée)** | Communication Archicad → CostWaves (spéc. §12/§13) : bouton « Envoyer vers CostWaves… » + commande de menu, fenêtre de réglages (URL, clé API, traitement des articles inconnus §6), payload JSON complet, envoi HTTP(S) via WinHTTP | 30, 31, 32, 33 |
+| 7 | Synchro bidirectionnelle CostWaves ↔ Archicad, détection de modifications de quantités (le module `CostWavesApi` isole déjà le transport) | |
 
 Les choix définitifs de contenu des phases suivantes seront revalidés avant codage.
 
@@ -464,6 +483,28 @@ Les choix définitifs de contenu des phases suivantes seront revalidés avant co
   la valeur : il n'existe pas d'API pour « détacher » une valeur de propriété
   d'un élément (`ACAPI_Element_SetProperty` avec texte vide). Le guid de la
   définition est résolu **sans création** au scan (aucune écriture à la lecture).
+- **Communication CostWaves (spéc. §12/§13, phase 6)** : le module `CostWavesApi`
+  (`Src/CostWavesApi.hpp/.cpp`) isole tout le transport — payload, envoi,
+  analyse de réponse — pour préparer la synchro bidirectionnelle sans toucher
+  au reste de l'Add-On. Détails :
+  - **Payload** (§13) : `projectId`/`projectName` (nom du PLN), catalogue
+    `articles` (id/name/unit), `summary` facturé par article (compteurs
+    éléments/ensembles/groupes/skins + quantité totale), puis `elements` :
+    éléments classés, ensembles et groupes numérotés (membres consommés exclus,
+    §8/§9) avec classe, article, quantité facturée, unité, **toutes les quantités**
+    (clés normalisées : `surface`, `volume`, `length3d`, `thickness`,
+    `projectedSurface`…) et `components` = skins classés (§4) avec la classe de
+    leur matériau. Le format définitif sera figé avec l'API CostWaves.
+  - **Envoi** : `POST` HTTP(S) via **WinHTTP** (Windows seul, lié par
+    `#pragma comment (lib, "winhttp.lib")`), en-têtes `Content-Type:
+    application/json` + `Authorization: Bearer <clé API>`, délais 10/30 s.
+    Appel **bloquant** pendant l'envoi (MVP ; une alerte prévient l'utilisateur).
+  - **Réponse** : champs lus s'ils sont présents — `createdLines`,
+    `updatedLines`, `unknownArticles` (§6 : le mode — projet uniquement par
+    défaut, base + projet, ignorer — est choisi dans la fenêtre d'envoi et
+    transmis dans `unknownArticleMode`), `message`.
+  - **Réglages** : `CostWaves-settings.json` écrit à côté du PLN (URL, clé API,
+    mode articles inconnus) — rechargés à chaque ouverture de la fenêtre.
 - **Palette (phase 5)** : la fenêtre principale est un `DG::Palette` (GDLG `Palette`),
   singleton enregistré par `ACAPI_RegisterModelessWindow` (messages `APIPalMsg_*`,
   mémorisation de la position). Le suivi de la sélection utilise

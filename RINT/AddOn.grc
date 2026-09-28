@@ -7,9 +7,10 @@
 
 'STR#' ID_ADDON_MENU "Strings for the Menu" {
 /* [  1] */		"CostWaves - Lecture des quantités... ^E3 ^ES ^EE ^EI ^ED ^ET ^10001"
+/* [  2] */		"CostWaves - Envoyer vers CostWaves... ^E3 ^ES ^EE ^EI ^ED ^ET ^10002"
 }
 
-'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  620  600  "CostWaves — Lecture des données" {
+'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  620  640  "CostWaves — Lecture des données" {
 /* [  1] */ LeftText                     10   14  170   18 LargePlain vTop | noTrunc Default "Système de classification :"
 /* [  2] */ PopupControl                185   11  350   22 80 3
 /* [  3] */ Button                       10   42  100   23 LargePlain "Actualiser"
@@ -38,6 +39,7 @@
 /* [26] */ Button                      316  514  294   23 LargePlain "Dissoudre ensemble / groupe"
 /* [27] */ Button                      258  548  242   23 LargePlain "Récapitulatif par article"
 /* [28] */ Button                      168  514  140   23 LargePlain "Créer un groupe"
+/* [29] */ Button                       10  582  220   23 LargePlain "Envoyer vers CostWaves…"
 }
 
 'DLGH' ID_ADDON_DLG DLG_CostWaves {
@@ -69,6 +71,7 @@
 26	""	Button_9
 27    ""        Button_10
 28    ""        Button_11
+29    ""        Button_12
 }
 
 'GDLG' ID_ADDON_DLG_PICKER Modal |noGrow   60   60  440 200  "CostWaves — Article" {
@@ -153,4 +156,28 @@
 'DLGH' ID_ADDON_DLG_SUMMARY DLG_Summary {
 1    ""        MultiSelList_0
 2    ""        Button_0
+}
+
+'GDLG' ID_ADDON_DLG_SEND Modal |noGrow   60   60  560 250  "CostWaves — Envoyer vers CostWaves" {
+/* [  1] */ LeftText                    10   14  150   18 LargePlain vTop | noTrunc Default "URL du serveur :"
+/* [  2] */ TextEdit                   165   11  540   22 LargePlain frame | update | absolute | editable 512
+/* [  3] */ LeftText                    10   42  150   18 LargePlain vTop | noTrunc Default "Clé API :"
+/* [  4] */ TextEdit                   165   39  540   22 LargePlain frame | update | absolute | editable 256
+/* [  5] */ LeftText                    10   70  150   18 LargePlain vTop | noTrunc Default "Articles inconnus :"
+/* [  6] */ PopupControl               165   67  540   22 80 3
+/* [  7] */ LeftText                    10  100  540   70 LargePlain vTop | noTrunc Default ""
+/* [  8] */ Button                     330  200  100   23 LargePlain "Envoyer"
+/* [  9] */ Button                     440  200  100   23 LargePlain "Annuler"
+}
+
+'DLGH' ID_ADDON_DLG_SEND DLG_Send {
+1    ""        LeftText_0
+2    ""        TextEdit_0
+3    ""        LeftText_1
+4    ""        TextEdit_2
+5    ""        LeftText_2
+6    ""        PopupControl_0
+7    ""        LeftText_3
+8    ""        Button_0
+9    ""        Button_1
 }
