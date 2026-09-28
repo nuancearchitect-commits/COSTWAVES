@@ -19,7 +19,7 @@ GS::UniString FR (const char* utf8Text)
 // Sélecteur de structure : réutilise la ressource du dialogue « Article »
 // (texte d'info + popup + deux boutons) pour lister les structures disponibles
 // d'un type donné dans l'environnement Archicad courant.
-class StructurePickerDialog final :\tpublic DG::ModalDialog,
+class StructurePickerDialog final :	public DG::ModalDialog,
 									public DG::ButtonItemObserver
 {
 public:

@@ -15,6 +15,17 @@ enum class CWQuantMode {
 	Component = 1		// quantités des skins de chaque élément
 };
 
+// Types de structures natives Archicad servant de clé aux règles de
+// correspondance (nouvelle architecture, spec §4–§6).
+enum class CWStructureType {
+	BuildingMaterial,
+	Composite,
+	Profile,
+	Favorite,
+	LibraryPart
+};
+
+
 enum class RowKind {
 	Element,
 	Component,	// composant "properties" (API 25+)
@@ -140,14 +151,6 @@ struct CWSystemInfo {
 // métré (élément ou composant) et la quantité à adopter. Elle ne contient
 // JAMAIS la quantité réelle : celle-ci est toujours calculée depuis la
 // maquette. Bibliothèque JSON indépendante des projets (spec §4–§6).
-
-enum class CWStructureType {
-	BuildingMaterial,
-	Composite,
-	Profile,
-	Favorite,
-	LibraryPart
-};
 
 struct CWMapRule {
 	CWStructureType	structureType = CWStructureType::Composite;

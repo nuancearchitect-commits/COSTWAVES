@@ -14,7 +14,7 @@ namespace CostWaves {
 // correspondant. L'article est local (utilisé immédiatement, persisté dans
 // <Documents>/CostWaves-articles-locaux.json) ; l'envoi vers la base CostWaves
 // viendra avec l'API (synchronisation ultérieure).
-class ArticleEditDialog final :\tpublic DG::ModalDialog,
+class ArticleEditDialog final :	public DG::ModalDialog,
 								public DG::ButtonItemObserver
 {
 public:

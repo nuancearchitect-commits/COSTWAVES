@@ -20,7 +20,7 @@ namespace CostWaves {
 //  - « Créer un article… » ajoute un article local (spec §10) ;
 //  - enregistrement dans <Documents>/CostWaves-regles.json, réutilisable
 //    entre les projets.
-class MappingDialog final :\tpublic DG::ModalDialog,
+class MappingDialog final :	public DG::ModalDialog,
 							public DG::ButtonItemObserver,
 							public DG::ListBoxObserver,
 							public DG::PopUpObserver
