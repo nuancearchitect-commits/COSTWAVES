@@ -1,0 +1,104 @@
+name: Build APX (Archicad 29)
+
+# À chaque push sur la branche de travail (fin de tâche) : build Windows du
+# CostWaves.apx et publication dans la release "apx-latest" (téléchargeable
+# depuis la page Releases du dépôt).
+on:
+  push:
+    branches:
+      - arena/01a0e456-costwaves
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: build-apx-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Windows — CostWaves.apx (AC 29)
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+
+      - name: Cache du DevKit 29.3100 (WIN)
+        uses: actions/cache@v4
+        with:
+          path: Build/DevKit
+          key: apidevkit-win-29.3100-v1
+
+      - name: Environnement MSVC (cl sur PATH pour la compilation des ressources)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build (Tools/BuildAddOn.py — DevKit officiel GRAPHISOFT 29.3100)
+        shell: pwsh
+        run: python Tools/BuildAddOn.py --configFile config.json -v 29 -b Release -p
+
+      - name: Localisation et vérification du .apx
+        id: apx
+        shell: pwsh
+        run: |
+          $apx = Get-ChildItem -Path Build -Recurse -Filter CostWaves.apx |
+                 Where-Object { $_.FullName -notmatch 'DevKit' } |
+                 Select-Object -First 1
+          if (-not $apx) { throw "CostWaves.apx introuvable dans Build/" }
+
+          # Vérification minimale : binaire Windows (en-tête MZ).
+          $fs = [System.IO.File]::OpenRead($apx.FullName)
+          $mz = $fs.ReadByte(); $z = $fs.ReadByte(); $fs.Close()
+          if ($mz -ne 0x4D -or $z -ne 0x5A) { throw "Le .apx n'est pas un binaire Windows (en-tête MZ absent)." }
+
+          New-Item -ItemType Directory -Force -Path staging | Out-Null
+          Copy-Item $apx.FullName staging/CostWaves-AC29.apx
+          $zip = Get-ChildItem -Path Build/Package -Recurse -Filter *.zip -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($zip) { Copy-Item $zip.FullName staging/ }
+
+          $sizeKb = [math]::Round($apx.Length / 1KB)
+          Write-Host "CostWaves.apx : $sizeKb Ko"
+          "size_kb=$sizeKb" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Archivage du build (artifact de run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CostWaves-AC29-${{ github.sha }}
+          path: staging/*
+          if-no-files-found: error
+
+      - name: Publication de la release apx-latest
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $sha = '${{ github.sha }}'.Substring(0, 7)
+          $date = (Get-Date -Format "yyyy-MM-dd HH:mm") + " UTC"
+          $first = (git log -1 --pretty=%B | Where-Object { $_.Trim() -ne '' } | Select-Object -First 1)
+          $branch = '${{ github.ref_name }}'
+
+          $notes = @"
+          Build automatique du $date — branche ``$branch``, commit ``$sha``.
+
+          $first
+
+          Installation : Archicad 29 > Options > Gestionnaire des Add-Ons > Ajouter,
+          puis sélectionner ``CostWaves-AC29.apx``. La version précédente peut
+          rester en place (elle sera remplacée au chargement du projet).
+          "@
+
+          $notes | Out-File -FilePath notes.md -Encoding utf8
+
+          gh release delete apx-latest --cleanup-tag --yes 2>$null || Write-Host "Aucune release précédente."
+          gh release create apx-latest staging/CostWaves-AC29.apx `
+            --target ${{ github.sha }} `
+            --title "CostWaves — Add-On Archicad 29 (.apx)" `
+            --notes-file notes.md
+
+          Write-Host "Release publiée : https://github.com/${{ github.repository }}/releases/tag/apx-latest"

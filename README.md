@@ -173,7 +173,23 @@ pas un choix.
 
 ## 3. Build (Windows)
 
-### Prérequis
+### Télécharger le .apx déjà compilé (recommandé)
+
+**Chaque tâche livrée est compilée automatiquement par GitHub Actions**
+(runner Windows + DevKit officiel GRAPHISOFT 29.3100) et le fichier
+`CostWaves-AC29.apx` est publié dans la release **`apx-latest`** :
+
+> **https://github.com/nuancearchitect-commits/COSTWAVES/releases**
+
+- Fichier à télécharger : `CostWaves-AC29.apx` (release « CostWaves — Add-On
+  Archicad 29 (.apx) ») — toujours à jour avec le dernier commit poussé.
+- Historique : chaque build est aussi archivé dans les **artifacts** des runs
+  Actions (90 jours).
+- Installation : voir « Installation dans Archicad » ci-dessous.
+- Le build est déclenché à chaque push sur la branche de travail (fin de
+  tâche = nouveau .apx), ou manuellement (*Actions > Build APX > Run workflow*).
+
+### Prérequis (build local)
 
 - **Visual Studio 2019/2022/2026** avec le toolset **v143** (C++ desktop)
 - **CMake** ≥ 3.19
@@ -215,7 +231,8 @@ Options utiles : `-b Debug` (configuration) · `-p` (package zip) ·
 ### Installation dans Archicad
 
 1. Archicad 29 → **Options > Gestionnaire d'Add-Ons**.
-2. « Ajouter » → sélectionner `CostWaves.apx`.
+2. « Ajouter » → sélectionner `CostWaves-AC29.apx` (téléchargé depuis la
+   release `apx-latest`, cf. ci-dessus) ou `CostWaves.apx` (build local).
 3. Ouvrir un projet → **Options > CostWaves – Lecture des quantités…**
 
 ---

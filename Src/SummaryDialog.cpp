@@ -105,7 +105,7 @@ void SummaryDialog::Fill (const GS::Array<CWArticleSummary>& summary)
 
 void SummaryDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 {
-	if (ev.GetSourceId () == CloseButtonId)
+	if (ev.GetSource () == &closeButton)
 		PostCloseRequest (DG::ModalDialog::Cancel);
 }
 
