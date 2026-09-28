@@ -41,6 +41,30 @@ navigation, ni la sélection dans Archicad, se range dans l'environnement de tra
 
 La palette :
 
+0. **Sources de quantification** (spec §1–§10) — une rangée dédiée :
+   - **« Source BIM : Élément / Composants (skins) »** : mode de quantification
+     global. **Jamais l'élément ET ses composants comptés simultanément** —
+     en mode Élément seules les lignes d'éléments sont affichées/facturées,
+     en mode Composants seuls les skins classés le sont. L'Add-On ne présuppose
+     jamais la quantification : c'est l'utilisateur qui choisit le mode
+     (mur → élément ou skins ; garde-corps → parent ou sous-composants).
+   - **Case « Dessins 2D »** : inclut les lignes, polylignes, splines, arcs,
+     cercles et hachures dans le métré — **aucune obligation de modéliser en
+     3D**. Le popup adjacent filtre par type (Tous / Lignes / Polylignes /
+     Splines / Arcs / Cercles / Hachures).
+   - Les dessins 2D sont des **objets de métré à part entière** dans le même
+     tableau, avec une colonne **Source** (`2D` / `BIM` / `Composant`) et le
+     **calque** affiché à la place de l'étage (calques dédiés type
+     `CW-METRE-PLINTHE`). Classe d'un dessin 2D = classification **ou**
+     propriété `CW_Article_ID` (repli, posée par « Affecter l'article » même
+     si la classification échoue).
+   - Quantités 2D calculées géométriquement : ligne → longueur ; arc →
+     longueur d'arc + rayon ; **cercle → circonférence, surface, rayon,
+     diamètre (toutes les mesures conservées)** ; polyligne → arêtes droites
+     + arcs (sous-contours respectés) ; spline → longueur de la polyligne
+     des points ; **hachure → surface + périmètre** (zones non modélisées :
+     peinture, revêtement, terrasse, voirie, étanchéité…).
+
 1. **Sélecteur de système de classification** — liste tous les systèmes du projet
    (Archicad, CostWaves, Uniclass, etc.) ; changer de système relance la lecture.
 2. **Tableau** (en-têtes, **largeurs automatiques**, scroll horizontal,
@@ -52,9 +76,10 @@ La palette :
    skins classés le sont, avec les surfaces projetées des skins), et les
    composants « properties » sans quantités ne sont pas affichés :
 
-   | Type | ID élément | Étage | Classe | Facturé | Surface | Volume | … |
-   |---|---|---|---|---|---|---|---|
-   | Élément | `W-012` | `0 - RDC` | `CW-MUR - Mur extérieur` | `12,34 m³` | `45,67` | `12,34` | |
+   | Source | Type | ID élément | Étage / Calque | Classe | Facturé | Surface | Volume | … |
+   |---|---|---|---|---|---|---|---|---|
+   | BIM | Élément | `W-012` | `0 - RDC` | `CW-MUR - Mur extérieur` | `12,34 m³` | `45,67` | `12,34` | |
+   | 2D | Polyline | `PL-01` | `CW-METRE-PLINTHE` | `CW-PLIN - Plinthe` | `42,00 ml` | | | |
    | Groupe n° 1 | | `0 - RDC` | `CW-PORTE - Porte…` | `1 ENS (par groupe)` | | | |
    | Membre (consommé) | `D-007` | `0 - RDC` | `CW-PORTE - …` | `—` | `1,8` | | |
    | Skin — Brique (cœur) | `W-012` | `0 - RDC` | `CW-BRIQ - Brique…` *(classe du matériau)* | `1,23 m³` | `4,56` | `1,23` | |
@@ -212,6 +237,24 @@ pas un choix.
 5. Fermer/réouvrir : `CostWaves-settings.json` à côté du PLN retient URL,
    clé et mode.
 6. Projet non enregistré : l'envoi utilise « SansTitre » (repli Documents).
+
+### Phase 7 — Sources de quantification (mode + dessins 2D)
+
+1. Mode **Élément** : un mur classé à skins classés → une seule ligne élément
+   facturée ; passer en **Composants (skins)** → la ligne élément disparaît du
+   tableau, seuls les skins classés restent (jamais les deux à la fois).
+2. Vérifier le récapitulatif par article, l'export JSON/CSV et le payload API
+   (`quantificationMode`) dans les deux modes.
+3. Cocher **« Dessins 2D »** : tracer une ligne, une polyligne (avec arcs),
+   une spline, un arc, un cercle, une hachure sur un calque `CW-METRE-…`,
+   affecter un article → lignes `2D` dans le tableau avec calque, quantités
+   (longueur / circonférence / surface / rayon / diamètre / périmètre).
+4. Cercle : les quatre mesures (circonférence, surface, rayon, diamètre)
+   apparaissent ; l'article choisit celle à facturer via son unité.
+5. Popup de filtre 2D : restreindre à un type → seules les lignes de ce type
+   restent ; décocher la case → retour au BIM seul.
+6. Exports : colonnes `Source` et `Calque` dans le CSV, `classified2D` dans le
+   JSON, champs `source`/`layer` par élément dans le payload API.
 
 ## 3. Build (Windows)
 
@@ -456,7 +499,8 @@ COSTWAVES/
 | **4 (codée)** | Ensembles CostWaves facturables (exclusion « consommé » automatique), facturation ENS, récapitulatif par article | 07, 12, 18–21, 23, 24, 29 |
 | **5 (codée)** | Palette modeless (navigation/sélection libres, suivi de sélection), tableau 6 colonnes, fenêtre « Créer le matériau… », « Créer un ensemble » / « Créer un groupe » (groupes numérotés, quantité = nombre de groupes) | 02, 05, 15, 22, 26–28 |
 | **6 (codée)** | Communication Archicad → CostWaves (spéc. §12/§13) : bouton « Envoyer vers CostWaves… » + commande de menu, fenêtre de réglages (URL, clé API, traitement des articles inconnus §6), payload JSON complet, envoi HTTP(S) via WinHTTP | 30, 31, 32, 33 |
-| 7 | Synchro bidirectionnelle CostWaves ↔ Archicad, détection de modifications de quantités (le module `CostWavesApi` isole déjà le transport) | |
+| **7 (codée)** | Sources de quantification (spéc. repostée §1–§10) : mode **Élément / Composants** exclusif, **dessins 2D** (ligne, polyligne, spline, arc, cercle, hachure) comme objets de métré à part entière dans le même tableau (colonne Source), filtre par type 2D, classe 2D = classification ou propriété CW_Article_ID | — |
+| 8 | Synchro bidirectionnelle CostWaves ↔ Archicad, détection de modifications de quantités (le module `CostWavesApi` isole déjà le transport) | |
 
 Les choix définitifs de contenu des phases suivantes seront revalidés avant codage.
 
