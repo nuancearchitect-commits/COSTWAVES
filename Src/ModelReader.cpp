@@ -451,72 +451,72 @@ void ModelReader::ExtractQuantities (API_ElemTypeID typeID, const API_ElementQua
 			break;
 
 		case API_RailingToprailID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingToprail.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingToprail.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingToprail.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingToprail.length3D);
 			break;
 
 		case API_RailingHandrailID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingHandrail.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingHandrail.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingHandrail.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingHandrail.length3D);
 			break;
 
 		case API_RailingRailID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingRail.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingRail.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingRail.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingRail.length3D);
 			break;
 
 		case API_RailingToprailEndID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingToprailEnd.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingToprailEnd.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingToprailEnd.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingToprailEnd.length3D);
 			break;
 
 		case API_RailingHandrailEndID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingHandrailEnd.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingHandrailEnd.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingHandrailEnd.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingHandrailEnd.length3D);
 			break;
 
 		case API_RailingRailEndID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingRailEnd.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingRailEnd.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingRailEnd.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingRailEnd.length3D);
 			break;
 
 		case API_RailingToprailConnectionID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingToprailConnection.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingToprailConnection.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingToprailConnection.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingToprailConnection.length3D);
 			break;
 
 		case API_RailingHandrailConnectionID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingHandrailConnection.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingHandrailConnection.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingHandrailConnection.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingHandrailConnection.length3D);
 			break;
 
 		case API_RailingRailConnectionID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingRailConnection.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingRailConnection.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingRailConnection.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingRailConnection.length3D);
 			break;
 
 		case API_RailingPostID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingPost.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingPost.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingPost.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingPost.length3D);
 			break;
 
 		case API_RailingInnerPostID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingInnerPost.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingInnerPost.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingInnerPost.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingInnerPost.length3D);
 			break;
 
 		case API_RailingBalusterID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingBaluster.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingBaluster.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingBaluster.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingBaluster.length3D);
 			break;
 
 		case API_RailingPanelID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingPanel.volume);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingPanel.volume);
 			break;
 
 		case API_RailingSegmentID:
-			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingSegment.volume);
-			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingSegment.length3D);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.railingSegment.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.railingSegment.length3D);
 			break;
 
 		case API_ColumnSegmentID:
@@ -672,6 +672,7 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 	outReport.scannedElements = elemList.GetSize ();
 
 	const bool haveElemIdProp = (elemIdPropGuid != APINULLGuid);
+	const bool haveGroupProp = (groupPropGuid != APINULLGuid);
 
 	// --- Passe 1 : en-têtes + classification -----------------------------------
 	// Les lignes sont créées ici (ordre = ordre du projet) ; les quantités et
