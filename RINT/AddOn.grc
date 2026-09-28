@@ -10,7 +10,7 @@
 /* [  2] */		"CostWaves - Envoyer vers CostWaves... ^E3 ^ES ^EE ^EI ^ED ^ET ^10002"
 }
 
-'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  620  670  "CostWaves — Lecture des données" {
+'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  620  700  "CostWaves — Lecture des données" {
 /* [  1] */ LeftText                     10   14  170   18 LargePlain vTop | noTrunc Default "Système de classification :"
 /* [  2] */ PopupControl                185   11  350   22 80 3
 /* [  3] */ Button                       10   42  100   23 LargePlain "Actualiser"
@@ -20,15 +20,15 @@
 /* [ 32] */ CheckBox                    270   98  100   20 LargePlain "Dessins 2D"
 /* [ 33] */ PopupControl                375   93  225   22 80 3
 /* [  5] */ MultiSelList                 10  126  600  182 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  6] */ GroupBox                     10  380  600  110 LargePlain Primary "Détails de la ligne sélectionnée"
-/* [  7] */ LeftText                     20  398  580   18 SmallPlain vTop | noTrunc Default ""
-/* [  8] */ LeftText                     20  416  580   18 SmallPlain vTop | noTrunc Default ""
-/* [  9] */ LeftText                     20  434  580   18 SmallPlain vTop | noTrunc Default ""
-/* [10] */ LeftText                     20  452  580   18 SmallPlain vTop | noTrunc Default ""
-/* [11] */ LeftText                     20  470  580   18 SmallPlain vTop | noTrunc Default ""
-/* [12] */ Button                       10  576  120   23 LargePlain "Exporter JSON"
-/* [13] */ Button                      140  576  110   23 LargePlain "Exporter CSV"
-/* [14] */ Button                      510  576  100   23 LargePlain "Fermer"
+/* [  6] */ GroupBox                     10  410  600  110 LargePlain Primary "Détails de la ligne sélectionnée"
+/* [  7] */ LeftText                     20  428  580   18 SmallPlain vTop | noTrunc Default ""
+/* [  8] */ LeftText                     20  446  580   18 SmallPlain vTop | noTrunc Default ""
+/* [  9] */ LeftText                     20  464  580   18 SmallPlain vTop | noTrunc Default ""
+/* [10] */ LeftText                     20  482  580   18 SmallPlain vTop | noTrunc Default ""
+/* [11] */ LeftText                     20  500  580   18 SmallPlain vTop | noTrunc Default ""
+/* [12] */ Button                       10  606  120   23 LargePlain "Exporter JSON"
+/* [13] */ Button                      140  606  110   23 LargePlain "Exporter CSV"
+/* [14] */ Button                      510  606  100   23 LargePlain "Fermer"
 /* [15] */ CheckBox                    120   44  150   20 LargePlain "Sélection uniquement"
 /* [16] */ LeftText                     10  320   62   18 LargePlain vTop | noTrunc Default "Article :"
 /* [17] */ PopupControl                 75  317  370   22 80 3
@@ -40,11 +40,12 @@
 /* [23] */ SearchEdit                   85   69  200   22 LargePlain frame | update | absolute | editable 60
 /* [24] */ Button                      334  348  140   23 LargePlain "Créer le matériau…"
 /* [34] */ Button                      480  348  130   23 LargePlain "Règles de calcul…"
-/* [25] */ Button                       10  542  150   23 LargePlain "Créer un ensemble"
-/* [26] */ Button                      316  542  294   23 LargePlain "Dissoudre ensemble / groupe"
-/* [27] */ Button                      258  576  242   23 LargePlain "Récapitulatif par article"
-/* [28] */ Button                      168  542  140   23 LargePlain "Créer un groupe"
-/* [29] */ Button                       10  610  220   23 LargePlain "Envoyer vers CostWaves…"
+/* [35] */ Button                       10  377  200   23 LargePlain "Correspondances…"
+/* [25] */ Button                       10  572  150   23 LargePlain "Créer un ensemble"
+/* [26] */ Button                      316  572  294   23 LargePlain "Dissoudre ensemble / groupe"
+/* [27] */ Button                      258  606  242   23 LargePlain "Récapitulatif par article"
+/* [28] */ Button                      168  572  140   23 LargePlain "Créer un groupe"
+/* [29] */ Button                       10  640  220   23 LargePlain "Envoyer vers CostWaves…"
 }
 
 'DLGH' ID_ADDON_DLG DLG_CostWaves {
@@ -82,6 +83,7 @@
 32   ""        CheckBox_1
 33   ""        PopupControl_3
 34   ""        Button_13
+35   ""        Button_14
 }
 
 'GDLG' ID_ADDON_DLG_PICKER Modal |noGrow   60   60  440 200  "CostWaves — Article" {
@@ -214,4 +216,80 @@
 7    ""        LeftText_2
 8    ""        TextEdit_0
 9    ""        LeftText_3
+}
+
+'GDLG' ID_ADDON_DLG_MAPPING Modal |noGrow   60   60  700 520  "CostWaves — Gestionnaire de correspondances" {
+/* [  1] */ LeftText                    10   12  680   30 LargePlain vTop | noTrunc Default ""
+/* [  2] */ MultiSelList                10   48  680  240 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */ LeftText                    10  300   70   18 LargePlain vTop | noTrunc Default "Type :"
+/* [  4] */ PopupControl                85  297  180   22 80 3
+/* [  5] */ LeftText                   275  300   80   18 LargePlain vTop | noTrunc Default "Structure :"
+/* [  6] */ TextEdit                   360  297  190   22 LargePlain frame | update | absolute | editable 128
+/* [  7] */ Button                     555  295  135   23 LargePlain "Parcourir…"
+/* [  8] */ LeftText                    10  332   70   18 LargePlain vTop | noTrunc Default "Article :"
+/* [  9] */ PopupControl                85  329  220   22 80 3
+/* [10] */ LeftText                   315  332   60   18 LargePlain vTop | noTrunc Default "Mode :"
+/* [11] */ PopupControl               380  329  150   22 80 3
+/* [12] */ LeftText                    10  364  130   18 LargePlain vTop | noTrunc Default "Quantité à adopter :"
+/* [13] */ TextEdit                   145  361  250   22 LargePlain frame | update | absolute | editable 128
+/* [14] */ CheckBox                    410  366  120   20 LargePlain "Ignorer"
+/* [15] */ Button                      10  395  170   23 LargePlain "Ajouter / Mettre à jour"
+/* [16] */ Button                     188  395  100   23 LargePlain "Supprimer"
+/* [17] */ LeftText                    10  428  680   18 SmallPlain vTop | noTrunc Default ""
+/* [18] */ Button                      10  460  180   23 LargePlain "Créer un article…"
+/* [19] */ Button                     500  460  100   23 LargePlain "Enregistrer"
+/* [20] */ Button                     608  460   82   23 LargePlain "Fermer"
+}
+
+'DLGH' ID_ADDON_DLG_MAPPING DLG_Mapping_Manager {
+1    ""        LeftText_0
+2    ""        MultiSelList_0
+3    ""        LeftText_1
+4    ""        PopupControl_0
+5    ""        LeftText_2
+6    ""        TextEdit_0
+7    ""        Button_0
+8    ""        LeftText_3
+9    ""        PopupControl_1
+10   ""        LeftText_4
+11   ""        PopupControl_2
+12   ""        LeftText_5
+13   ""        TextEdit_1
+14   ""        CheckBox_0
+15   ""        Button_1
+16   ""        Button_2
+17   ""        LeftText_6
+18   ""        Button_3
+19   ""        Button_4
+20   ""        Button_5
+}
+
+'GDLG' ID_ADDON_DLG_ARTICLE Modal |noGrow   60   60  500 300  "CostWaves — Créer un article" {
+/* [  1] */ LeftText                    10   14  130   18 LargePlain vTop | noTrunc Default "Chapitre :"
+/* [  2] */ TextEdit                   145   11  345   22 LargePlain frame | update | absolute | editable 128
+/* [  3] */ LeftText                    10   42  130   18 LargePlain vTop | noTrunc Default "ID article :"
+/* [  4] */ TextEdit                   145   39  345   22 LargePlain frame | update | absolute | editable 60
+/* [  5] */ LeftText                    10   70  130   18 LargePlain vTop | noTrunc Default "Désignation :"
+/* [  6] */ TextEdit                   145   67  345   22 LargePlain frame | update | absolute | editable 128
+/* [  7] */ LeftText                    10   98  130   18 LargePlain vTop | noTrunc Default "Unité :"
+/* [  8] */ PopupControl               145   95  120   22 80 3
+/* [  9] */ LeftText                    10  126  130   18 LargePlain vTop | noTrunc Default "Mode :"
+/* [10] */ PopupControl               145  123  200   22 80 3
+/* [11] */ Button                      280  240  100   23 LargePlain "Créer"
+/* [12] */ Button                      390  240  100   23 LargePlain "Annuler"
+}
+
+'DLGH' ID_ADDON_DLG_ARTICLE DLG_Article_Edit {
+1    ""        LeftText_0
+2    ""        TextEdit_0
+3    ""        LeftText_1
+4    ""        TextEdit_1
+5    ""        LeftText_2
+6    ""        TextEdit_2
+7    ""        LeftText_3
+8    ""        PopupControl_0
+9    ""        LeftText_4
+10   ""        PopupControl_1
+11   ""        Button_0
+12   ""        Button_1
 }

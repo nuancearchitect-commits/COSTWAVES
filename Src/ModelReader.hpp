@@ -60,6 +60,9 @@ public:
 	// Nom du calque d'un élément (cache) — filtre métré 2D (CW-METRE-…).
 	static GS::UniString	GetLayerName (API_AttributeIndex layerIndex);
 
+	// Nom de l'objet de bibliothèque chargé d'index donné (vide si introuvable).
+	static GS::UniString	GetLibraryPartName (Int32 libInd);
+
 	// Quantités géométriques des dessins 2D (§5/§6) : longueur des lignes,
 	// polylignes (arcs compris), arcs ; rayon/diamètre/circonférence/surface
 	// des cercles. Les hachures passent par le pipeline des quantités.
@@ -70,6 +73,7 @@ public:
 							 const API_Guid&			elemIdPropGuid,
 							 const API_Guid&			groupPropGuid,
 							 bool					include2D,
+							 const GS::Array<CWMapRule>&	rules,
 							 const GS::Array<API_Guid>*	elemFilter,
 							 GS::Array<CWElementRow>&	outRows,
 							 CWScanReport&				outReport);
@@ -94,6 +98,7 @@ private:
 	static std::unordered_map<UInt32, GS::UniString>	typeNameCache;
 	static std::unordered_map<UInt32, GS::UniString>	materialNameCache;
 	static std::unordered_map<UInt32, GS::UniString>	layerNameCache;
+	static std::unordered_map<UInt32, GS::UniString>	libPartNameCache;
 	static std::unordered_map<UInt32, CWSkinInfo>		compositeCache;
 	// Classification des matériaux dans le système scanné (phase 5) :
 	// index du matériau -> (id de classe, nom) ; id vide = sans classe.
@@ -125,6 +130,7 @@ private:
 	// lues par ACAPI_Element_GetQuantities ou GetMoreQuantities.
 	static void		FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemTypeID typeID,
 										 const API_Guid& systemGuid,
+										   const GS::Array<CWMapRule>&	rules,
 											 const API_ElementQuantity& elementQuantity,
 											 const GS::Array<API_CompositeQuantity>& compositeQuantities,
 											 CWElementRow& outRow, CWScanReport& outReport);

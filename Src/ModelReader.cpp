@@ -5,6 +5,7 @@
 #include "ModelReader.hpp"
 
 #include "ArticleManager.hpp"
+#include "RuleLibrary.hpp"
 #include "UniStringWStringConversion.hpp"
 
 #include <cwchar>
@@ -15,6 +16,12 @@ namespace {
 
 // Littéral UTF-8 -> GS::UniString (les sources sont compilees avec /utf-8).
 GS::UniString FR (const char* utf8Text)
+{
+	return GS::UniString (utf8Text, CC_UTF8);
+}
+
+// Littéral -> GS::UniString (départ de chaîne pour l'opérateur +).
+GS::UniString US (const char* utf8Text)
 {
 	return GS::UniString (utf8Text, CC_UTF8);
 }
@@ -30,6 +37,7 @@ const char* kElementIdPropertyGuidString = "B1B54D45-C951-42C9-9AF8-898F0BF212AB
 std::unordered_map<UInt32, GS::UniString>	ModelReader::typeNameCache;
 std::unordered_map<UInt32, GS::UniString>	ModelReader::materialNameCache;
 std::unordered_map<UInt32, GS::UniString>	ModelReader::layerNameCache;
+std::unordered_map<UInt32, GS::UniString>	ModelReader::libPartNameCache;
 std::unordered_map<UInt32, CWSkinInfo>		ModelReader::compositeCache;
 // Classification du matériau dans le système scanné (index -> id, nom).
 // id vide = connu SANS classe (mis en cache pour éviter les rappels API).
@@ -242,6 +250,58 @@ GS::UniString ModelReader::GetLayerName (API_AttributeIndex layerIndex)
 		name = GS::UniString (attribute.header.name, CC_UTF8);
 
 	layerNameCache.emplace (key, name);
+	return name;
+}
+
+
+// Index de l'objet de bibliothèque d'un élément (portes/fenêtres via
+// openingBase, objets/lampes via le struct commun — pattern DevKit).
+namespace {
+
+Int32 LibIndOfElement (const API_Guid& elemGuid, API_ElemTypeID typeID)
+{
+	API_Element elem;
+	BNZeroMemory (&elem, sizeof (elem));
+	elem.header.guid = elemGuid;
+	if (ACAPI_Element_Get (&elem) != NoError)
+		return -1;
+
+	switch (typeID) {
+		case API_ObjectID:
+		case API_LampID:
+			return elem.object.libInd;
+		case API_DoorID:
+		case API_WindowID:
+			return elem.window.openingBase.libInd;
+		default:
+			return -1;
+	}
+}
+
+} // namespace
+
+
+GS::UniString ModelReader::GetLibraryPartName (Int32 libInd)
+{
+	if (libInd <= 0)
+		return GS::UniString ();
+
+	// Un seul ACAPI_LibraryPart_Get par objet de bibliothèque distinct.
+	const UInt32 key = static_cast<UInt32> (libInd);
+	const auto it = libPartNameCache.find (key);
+	if (it != libPartNameCache.end ())
+		return it->second;
+
+	GS::UniString name;
+	API_LibPart libPart;
+	BNZeroMemory (&libPart, sizeof (libPart));
+	libPart.index = libInd;
+	if (ACAPI_LibraryPart_Get (&libPart) == NoError)
+		name = GS::UniString (libPart.docu_UName);
+	// ACAPI_LibraryPart_Get alloue libPart.location : le libérer.
+	delete libPart.location;
+
+	libPartNameCache.emplace (key, name);
 	return name;
 }
 
@@ -1034,6 +1094,7 @@ GSErrCode ModelReader::CollectGroupValues (const API_Guid& groupPropGuid,
 
 void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemTypeID typeID,
 										  const API_Guid& systemGuid,
+										  const GS::Array<CWMapRule>& rules,
 										  const API_ElementQuantity& elementQuantity,
 										  const GS::Array<API_CompositeQuantity>& compositeQuantities,
 										  CWElementRow& outRow, CWScanReport& outReport)
@@ -1058,6 +1119,17 @@ void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemType
 		if (GetMaterialClassification (skin.buildMatIndices, systemGuid,
 										  skinRow.classItemId, skinRow.classItemName))
 			++outReport.classifiedSkins;
+
+		// Nouvelle architecture (spec §4/§11) : règle du MATÉRIAU — prioritaire
+		// sur la classification ; « Ignorer » exclut la couche du métré.
+		const CWMapRule* materialRule = RuleLibrary::FindRule (rules, CWStructureType::BuildingMaterial,
+															  skinRow.label);
+		if (materialRule != nullptr && materialRule->ignored)
+			continue;
+		if (materialRule != nullptr) {
+			skinRow.ruleArticleId = materialRule->articleId;
+			skinRow.ruleQuantity = materialRule->quantity;
+		}
 
 		if (haveComposite) {
 			// Correspondance skin -> couche du composite : par position
@@ -1096,6 +1168,7 @@ void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemType
 
 GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdPropGuid,
 							 const API_Guid& groupPropGuid, bool include2D,
+							 const GS::Array<CWMapRule>& rules,
 							 const GS::Array<API_Guid>* elemFilter,
 							 GS::Array<CWElementRow>& outRows, CWScanReport& outReport)
 {
@@ -1141,6 +1214,7 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 
 	GS::Array<ItemInfo> items;
 	std::unordered_map<UInt32, GS::Array<UIndex>> groupsByType;	// clé : typeID + variationID
+	GS::Array<GS::UniString>	unmappedSeen;						// structures sans règle déjà comptées
 
 	for (UIndex i = 0; i < elemList.GetSize (); ++i) {
 		const API_Guid& elemGuid = elemList[i];
@@ -1152,15 +1226,48 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		if (ACAPI_Element_GetHeader (&header) != NoError)
 			continue;
 
-		// Règle d'appel (phase 5) : l'élément est « appelé » s'il porte une
-		// classe dans le système choisi, OU si un de ses skins a un matériau
-		// classé (mur sans classe avec des couches classées → appelé via ses
-		// skins, qui portent la classe de leur matériau).
 		// Dessins 2D (spec §2/§4) : ligne, polyligne, spline, arc, cercle,
 		// hachure — source de quantification indépendante, incluse sur
 		// demande de l'utilisateur.
 		const bool is2D = Is2DType (header.type.typeID);
 		if (is2D && !include2D)
+			continue;
+
+		// --- Nouvelle architecture (spec §4/§7/§11) : structure native de
+		// l'élément + règle de correspondance. La règle est PRIORITAIRE sur
+		// la classification et détermine l'article, le niveau de métré
+		// (élément/composant) et la quantité à adopter.
+		CWStructureType structureType = CWStructureType::Composite;
+		GS::UniString structureName;
+		switch (header.type.typeID) {
+			case API_ObjectID:
+			case API_LampID:
+			case API_DoorID:
+			case API_WindowID: {
+				structureType = CWStructureType::LibraryPart;
+				structureName = GetLibraryPartName (LibIndOfElement (elemGuid, header.type.typeID));
+				break;
+			}
+			case API_WallID:
+			case API_SlabID:
+			case API_RoofID:
+			case API_ShellID: {
+				structureType = CWStructureType::Composite;
+				CWSkinInfo compositeInfo;
+				if (GetCompositeInfo (GetCompositeIndexOfElement (elemGuid, header.type.typeID), compositeInfo))
+					structureName = compositeInfo.name;
+				break;
+			}
+			default:
+				break;
+		}
+
+		const CWMapRule* structureRule = (!is2D && !structureName.IsEmpty ())
+			? RuleLibrary::FindRule (rules, structureType, structureName)
+			: nullptr;
+
+		// Structure « Ignorer » (spec §4) : exclue du métré.
+		if (structureRule != nullptr && structureRule->ignored)
 			continue;
 
 		API_ClassificationItem item;
@@ -1192,8 +1299,8 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 																  systemGuid, skinClassId, skinClassName);
 				}
 			}
-			if (!hasClassifiedSkin)
-				continue;	// aucune classe, ni l'élément ni ses skins
+			if (!hasClassifiedSkin && structureRule == nullptr)
+				continue;	// aucune classe, ni l'élément ni ses skins, ni règle
 		}
 
 		CWElementRow row;
@@ -1205,6 +1312,14 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 			row.storyName = GetStoryName (storyInfo, header.floorInd);
 		row.is2D = is2D;
 		row.layerName = GetLayerName (header.layer);
+		row.structureType = structureType;
+		row.structureName = structureName;
+		if (structureRule != nullptr) {
+			row.hasRule = true;
+			row.ruleArticleId = structureRule->articleId;
+			row.ruleMode = structureRule->mode;
+			row.ruleQuantity = structureRule->quantity;
+		}
 		if (elementClassified) {
 			row.classItemId = item.id;
 			row.classItemName = item.name;
@@ -1239,6 +1354,24 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 				++outReport.classified2D;
 			else
 				++outReport.classifiedElements;
+		}
+
+		// Structure présente dans la maquette mais sans règle (spec §7) :
+		// ⚠ à configurer dans le gestionnaire de correspondances.
+		if (!is2D && !structureName.IsEmpty () && structureRule == nullptr) {
+			const GS::UniString unmappedKey = GS::ToUniString (std::to_wstring (
+												  static_cast<int> (structureType))) + US ("|") + structureName;
+			bool alreadySeen = false;
+			for (UIndex u = 0; u < unmappedSeen.GetSize (); ++u) {
+				if (unmappedSeen[u] == unmappedKey) {
+					alreadySeen = true;
+					break;
+				}
+			}
+			if (!alreadySeen) {
+				unmappedSeen.Push (unmappedKey);
+				++outReport.unmappedStructures;
+			}
 		}
 	}
 
@@ -1288,7 +1421,7 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 				CWElementRow& row = outRows[info.rowIndex];
 
 				if (batchErr == NoError) {
-					FillQuantitiesAndSkins (info.guid, info.type.typeID, systemGuid, quantityBuffers[k],
+					FillQuantitiesAndSkins (info.guid, info.type.typeID, systemGuid, rules, quantityBuffers[k],
 											compositeBuffers[k], row, outReport);
 				} else {
 					// Repli unitaire pour ce lot.
@@ -1305,7 +1438,7 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 					single.elemPartComposites = &elemPartComposites;
 
 					if (ACAPI_Element_GetQuantities (info.guid, &params, &single, &mask) == NoError) {
-						FillQuantitiesAndSkins (info.guid, info.type.typeID, systemGuid, elementQuantity,
+						FillQuantitiesAndSkins (info.guid, info.type.typeID, systemGuid, rules, elementQuantity,
 												compositeQuantities, row, outReport);
 					} else {
 						++outReport.quantityErrors;

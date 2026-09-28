@@ -56,6 +56,11 @@ struct CWComponentRow {
 	// pas avoir de classe — un mur non classé dont les couches ont des
 	// matériaux classés est « appelé » via ses skins).
 	GS::UniString			classItemId;			// classe du matériau (vide = aucune)
+
+	// Nouvelle architecture : article issu de la règle du MATÉRIAU
+	// (bibliothèque de correspondances) — prioritaire sur la classification.
+	GS::UniString			ruleArticleId;			// article CostWaves de la règle (vide = aucune)
+	GS::UniString			ruleQuantity;			// quantité à adopter (vide = automatique)
 	GS::UniString			classItemName;
 
 	// Phase 3 — enrichissement des skins composites :
@@ -82,6 +87,18 @@ struct CWElementRow {
 	GS::Array<CWQuantity>		quantities;
 	GS::Array<CWComponentRow>	components;	// composants + skins
 
+	// Nouvelle architecture — correspondance par règle (spec §4–§7) :
+	// la structure native de l'élément (composite, objet de bibliothèque…)
+	// est recherchée dans la bibliothèque de règles ; l'article et le niveau
+	// de métré de la règle sont PRIORITAIRES sur la classification.
+	CWStructureType			structureType = CWStructureType::Composite;
+	GS::UniString			structureName;			// ex. "MUR_EXT_30" ou "Fenêtre PVC 120"
+	GS::UniString			ruleArticleId;			// article de la règle (vide = aucune règle)
+	CWQuantMode				ruleMode = CWQuantMode::Element;
+	GS::UniString			ruleQuantity;			// quantité à adopter (vide = automatique)
+	bool					hasRule = false;		// une règle s'applique à cette ligne
+	bool					ruleIgnored = false;	// structure « Ignorer » (exclue du métré)
+
 	// Phase 4/5 — ensembles et groupes CostWaves :
 	bool					isGroupRow = false;		// ligne "ensemble"/"groupe" (virtuelle)
 	bool					isNumberedGroup = false;	// groupe numéroté (facturé 1 par groupe)
@@ -90,6 +107,18 @@ struct CWElementRow {
 	bool					consumed = false;		// membre d'un ensemble/groupe (non facturé seul)
 	GS::Array<API_Guid>		groupMembers;			// lignes ensemble/groupe : GUIDs des membres
 };
+
+// Article effectif d'une ligne : celui de la RÈGLE de correspondance si
+// présente (nouvelle architecture), sinon la classe de classification.
+inline const GS::UniString&	RowArticleId (const CWElementRow& row)
+{
+	return row.ruleArticleId.IsEmpty () ? row.classItemId : row.ruleArticleId;
+}
+
+inline const GS::UniString&	ComponentArticleId (const CWComponentRow& component)
+{
+	return component.ruleArticleId.IsEmpty () ? component.classItemId : component.ruleArticleId;
+}
 
 // --- Système de classification -------------------------------------------------
 
@@ -105,6 +134,32 @@ struct CWSystemInfo {
 
 // --- Article CostWaves (phase 2) -------------------------------------------------
 
+// --- Règles de correspondance (nouvelle architecture) ----------------------------
+// Une règle relie une structure native Archicad (matériau, composite, profil,
+// favori, objet de bibliothèque) à un article CostWaves, avec son niveau de
+// métré (élément ou composant) et la quantité à adopter. Elle ne contient
+// JAMAIS la quantité réelle : celle-ci est toujours calculée depuis la
+// maquette. Bibliothèque JSON indépendante des projets (spec §4–§6).
+
+enum class CWStructureType {
+	BuildingMaterial,
+	Composite,
+	Profile,
+	Favorite,
+	LibraryPart
+};
+
+struct CWMapRule {
+	CWStructureType	structureType = CWStructureType::Composite;
+	GS::UniString	structureName;			// ex. "MUR_EXT_30", "BETON_25", "LUM_LED_01"
+	GS::UniString	articleId;				// identifiant unique CostWaves (ex. "CW-001")
+	CWQuantMode		mode = CWQuantMode::Element;	// élément ou composant (spec §11)
+	GS::UniString	quantity;				// quantité à adopter ("Surface nette"…), vide = automatique
+	bool			ignored = false;		// structure exclue du métré
+
+	CWMapRule () = default;
+};
+
 struct CWArticle {
 	GS::UniString	id;		// identifiant CostWaves = id de l'item de classification
 	GS::UniString	name;	// libellé
@@ -116,6 +171,8 @@ struct CWArticle {
 								// expression arithmétique sur les libellés de quantités
 								// de la ligne, ex. "Contour ouverture * Épaisseur mur hôte"
 								// (enduit latéral des tableaux).
+	GS::UniString	chapter;		// chapitre / sous-chapitre de la base CostWaves
+								// (ex. "02 Murs / 02.1 Maçonnerie"), vide si inconnu.
 	short			depth = 0;	// profondeur dans la classification (0 = racine, pour l'indentation)
 
 	CWArticle () = default;
@@ -160,6 +217,7 @@ struct CWScanReport {
 	USize	quantityErrors = 0;			// échecs ACAPI_Element_GetQuantities
 	USize	classifiedSkins = 0;		// skins dont le matériau porte une classe
 	USize	classified2D = 0;		// dessins 2D classés (lignes, hachures…)
+	USize	unmappedStructures = 0;	// structures natives sans règle (⚠ à configurer)
 	USize					groupCount = 0;				// ensembles CostWaves (phase 4)
 	USize					numberedGroupCount = 0;		// groupes numérotés CostWaves (phase 5)
 	USize					consumedElements = 0;		// éléments membres d'un ensemble/groupe (consommés)

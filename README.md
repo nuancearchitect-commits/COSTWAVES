@@ -326,6 +326,76 @@ pas un choix.
    (`CostWaves-calcul.json`, section `formulas`) et partent dans le payload
    API (`calcFormula`).
 
+### Nouvelle architecture — base d'articles + règles de correspondance + maquette
+
+Le socle réutilisable de la nouvelle spécification est en place : Archicad
+fournit structures/éléments/caractéristiques/quantités, CostWaves fournit
+articles et données de métré, et une **bibliothèque de règles** indépendante
+des projets indique comment relier les deux. Aucune classification CostWaves
+n'est obligatoire dans Archicad : la correspondance est une couche séparée.
+
+**Composants**
+
+- **Fonction 1 — Charger la base CostWaves** : import JSON local (remplacé à
+  terme par l'API CostWaves) — chapitres/sous-chapitres/articles (id,
+  désignation, unité, `calcQuantity`/`calcFormula`). L'import d'une
+  classification reste un simple point de départ, jamais le moteur du métré.
+- **Fonction 2 — Gestionnaire de correspondances** (bouton
+  « Correspondances… » de la palette) : règles éditables **sans maquette
+  ouverte**. Types de structures : matériaux de construction, composites,
+  profils, favoris, objets de bibliothèque (architecture extensible). Chaque
+  règle relie une structure Archicad → un article CostWaves (par **ID
+  unique**) → un mode de métré (`Élément` ou `Composants`) → une quantité à
+  adopter, ou marque la structure « Ignorer ». Le bouton « Parcourir… »
+  liste les structures de l'environnement Archicad courant ; l'état signale
+  « ⚠ Article introuvable » si l'article a disparu de la base (remappage par
+  ID, la désignation peut changer sans casser la règle).
+- **Bibliothèque de règles** : `<Documents>/CostWaves-regles.json`,
+  indépendant des projets et réutilisable —
+  `{"rules": [{"type": "composite", "name": "MUR_EXT_30", "article": "CW-030",
+  "mode": "component", "quantity": "Surface nette", "ignored": false}]}`.
+- **Application à la maquette** : à chaque lecture, la structure native de
+  chaque élément (composite des murs/dalles/toitures/coquilles, objet de
+  bibliothèque des portes/fenêtres/objets/lampes) est recherchée dans la
+  bibliothèque ; la règle est **prioritaire** sur la classification et
+  détermine l'article, le niveau de métré et la quantité. Les structures sans
+  règle sont comptées « ⚠ à configurer » (statut de la palette + détail de la
+  ligne). Une règle « Ignorer » exclut l'élément (ou la couche) du métré.
+- **Niveau de métré par règle** : `Élément` (le parent → 1 article, quantité
+  du parent) ou `Composants` (chaque couche → l'article du matériau de la
+  règle) — jamais les deux simultanément, le choix appartient à la règle.
+- **Créer un article depuis l'Add-On** (bouton « Créer un article… » du
+  gestionnaire) : chapitre, ID, désignation, unité, mode — article **local**
+  (`<Documents>/CostWaves-articles-locaux.json`, fusionné au catalogue,
+  utilisable immédiatement) ; l'envoi vers la base CostWaves viendra avec la
+  synchronisation API.
+- **Champs transmis avec les quantités** : `structure` (type + nom de la
+  structure native) et `location` (étage/Story) dans le payload API et les
+  exports JSON ; la colonne `Classe` du CSV affiche la structure (avec
+  mention « sans règle ») quand la classification est absente.
+
+**Plan de test (nouvelle architecture)**
+
+1. Sans maquette : ouvrir « Correspondances… », saisir une règle à la main
+   (composite `MUR_EXT_30` → article au m², mode Élément), Enregistrer →
+   vérifier `CostWaves-regles.json` dans Documents ; fermer/réouvrir Archicad
+   → la règle est toujours là.
+2. Maquette : poser un mur en composite `MUR_EXT_30` sans classification →
+   Actualiser : le mur est facturé via l'article de la règle ; le détail de
+   la ligne affiche « Structure : Composite — MUR_EXT_30 · Règle → … ».
+3. Règle en mode Composants : les couches du mur sont facturées via les
+   règles matériaux (une règle par matériau) ; l'élément parent n'est pas
+   compté en double.
+4. Règle « Ignorer » sur un objet de bibliothèque : l'élément disparaît du
+   métré.
+5. Structure sans règle : le statut affiche « ⚠ N structure(s) sans règle —
+   à configurer ».
+6. Créer un article local : il apparaît dans le popup des articles du
+   gestionnaire, persiste après redémarrage, et les règles peuvent le
+   référencer.
+7. Changer la désignation d'un article du catalogue (même ID) : la règle
+   continue de fonctionner ; supprimer l'article : « ⚠ Article introuvable ».
+
 ## 3. Build (Windows)
 
 ### Télécharger le .apx déjà compilé (recommandé)

@@ -201,6 +201,22 @@ public:
 	static bool		ValidateFormula (const GS::UniString& formula, const GS::Array<CWQuantity>& availableQuantities,
 									 GS::UniString& outError);
 
+	// --- Nouvelle architecture : base CostWaves + correspondances -------------
+
+	// Article du catalogue par identifiant (nullptr si inconnu).
+	static const CWArticle*	FindArticle (const GS::Array<CWArticle>& articles, const GS::UniString& articleId);
+
+	// Article effectif d'une ligne / d'un skin : règle de correspondance
+	// prioritaire, classification en repli (nullptr si aucun).
+	static const CWArticle*	ArticleForRow (const GS::Array<CWArticle>& articles, const CWElementRow& row);
+	static const CWArticle*	ArticleForComponent (const GS::Array<CWArticle>& articles, const CWComponentRow& component);
+
+	// Articles créés depuis Archicad (spec §10) : persistés dans
+	// <Documents>/CostWaves-articles-locaux.json, fusionnés au catalogue.
+	static bool		AppendLocalArticles (GS::Array<CWArticle>& ioArticles, GS::UniString& outError);
+	static bool		SaveLocalArticle (const CWArticle& article, GS::UniString& outError);
+	static GS::UniString	LocalArticlesFilePath ();
+
 	// Unité normalisée pour comparaison ("m²" -> "M2") : exposée aux fenêtres
 	// qui filtrent les quantités candidates par unité.
 	static GS::UniString	NormalizedUnit (const GS::UniString& unit);

@@ -334,6 +334,58 @@ const char* ArticleManager::CostWavesSystemName ()
 }
 
 
+// Parcours récursif des chapitres / sous-chapitres de la base CostWaves
+// (spec §2) : chaque article porte le chemin de son chapitre et une profondeur
+// d'indentation correspondant au niveau du chapitre.
+void CollectChapterArticles (const JsonValue& chapters, const GS::UniString& parentPath,
+							 short depth, GS::Array<CWArticle>& outArticles)
+{
+	for (UIndex c = 0; c < chapters.arrayValue.size (); ++c) {
+		const JsonValue& chapter = chapters.arrayValue[c];
+		if (chapter.type != JsonValue::Type::Object)
+			continue;
+
+		GS::UniString chapterName = ArticleFieldText (chapter, "nom");
+		if (chapterName.IsEmpty ())
+			chapterName = ArticleFieldText (chapter, "name");
+		const GS::UniString chapterId = ArticleFieldText (chapter, "id");
+		if (!chapterName.IsEmpty () && !chapterId.IsEmpty ())
+			chapterName = chapterId + US (" - ") + chapterName;
+
+		const GS::UniString chapterPath = chapterName.IsEmpty ()
+			? parentPath
+			: (parentPath.IsEmpty () ? chapterName : parentPath + US (" / ") + chapterName);
+
+		const JsonValue* articles = chapter.Find ("articles");
+		if (articles != nullptr && articles->type == JsonValue::Type::Array) {
+			for (UIndex a = 0; a < articles->arrayValue.size (); ++a) {
+				const JsonValue& entry = articles->arrayValue[a];
+				if (entry.type != JsonValue::Type::Object)
+					continue;
+				const GS::UniString id = ArticleFieldText (entry, "id");
+				if (id.IsEmpty ())
+					continue;
+
+				CWArticle article (id, ArticleFieldText (entry, "name"), ArticleFieldText (entry, "unit"));
+				article.calcQuantity = ArticleFieldText (entry, "calcQuantity");
+				if (article.calcQuantity.IsEmpty ())
+					article.calcQuantity = ArticleFieldText (entry, "quantity");
+				article.calcFormula = ArticleFieldText (entry, "calcFormula");
+				if (article.calcFormula.IsEmpty ())
+					article.calcFormula = ArticleFieldText (entry, "formula");
+				article.chapter = chapterPath;
+				article.depth = depth;
+				outArticles.Push (article);
+			}
+		}
+
+		const JsonValue* subChapters = chapter.Find ("chapitres");
+		if (subChapters != nullptr && subChapters->type == JsonValue::Type::Array)
+			CollectChapterArticles (*subChapters, chapterPath, static_cast<short> (depth + 1), outArticles);
+	}
+}
+
+
 bool ArticleManager::ImportFromJsonFile (const GS::UniString& path, GS::Array<CWArticle>& outArticles,
 										 GS::UniString& outError)
 {
@@ -355,6 +407,18 @@ bool ArticleManager::ImportFromJsonFile (const GS::UniString& path, GS::Array<CW
 		return false;
 	}
 
+	// Base CostWaves (nouvelle architecture, spec §2) : chapitres imbriqués.
+	// {"chapitres": [{"nom": "02 Murs", "articles": […], "chapitres": […]}]}
+	const JsonValue* chapters = (root.type == JsonValue::Type::Object) ? root.Find ("chapitres") : nullptr;
+	if (chapters != nullptr && chapters->type == JsonValue::Type::Array) {
+		CollectChapterArticles (*chapters, GS::UniString (), 0, outArticles);
+		if (outArticles.IsEmpty ()) {
+			outError = FR ("Aucun article trouvé dans les chapitres du fichier.");
+			return false;
+		}
+		return true;
+	}
+
 	const JsonValue* list = nullptr;
 	if (root.type == JsonValue::Type::Array) {
 		list = &root;
@@ -363,7 +427,7 @@ bool ArticleManager::ImportFromJsonFile (const GS::UniString& path, GS::Array<CW
 	}
 
 	if (list == nullptr || list->type != JsonValue::Type::Array) {
-		outError = FR ("Format attendu : [{\"id\", \"name\", \"unit\"}, …] ou {\"articles\": […]}.");
+		outError = FR ("Format attendu : {\"chapitres\": […]} (base CostWaves), {\"articles\": […]} ou [{\"id\", \"name\", \"unit\"}, …].");
 		return false;
 	}
 
@@ -386,6 +450,7 @@ bool ArticleManager::ImportFromJsonFile (const GS::UniString& path, GS::Array<CW
 		article.calcFormula = ArticleFieldText (entry, "calcFormula");
 		if (article.calcFormula.IsEmpty ())
 			article.calcFormula = ArticleFieldText (entry, "formula");
+		article.chapter = ArticleFieldText (entry, "chapter");
 		outArticles.Push (article);
 	}
 
@@ -1764,11 +1829,132 @@ bool ArticleManager::SaveCalcRules (const GS::Array<CWArticle>& articles, GS::Un
 }
 
 
+const CWArticle* ArticleManager::FindArticle (const GS::Array<CWArticle>& articles, const GS::UniString& articleId)
+{
+	for (UIndex a = 0; a < articles.GetSize (); ++a) {
+		if (articles[a].id == articleId)
+			return &articles[a];
+	}
+	return nullptr;
+}
+
+
+const CWArticle* ArticleManager::ArticleForRow (const GS::Array<CWArticle>& articles, const CWElementRow& row)
+{
+	return FindArticle (articles, RowArticleId (row));
+}
+
+
+const CWArticle* ArticleManager::ArticleForComponent (const GS::Array<CWArticle>& articles,
+													  const CWComponentRow& component)
+{
+	return FindArticle (articles, ComponentArticleId (component));
+}
+
+
+GS::UniString ArticleManager::LocalArticlesFilePath ()
+{
+	// Articles créés depuis Archicad (spec §10) : indépendants des projets.
+	API_SpecFolderID specFolder = API_UserDocumentsFolderID;
+	IO::Location documentsLocation;
+	if (ACAPI_ProjectSettings_GetSpecFolder (&specFolder, &documentsLocation) != NoError)
+		return GS::UniString ();
+
+	GS::UniString documentsPath;
+	if (documentsLocation.ToPath (&documentsPath) != NoError || documentsPath.IsEmpty ())
+		return GS::UniString ();
+
+	return documentsPath + "/" + US ("CostWaves-articles-locaux.json");
+}
+
+
+bool ArticleManager::AppendLocalArticles (GS::Array<CWArticle>& ioArticles, GS::UniString& outError)
+{
+	outError.Clear ();
+
+	const GS::UniString path = LocalArticlesFilePath ();
+	if (path.IsEmpty ())
+		return true;		// dossier inconnu : rien à fusionner
+
+	GS::Array<CWArticle> local;
+	if (!ImportFromJsonFile (path, local, outError))
+		return false;		// fichier illisible : signaler, ne pas bloquer
+
+	// Fusion par identifiant : le catalogue déjà chargé garde la priorité.
+	for (UIndex l = 0; l < local.GetSize (); ++l) {
+		if (FindArticle (ioArticles, local[l].id) != nullptr)
+			continue;
+		ioArticles.Push (local[l]);
+	}
+	return true;
+}
+
+
+bool ArticleManager::SaveLocalArticle (const CWArticle& article, GS::UniString& outError)
+{
+	outError.Clear ();
+
+	const GS::UniString path = LocalArticlesFilePath ();
+	if (path.IsEmpty ()) {
+		outError = FR ("Impossible de déterminer le dossier Documents.");
+		return false;
+	}
+
+	// Charger la liste locale existante, remplacer l'identifiant s'il existe.
+	GS::Array<CWArticle> local;
+	GS::UniString loadError;
+	ImportFromJsonFile (path, local, loadError);		// absent = liste vide
+
+	bool replaced = false;
+	for (UIndex l = 0; l < local.GetSize (); ++l) {
+		if (local[l].id == article.id) {
+			local[l] = article;
+			replaced = true;
+			break;
+		}
+	}
+	if (!replaced)
+		local.Push (article);
+
+	GS::UniString json;
+	json += US ("{\n  \"articles\": [\n");
+	for (UIndex l = 0; l < local.GetSize (); ++l) {
+		json += US ("    { \"id\": ") + EscapeJsonText (local[l].id)
+			+ US (", \"name\": ") + EscapeJsonText (local[l].name)
+			+ US (", \"unit\": ") + EscapeJsonText (local[l].unit)
+			+ US (", \"chapter\": ") + EscapeJsonText (local[l].chapter)
+			+ US (", \"calcQuantity\": ") + EscapeJsonText (local[l].calcQuantity)
+			+ US (", \"calcFormula\": ") + EscapeJsonText (local[l].calcFormula)
+			+ US (" }");
+		if (l + 1 < local.GetSize ())
+			json += US (",");
+		json += US ("\n");
+	}
+	json += US ("  ]\n}\n");
+
+	if (!Exporter::WriteUtf8File (path, json, false)) {
+		outError = FR ("Écriture de CostWaves-articles-locaux.json impossible.");
+		return false;
+	}
+	return true;
+}
+
+
 double ArticleManager::ComputeBilledQuantity (const CWArticle& article, const CWElementRow& row,
 											  const GS::Array<CWElementRow>& allRows,
 											  GS::UniString& outUnit)
 {
-	outUnit = article.unit.IsEmpty () ? FR ("ENS") : article.unit;
+	// Nouvelle architecture (spec §4) : la RÈGLE de correspondance peut imposer
+	// la quantité à adopter — elle prime sur la règle de calcul du catalogue.
+	const CWArticle* effectiveArticle = &article;
+	CWArticle ruleAdjusted;
+	if (!row.ruleQuantity.IsEmpty ()) {
+		ruleAdjusted = article;
+		ruleAdjusted.calcQuantity = row.ruleQuantity;
+		effectiveArticle = &ruleAdjusted;
+	}
+
+	outUnit = effectiveArticle->unit.IsEmpty () ? FR ("ENS") : effectiveArticle->unit;
 
 	// Membre d'un ensemble/groupe : facturé via son groupe, jamais seul.
 	if (row.consumed)
@@ -1780,7 +1966,7 @@ double ArticleManager::ComputeBilledQuantity (const CWArticle& article, const CW
 		return 1.0;
 
 	// Facturation à l'ensemble (forfait) : 1 par ligne facturée.
-	if (IsEnsUnit (article.unit))
+	if (IsEnsUnit (effectiveArticle->unit))
 		return 1.0;
 
 	if (row.isGroupRow) {
@@ -1790,12 +1976,12 @@ double ArticleManager::ComputeBilledQuantity (const CWArticle& article, const CW
 		for (UIndex m = 0; m < row.groupMembers.GetSize (); ++m) {
 			const CWElementRow* member = FindRowByGuid (allRows, row.groupMembers[m]);
 			if (member != nullptr)
-				total += QuantityForArticle (article, member->quantities);
+				total += QuantityForArticle (*effectiveArticle, member->quantities);
 		}
 		return total;
 	}
 
-	return QuantityForArticle (article, row.quantities);
+	return QuantityForArticle (*effectiveArticle, row.quantities);
 }
 
 
@@ -1840,19 +2026,29 @@ void ArticleManager::BuildArticleSummary (const GS::Array<CWElementRow>& rows,
 		if (row.consumed)
 			continue;
 
-		if (row.classItemId.IsEmpty ())
+		// Article effectif (nouvelle architecture) : règle prioritaire,
+		// classification en repli.
+		const GS::UniString effectiveArticleId = RowArticleId (row);
+		if (effectiveArticleId.IsEmpty ())
 			continue;
+
+		// Mode de métré : celui de la RÈGLE si présente (spec §11 — le choix
+		// appartient à la règle), sinon le mode global de la palette.
+		const CWQuantMode rowMode = row.hasRule ? row.ruleMode : mode;
 
 		// Mode de quantification BIM (§3) : l'ÉLÉMENT ou ses COMPOSANTS,
 		// jamais les deux. Les dessins 2D (catégorie indépendante) sont
 		// toujours facturés comme éléments.
-		const bool billElement = (mode != CWQuantMode::Component) || row.is2D;
+		const bool billElement = (rowMode != CWQuantMode::Component) || row.is2D;
 
 		if (billElement) {
 			UIndex entryIndex = 0;
-			CWArticleSummary& entry = findEntry (row.classItemId, row.classItemName, entryIndex);
+			const CWArticle* catalogArticle = findArticle (effectiveArticleId);
+			CWArticleSummary& entry = findEntry (effectiveArticleId,
+												 catalogArticle != nullptr ? catalogArticle->name : row.classItemName,
+												 entryIndex);
 
-			const CWArticle* article = findArticle (row.classItemId);
+			const CWArticle* article = catalogArticle;
 			if (article != nullptr) {
 				entry.articleName = article->name;
 				GS::UniString unit;
@@ -1870,27 +2066,34 @@ void ArticleManager::BuildArticleSummary (const GS::Array<CWElementRow>& rows,
 		}
 
 		// Skins classés (phase 5) : facturés sur l'article de leur matériau
-		// en mode Composants uniquement (jamais avec l'élément parent).
-		if (mode != CWQuantMode::Component)
+		// (règle du matériau prioritaire) en mode Composants uniquement
+		// (jamais avec l'élément parent).
+		if (rowMode != CWQuantMode::Component)
 			continue;
 
 		for (UIndex c = 0; c < row.components.GetSize (); ++c) {
 			const CWComponentRow& component = row.components[c];
-			if (component.kind != RowKind::Skin || component.classItemId.IsEmpty ())
+			if (component.kind != RowKind::Skin || ComponentArticleId (component).IsEmpty ())
 				continue;
 
+			const CWArticle* skinArticle = findArticle (ComponentArticleId (component));
 			UIndex skinEntryIndex = 0;
-			CWArticleSummary& skinEntry = findEntry (component.classItemId, component.classItemName, skinEntryIndex);
+			CWArticleSummary& skinEntry = findEntry (ComponentArticleId (component),
+													 skinArticle != nullptr ? skinArticle->name : component.classItemName,
+													 skinEntryIndex);
 
-			const CWArticle* skinArticle = findArticle (component.classItemId);
 			if (skinArticle != nullptr) {
 				skinEntry.articleName = skinArticle->name;
 				GS::UniString unit;
-				const double quantity = IsEnsUnit (skinArticle->unit)
+				// La règle du matériau peut imposer la quantité à adopter.
+				CWArticle skinEffective = *skinArticle;
+				if (!component.ruleQuantity.IsEmpty ())
+					skinEffective.calcQuantity = component.ruleQuantity;
+				const double quantity = IsEnsUnit (skinEffective.unit)
 					? 1.0
-					: QuantityForArticle (*skinArticle, component.quantities);
+					: QuantityForArticle (skinEffective, component.quantities);
 				skinEntry.totalQuantity += quantity;
-				skinEntry.unit = skinArticle->unit.IsEmpty () ? FR ("ENS") : skinArticle->unit;
+				skinEntry.unit = skinEffective.unit.IsEmpty () ? FR ("ENS") : skinEffective.unit;
 			}
 			++skinEntry.skinCount;
 		}

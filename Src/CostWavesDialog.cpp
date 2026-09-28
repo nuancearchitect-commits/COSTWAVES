@@ -6,8 +6,10 @@
 #include "ArticlePickerDialog.hpp"
 #include "CalcRulesDialog.hpp"
 #include "Exporter.hpp"
+#include "MappingDialog.hpp"
 #include "MaterialDialog.hpp"
 #include "ModelReader.hpp"
+#include "RuleLibrary.hpp"
 #include "SummaryDialog.hpp"
 #include "SendDialog.hpp"
 #include "CostWavesApi.hpp"
@@ -186,8 +188,8 @@ bool RowLess (const CWElementRow& a, const CWElementRow& b, short column,
 			return keyA.ToUpperCase () < keyB.ToUpperCase ();
 		}
 		case 6: {
-			const CWArticle* articleA = FindArticleById (articles, a.classItemId);
-			const CWArticle* articleB = FindArticleById (articles, b.classItemId);
+			const CWArticle* articleA = FindArticleById (articles, RowArticleId (a));
+			const CWArticle* articleB = FindArticleById (articles, RowArticleId (b));
 			double valueA = 0.0;
 			double valueB = 0.0;
 			if (articleA != nullptr) {
@@ -344,6 +346,7 @@ CostWavesDialog::CostWavesDialog ()
 		draw2DCheck (GetReference (), Draw2DCheckId),
 		draw2DTypePopup (GetReference (), Draw2DTypePopupId),
 		calcRulesButton (GetReference (), CalcRulesButtonId),
+		mappingButton (GetReference (), MappingButtonId),
 		articlesInfo (GetReference (), ArticlesInfoId),
 		searchLabel (GetReference (), SearchLabelId),
 		searchEdit (GetReference (), SearchEditId),
@@ -370,6 +373,7 @@ CostWavesDialog::CostWavesDialog ()
 	draw2DTypePopup.Attach (*this);	// PopUpObserver
 	draw2DCheck.Attach (*this);	// CheckItemObserver
 	calcRulesButton.Attach (*this);	// ButtonItemObserver
+	mappingButton.Attach (*this);	// ButtonItemObserver
 
 	isFilling = true;
 
@@ -497,7 +501,13 @@ void CostWavesDialog::RefreshData ()
 	rows.Clear ();
 	// CW_Group_ID : résolu à chaque lecture (peut être créé entre-temps).
 	groupPropGuid = ArticleManager::FindGroupIdPropertyGuid ();
-	ModelReader::Scan (selectedSystem, elemIdPropGuid, groupPropGuid, include2D,
+	// Bibliothèque de correspondances : rechargée à chaque lecture (elle peut
+	// avoir été modifiée par le gestionnaire ou à la main).
+	{
+		GS::UniString rulesError;
+		RuleLibrary::LoadRules (rules, rulesError);	// absente = bibliothèque vide
+	}
+	ModelReader::Scan (selectedSystem, elemIdPropGuid, groupPropGuid, include2D, rules,
 					  filter, rows, report);
 	FillTable ();
 
@@ -660,7 +670,10 @@ void CostWavesDialog::FillTable ()
 		if (element.consumed)
 			continue;
 
-		const bool elementHasClass = !element.classItemId.IsEmpty ();
+		// Article effectif : règle de correspondance prioritaire, classification
+		// en repli (nouvelle architecture).
+		const GS::UniString effectiveArticleId = RowArticleId (element);
+		const bool elementHasClass = !effectiveArticleId.IsEmpty ();
 
 		// Filtre des dessins 2D par type (§9/§10).
 		if (element.is2D && !Matches2DTypeFilter (element, draw2DTypePopup.GetSelectedItem ()))
@@ -669,7 +682,8 @@ void CostWavesDialog::FillTable ()
 		// Mode de quantification BIM (§3) : en mode Composants, les lignes
 		// d'éléments BIM n'apparaissent pas (seuls leurs skins classés) ;
 		// les dessins 2D (catégorie indépendante) restent affichés.
-		if (quantMode == CWQuantMode::Component && !element.is2D && !element.isGroupRow)
+		const CWQuantMode rowMode = element.hasRule ? element.ruleMode : quantMode;
+		if (rowMode == CWQuantMode::Component && !element.is2D && !element.isGroupRow)
 			continue;
 
 		const GS::UniString floorText = element.storyName.IsEmpty ()
@@ -678,9 +692,16 @@ void CostWavesDialog::FillTable ()
 		const GS::UniString layerText = element.is2D && !element.layerName.IsEmpty ()
 			? element.layerName
 			: floorText;
-		const GS::UniString classText = element.classItemId.IsEmpty ()
-			? element.classItemName
-			: element.classItemId + " - " + element.classItemName;
+		GS::UniString classText;
+		if (!element.classItemId.IsEmpty ())
+			classText = element.classItemId + " - " + element.classItemName;
+		else if (!element.ruleArticleId.IsEmpty ()) {
+			classText = element.ruleArticleId;
+			const CWArticle* ruleArticle = FindArticleById (articles, element.ruleArticleId);
+			if (ruleArticle != nullptr)
+				classText += " - " + ruleArticle->name;
+		} else
+			classText = element.classItemName;
 		const GS::UniString sourceText = element.is2D ? FR ("2D") : FR ("BIM");
 
 		// Ligne de l'élément (seulement s'il porte une classe).
@@ -733,13 +754,19 @@ void CostWavesDialog::FillTable ()
 		if (quantMode == CWQuantMode::Component) {
 			for (UIndex c = 0; c < element.components.GetSize (); ++c) {
 				const CWComponentRow& component = element.components[c];
-				if (component.kind != RowKind::Skin || component.classItemId.IsEmpty ())
+				if (component.kind != RowKind::Skin || ComponentArticleId (component).IsEmpty ())
 					continue;
 
 				GS::UniString skinType = FR ("Skin — ") + component.label;
 				if (component.coreSkin)
 					skinType += FR (" (cœur)");
-				const GS::UniString skinClass = component.classItemId + " - " + component.classItemName;
+				const GS::UniString skinArticleId = ComponentArticleId (component);
+				const CWArticle* skinArticle = FindArticleById (articles, skinArticleId);
+				const GS::UniString skinClass = skinArticle != nullptr
+					? skinArticleId + " - " + skinArticle->name
+					: (!component.classItemId.IsEmpty ()	// repli : classe du matériau
+						? component.classItemId + " - " + component.classItemName
+						: skinArticleId);
 
 				if (lineMatches (skinType, element.elementId, layerText, skinClass))
 					appendRow (FR ("Composant"), skinType, element.elementId, layerText, skinClass,
@@ -795,10 +822,11 @@ GS::UniString CostWavesDialog::BilledText (const CWElementRow& row) const
 	if (row.consumed)
 		return FR ("—");
 
-	if (row.classItemId.IsEmpty ())
+	const GS::UniString billedArticleId = RowArticleId (row);
+	if (billedArticleId.IsEmpty ())
 		return GS::UniString ();
 
-	const CWArticle* article = FindArticleById (articles, row.classItemId);
+	const CWArticle* article = FindArticleById (articles, billedArticleId);
 	if (article == nullptr)
 		return FR ("Article inconnu");
 
@@ -814,7 +842,7 @@ GS::UniString CostWavesDialog::BilledText (const CWElementRow& row) const
 // Texte de la colonne « Facturé » pour un skin classé (article du matériau).
 GS::UniString CostWavesDialog::SkinBilledText (const CWComponentRow& skin) const
 {
-	const CWArticle* article = FindArticleById (articles, skin.classItemId);
+	const CWArticle* article = FindArticleById (articles, ComponentArticleId (skin));
 	if (article == nullptr)
 		return FR ("Article inconnu");
 
@@ -855,6 +883,12 @@ void CostWavesDialog::UpdateStatus ()
 			+ FR (" groupe(s) numéroté(s) · ")
 			+ GS::ToUniString (std::to_wstring (static_cast<int> (report.consumedElements)))
 			+ FR (" consommé(s)");
+	}
+
+	if (report.unmappedStructures > 0) {
+		status += FR (" · ⚠ ")
+			+ GS::ToUniString (std::to_wstring (static_cast<int> (report.unmappedStructures)))
+			+ FR (" structure(s) sans règle — à configurer");
 	}
 
 	if (report.quantityErrors > 0) {
@@ -1041,6 +1075,32 @@ void CostWavesDialog::OpenCalcRulesDialog ()
 	// Le tableau (colonne Facturé), le récapitulatif et les exports suivent.
 	FillTable ();
 	UpdateStatus ();
+}
+
+
+void CostWavesDialog::OpenMappingDialog ()
+{
+	// Gestionnaire de correspondances (nouvelle architecture) : éditer les
+	// règles SANS maquette ouverte reste possible via le fichier JSON ; ici
+	// la palette offre l'accès direct et recharge la bibliothèque ensuite.
+	inModalDialog = true;
+	MappingDialog dialog (articles, rules);
+	dialog.Invoke ();
+	inModalDialog = false;
+
+	if (!dialog.IsAccepted ())
+		return;
+
+	// Le gestionnaire enregistre lui-même la bibliothèque ; on récupère la
+	// copie de travail (règles + articles locaux éventuellement créés).
+	rules = dialog.GetRules ();
+	if (articles.GetSize () != dialog.GetArticles ().GetSize ()) {
+		// Des articles locaux ont été créés dans le gestionnaire : les fusionner.
+		GS::UniString appendError;
+		ArticleManager::AppendLocalArticles (articles, appendError);	// best effort
+	}
+
+	RefreshData ();
 }
 
 
@@ -1318,9 +1378,23 @@ void CostWavesDialog::UpdateDetails (short listItem)
 			+ (element.layerName.IsEmpty () ? GS::UniString () : FR (" · Calque : ") + element.layerName));
 		SetDetailLine (3, FR ("Classe : ") + element.classItemId + " (" + element.classItemName + ")");
 
-		// Quantités complètes, réparties sur les lignes restantes.
+		// Structure native + règle de correspondance (nouvelle architecture).
+		if (!element.structureName.IsEmpty ()) {
+			GS::UniString structureLine = FR ("Structure : ")
+				+ RuleLibrary::StructureTypeName (element.structureType)
+				+ " — " + element.structureName;
+			if (element.hasRule)
+				structureLine += FR (" · Règle → ") + element.ruleArticleId
+					+ FR (" · ") + (element.ruleMode == CWQuantMode::Component ? FR ("composants") : FR ("élément"));
+			else
+				structureLine += FR (" · ⚠ sans règle — à configurer");
+			SetDetailLine (4, structureLine);
+		}
+
+		// Quantités complètes, réparties sur les lignes restantes
+		// (à partir de la 5 si la structure occupe la 4).
 		GS::UniString line;
-		short lineIndex = 4;
+		short lineIndex = element.structureName.IsEmpty () ? 4 : 5;
 		for (UIndex q = 0; q < element.quantities.GetSize (); ++q) {
 			const GS::UniString chunk = element.quantities[q].label + " = "
 				+ FormatValue (element.quantities[q].value) + " " + element.quantities[q].unit;
@@ -2020,6 +2094,8 @@ void CostWavesDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 		SendToCostWaves ();
 	} else if (ev.GetSource () == &calcRulesButton) {
 		OpenCalcRulesDialog ();
+	} else if (ev.GetSource () == &mappingButton) {
+		OpenMappingDialog ();
 	} else if (ev.GetSource () == &closeButton) {
 		HidePalette ();
 	}

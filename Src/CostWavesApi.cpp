@@ -1,6 +1,7 @@
 #include "CostWavesPrecompiledHeader.hpp"
 
 #include "CostWavesApi.hpp"
+#include "RuleLibrary.hpp"
 
 #include "ArticleManager.hpp"
 #include "Exporter.hpp"
@@ -379,12 +380,15 @@ GS::UniString CostWavesApi::BuildPayload (const GS::UniString& projectId, const 
 		const CWElementRow& row = rows[i];
 		if (row.consumed)
 			continue;
-		if (row.classItemId.IsEmpty ())
+
+		// Article effectif (nouvelle architecture) : règle prioritaire.
+		const GS::UniString effectiveArticleId = RowArticleId (row);
+		if (effectiveArticleId.IsEmpty ())
 			continue;
 
 		const CWArticle* article = nullptr;
 		for (UIndex a = 0; a < articles.GetSize (); ++a) {
-			if (articles[a].id == row.classItemId) {
+			if (articles[a].id == effectiveArticleId) {
 				article = &articles[a];
 				break;
 			}
@@ -398,10 +402,11 @@ GS::UniString CostWavesApi::BuildPayload (const GS::UniString& projectId, const 
 		else
 			type = US ("element");
 
-		// Mode de quantification BIM (§3) : en mode Composants, l'élément
-		// BIM n'est pas facturé (seuls ses skins le sont) ; les dessins 2D
-		// (catégorie indépendante) restent facturés.
-		const bool billElement = (mode != CWQuantMode::Component) || row.is2D;
+		// Mode de métré : celui de la RÈGLE si présente (spec §11), sinon le
+		// mode global. En mode Composants, l'élément BIM n'est pas facturé
+		// (seuls ses skins le sont) ; les dessins 2D restent facturés.
+		const CWQuantMode rowMode = row.hasRule ? row.ruleMode : mode;
+		const bool billElement = (rowMode != CWQuantMode::Component) || row.is2D;
 
 		GS::UniString unit;
 		const double billed = (billElement && article != nullptr)
@@ -418,12 +423,19 @@ GS::UniString CostWavesApi::BuildPayload (const GS::UniString& projectId, const 
 			json += US ("      \"layer\": ") + JsonStr (row.layerName) + US (",\n");
 		json += US ("      \"class\": ") + JsonStr (row.classItemId) + US (",\n");
 		json += US ("      \"className\": ") + JsonStr (row.classItemName) + US (",\n");
+		if (!row.structureName.IsEmpty ())
+			json += US ("      \"structure\": { \"type\": ")
+				+ JsonStr (RuleLibrary::StructureTypeName (row.structureType))
+				+ US (", \"name\": ") + JsonStr (row.structureName) + US (" },\n");
 		if (billElement)
-			json += US ("      \"articleId\": ") + JsonStr (row.classItemId) + US (",\n");
+			json += US ("      \"articleId\": ") + JsonStr (effectiveArticleId) + US (",\n");
 		if (!row.elementId.IsEmpty ())
 			json += US ("      \"elementId\": ") + JsonStr (row.elementId) + US (",\n");
-		if (!row.storyName.IsEmpty ())
+		if (!row.storyName.IsEmpty ()) {
 			json += US ("      \"story\": ") + JsonStr (row.storyName) + US (",\n");
+			// Emplacement CostWaves (spec §14) : étage (zone/pièce à venir).
+			json += US ("      \"location\": ") + JsonStr (row.storyName) + US (",\n");
+		}
 		if (!row.groupId.IsEmpty ()) {
 			json += US ("      \"groupId\": ") + JsonStr (row.groupId) + US (",\n");
 			if (row.isNumberedGroup)
@@ -447,13 +459,13 @@ GS::UniString CostWavesApi::BuildPayload (const GS::UniString& projectId, const 
 		// Skins classés (spéc. §4) — exportés indépendamment des éléments.
 		// Skins classés (§4) : facturés (article + quantités) uniquement en
 		// mode Composants ; en mode Élément, quantités conservées sans article.
-		const bool billComponents = (mode == CWQuantMode::Component);
+		const bool billComponents = (rowMode == CWQuantMode::Component);
 
 		json += US ("      \"components\": [");
 		bool firstComponent = true;
 		for (UIndex c = 0; c < row.components.GetSize (); ++c) {
 			const CWComponentRow& component = row.components[c];
-			if (component.kind != RowKind::Skin || component.classItemId.IsEmpty ())
+			if (component.kind != RowKind::Skin || ComponentArticleId (component).IsEmpty ())
 				continue;
 
 			json += firstComponent ? US (" ") : US (", ");
@@ -464,7 +476,7 @@ GS::UniString CostWavesApi::BuildPayload (const GS::UniString& projectId, const 
 				+ US (", \"class\": ") + JsonStr (component.classItemId)
 				+ US (", \"className\": ") + JsonStr (component.classItemName);
 			if (billComponents)
-				json += US (", \"articleId\": ") + JsonStr (component.classItemId);
+				json += US (", \"articleId\": ") + JsonStr (ComponentArticleId (component));
 			json += US (", \"quantities\": {");
 			for (UIndex q = 0; q < component.quantities.GetSize (); ++q) {
 				if (q > 0)

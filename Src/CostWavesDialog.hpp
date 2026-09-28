@@ -66,7 +66,8 @@ public:
 		ModePopupId			= 31,
 		Draw2DCheckId		= 32,
 		Draw2DTypePopupId	= 33,
-		CalcRulesButtonId	= 34
+		CalcRulesButtonId	= 34,
+		MappingButtonId		= 35
 	};
 
 	// Singleton : la palette vit aussi longtemps que l'add-on.
@@ -132,6 +133,7 @@ private:
 	void	LoadArticlesPopup ();		// (re)remplit le popup des articles
 	void	ImportArticles ();			// import JSON (boîte de dialogue fichier)
 	void	OpenCalcRulesDialog ();		// règle de calcul par article (fenêtre dédiée)
+	void	OpenMappingDialog ();		// gestionnaire de correspondances (nouvelle architecture)
 	void	CreateClassification ();		// crée/maj le système "CostWaves" (annulable)
 	void	AssignCurrentArticle ();	// affecte l'article aux éléments sélectionnés
 	void	CreateMaterials ();			// fenêtre « Créer le matériau… » (phase 5)
@@ -195,6 +197,7 @@ private:
 	DG::CheckBox		draw2DCheck;		// inclure les dessins 2D
 	DG::PopUp		draw2DTypePopup;	// filtre par type 2D
 	DG::Button		calcRulesButton;	// « Règles de calcul… »
+	DG::Button		mappingButton;	// « Correspondances… » (gestionnaire de règles)
 	DG::LeftText		articlesInfo;
 	DG::LeftText		searchLabel;
 	DG::SearchEdit		searchEdit;
@@ -214,6 +217,10 @@ private:
 
 	GS::Array<CWElementRow>	rows;
 	CWScanReport			report;
+
+	// Bibliothèque de correspondances (nouvelle architecture) : chargée à
+	// chaque lecture et après le gestionnaire de correspondances.
+	GS::Array<CWMapRule>	rules;
 	GS::Array<DisplayRow>	displayRows;
 
 	GS::UniString			searchFilter;		// filtre de recherche courant

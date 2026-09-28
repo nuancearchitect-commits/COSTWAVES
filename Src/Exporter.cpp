@@ -1,6 +1,7 @@
 #include "CostWavesPrecompiledHeader.hpp"
 
 #include "Exporter.hpp"
+#include "RuleLibrary.hpp"
 #include "ModelReader.hpp"
 #include "ArticleManager.hpp"
 
@@ -265,7 +266,7 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, CWQuantMode mod
 		// Ligne « Ensemble » (phase 4) : bloc spécifique avec ses membres
 		// consommés et la quantité facturée.
 		if (row.isGroupRow) {
-			const CWArticle* groupArticle = FindArticle (articles, row.classItemId);
+			const CWArticle* groupArticle = FindArticle (articles, RowArticleId (row));
 			GS::UniString billedUnit = FR ("?");
 			const double billedQuantity = (groupArticle != nullptr)
 				? ArticleManager::ComputeBilledQuantity (*groupArticle, row, rows, billedUnit)
@@ -318,13 +319,19 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, CWQuantMode mod
 		json += US ("      \"elementId\": ") + JsonString (row.elementId) + ",\n";
 		json += US ("      \"floorIndex\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (row.floorInd))) + ",\n";
 		json += US ("      \"story\": ") + JsonString (row.storyName) + ",\n";
+		// Emplacement CostWaves (spec §14) : étage (zone/pièce à venir).
+		json += US ("      \"location\": ") + JsonString (row.storyName) + ",\n";
+		if (!row.structureName.IsEmpty ())
+			json += US ("      \"structure\": { \"type\": ")
+				+ JsonString (RuleLibrary::StructureTypeName (row.structureType))
+				+ US (", \"name\": ") + JsonString (row.structureName) + " },\n";
 		json += "      \"classification\": {\n";
 		json += US ("        \"itemId\": ") + JsonString (row.classItemId) + ",\n";
 		json += US ("        \"itemName\": ") + JsonString (row.classItemName) + "\n";
 		json += "      },\n";
 
 		// Article CostWaves correspondant à la classe (null si non reconnu).
-		const CWArticle* article = FindArticle (articles, row.classItemId);
+		const CWArticle* article = FindArticle (articles, RowArticleId (row));
 		if (article != nullptr) {
 			json += US ("      \"article\": { \"id\": ") + JsonString (article->id)
 				  + US (", \"name\": ") + JsonString (article->name)
@@ -454,12 +461,14 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, CWQuantMode mode
 			? floorText
 			: floorText + " - " + row.storyName;
 
-		const GS::UniString classe = row.classItemId.IsEmpty ()
-			? row.classItemName
-			: row.classItemId + " - " + row.classItemName;
+		const GS::UniString classe = !row.classItemId.IsEmpty ()
+			? row.classItemId + " - " + row.classItemName
+			: (!row.structureName.IsEmpty ()
+				? row.structureName + FR (" (sans règle)")
+				: row.classItemName);
 
-		// Article de l'élément (identifiant CostWaves reconnu parmi les articles).
-		const CWArticle* article = FindArticle (articles, row.classItemId);
+		// Article effectif (règle prioritaire, classification en repli).
+		const CWArticle* article = FindArticle (articles, RowArticleId (row));
 		const GS::UniString articleId = (article != nullptr) ? article->id : GS::UniString ();
 
 		// Type de ligne : élément, membre consommé, ou ensemble (phase 4).
