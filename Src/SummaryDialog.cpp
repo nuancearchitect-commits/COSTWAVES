@@ -38,7 +38,7 @@ const char* kSummaryDialogGuidString = "6F4A9C1E-8B2D-4E7A-9C3F-5D8E1B2A4C6D";
 
 
 SummaryDialog::SummaryDialog (const GS::Array<CWArticleSummary>& summary)
-	:	DG::ModalDialog (DG::NativePoint (80, 80), 600, 360,
+	:	DG::ModalDialog (DG::NativePoint (DG::NativeUnit (80), DG::NativeUnit (80)), 600, 360,
 						APIGuid2GSGuid (APIGuidFromString (kSummaryDialogGuidString)),
 						DG::ModalDialog::NoGrow, DG::ModalDialog::TopCaption,
 						DG::ModalDialog::NormalFrame),
