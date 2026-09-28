@@ -69,14 +69,14 @@ void FillPenPopup (DG::PopUp& popup, GS::Array<short>& outIndices, short default
 	outIndices.Clear ();
 
 	UInt32 penCount = 0;
-	if (ACAPI_Attribute_GetPenNum (&penCount) != NoError)
+	if (ACAPI_Attribute_GetPenNum (penCount) != NoError)
 		return;
 
 	for (UInt32 i = 1; i <= penCount && i <= 255; ++i) {
 		API_Pen pen;
 		BNZeroMemory (&pen, sizeof (pen));
 		pen.index = static_cast<short> (i);
-		if (ACAPI_Attribute_GetPen (&pen) != NoError)
+		if (ACAPI_Attribute_GetPen (pen) != NoError)
 			continue;
 
 		GS::UniString label = GS::ToUniString (std::to_wstring (static_cast<int> (i))) + FR (" — ");
