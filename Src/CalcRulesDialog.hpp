@@ -32,7 +32,10 @@ public:
 		QuantityLabelId	= 3,
 		QuantityPopupId	= 4,
 		OkButtonId		= 5,
-		CancelButtonId	= 6
+		CancelButtonId	= 6,
+		FormulaLabelId	= 7,
+		FormulaEditId	= 8,
+		FormulaHintId	= 9
 	};
 
 	CalcRulesDialog (const GS::Array<CWArticle>& inArticles, const GS::Array<CWElementRow>& rows);
@@ -52,11 +55,15 @@ private:
 
 	void	FillTable ();
 	void	UpdateQuantityPopup ();
+	void	CommitFormulaEdit ();
 
 	DG::LeftText		infoText;
 	DG::MultiSelListBox	table;
 	DG::LeftText		quantityLabel;
 	DG::PopUp			quantityPopup;
+	DG::LeftText		formulaLabel;
+	DG::TextEdit		formulaEdit;
+	DG::LeftText		formulaHint;
 	DG::Button			okButton;
 	DG::Button			cancelButton;
 

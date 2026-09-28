@@ -35,6 +35,9 @@ CalcRulesDialog::CalcRulesDialog (const GS::Array<CWArticle>& inArticles, const 
 		table (GetReference (), TableId),
 		quantityLabel (GetReference (), QuantityLabelId),
 		quantityPopup (GetReference (), QuantityPopupId),
+		formulaLabel (GetReference (), FormulaLabelId),
+		formulaEdit (GetReference (), FormulaEditId),
+		formulaHint (GetReference (), FormulaHintId),
 		okButton (GetReference (), OkButtonId),
 		cancelButton (GetReference (), CancelButtonId),
 		articles (inArticles)
@@ -95,9 +98,11 @@ void CalcRulesDialog::FillTable ()
 		table.SetTabItemText (item, 1, article.id);
 		table.SetTabItemText (item, 2, article.name);
 		table.SetTabItemText (item, 3, article.unit.IsEmpty () ? FR ("ENS") : article.unit);
-		table.SetTabItemText (item, 4, article.calcQuantity.IsEmpty ()
-			? FR ("Automatique (selon l'unité)")
-			: article.calcQuantity);
+		table.SetTabItemText (item, 4, !article.calcFormula.IsEmpty ()
+			? article.calcFormula
+			: (article.calcQuantity.IsEmpty ()
+				? FR ("Automatique (selon l'unité)")
+				: article.calcQuantity));
 	}
 
 	if (table.GetItemCount () > 0) {
@@ -122,16 +127,21 @@ void CalcRulesDialog::UpdateQuantityPopup ()
 
 	const CWArticle& article = articles[static_cast<UIndex> (selectedArticleIndex) - 1];
 
+	// Formule dérivée de l'article courant.
+	formulaEdit.SetText (article.calcFormula);
+
 	// Articles facturés à l'ensemble : 1 par ligne, aucune quantité à choisir.
 	if (ArticleManager::IsEnsUnit (article.unit)) {
 		quantityPopup.AppendItem ();
 		quantityPopup.SetItemText (1, FR ("(comptage : 1 par ligne / groupe)"));
 		quantityPopup.SelectItem (1);
 		quantityPopup.Disable ();
+		formulaEdit.Disable ();
 		return;
 	}
 
 	quantityPopup.Enable ();
+	formulaEdit.Enable ();
 
 	// Choix 1 : comportement automatique (première quantité de l'unité).
 	quantityPopup.AppendItem ();
@@ -175,8 +185,19 @@ void CalcRulesDialog::ListBoxSelectionChanged (const DG::ListBoxSelectionEvent& 
 	if (ev.GetSource () != &table)
 		return;
 
+	// La formule saisie appartient à l'article affiché jusque-là.
+	CommitFormulaEdit ();
+
 	selectedArticleIndex = table.GetSelectedItem ();
 	UpdateQuantityPopup ();
+}
+
+
+void CalcRulesDialog::CommitFormulaEdit ()
+{
+	if (selectedArticleIndex < 1 || static_cast<UIndex> (selectedArticleIndex) > articles.GetSize ())
+		return;
+	articles[static_cast<UIndex> (selectedArticleIndex) - 1].calcFormula = formulaEdit.GetText ();
 }
 
 
@@ -199,15 +220,35 @@ void CalcRulesDialog::PopUpChanged (const DG::PopUpChangeEvent& ev)
 	// Libellé porté par l'item (vide pour « Automatique »).
 	article.calcQuantity = popupLabels[static_cast<UIndex> (selection) - 1];
 
-	table.SetTabItemText (selectedArticleIndex, 4, article.calcQuantity.IsEmpty ()
-		? FR ("Automatique (selon l'unité)")
-		: article.calcQuantity);
+	table.SetTabItemText (selectedArticleIndex, 4, !article.calcFormula.IsEmpty ()
+		? article.calcFormula
+		: (article.calcQuantity.IsEmpty ()
+			? FR ("Automatique (selon l'unité)")
+			: article.calcQuantity));
 }
 
 
 void CalcRulesDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 {
 	if (ev.GetSource () == &okButton) {
+		CommitFormulaEdit ();
+
+		// Valider chaque formule dérivée contre les quantités du projet :
+		// une formule invalide bloque la fermeture avec un message clair.
+		for (UIndex a = 0; a < articles.GetSize (); ++a) {
+			if (articles[a].calcFormula.IsEmpty ())
+				continue;
+			GS::UniString formulaError;
+			if (!ArticleManager::ValidateFormula (articles[a].calcFormula, candidateQuantities, formulaError)) {
+				DG::WarningAlert (FR ("Formule invalide pour l'article ") + articles[a].id + FR (" :"),
+								  formulaError
+									  + FR ("\nLibellés disponibles : les quantités lues dans le projet ")
+									  + FR ("(ex. « Contour ouverture * Épaisseur mur hôte »)."),
+								  FR ("OK"));
+				return;
+			}
+		}
+
 		accepted = true;
 		PostCloseRequest (DG::ModalDialog::Accept);
 	} else if (ev.GetSource () == &cancelButton) {

@@ -382,6 +382,10 @@ bool ArticleManager::ImportFromJsonFile (const GS::UniString& path, GS::Array<CW
 		article.calcQuantity = ArticleFieldText (entry, "calcQuantity");
 		if (article.calcQuantity.IsEmpty ())
 			article.calcQuantity = ArticleFieldText (entry, "quantity");
+		// Formule dérivée optionnelle (ex. "calcFormula": "Contour ouverture * Épaisseur mur hôte").
+		article.calcFormula = ArticleFieldText (entry, "calcFormula");
+		if (article.calcFormula.IsEmpty ())
+			article.calcFormula = ArticleFieldText (entry, "formula");
 		outArticles.Push (article);
 	}
 
@@ -1396,8 +1400,229 @@ GS::UniString ArticleManager::NormalizedUnit (const GS::UniString& unit)
 }
 
 
+// --- Formules dérivées ------------------------------------------------------------
+// Une formule est une expression arithmétique dont les variables sont les
+// LIBELLÉS des quantités de la ligne facturée : « Contour ouverture * Épaisseur
+// mur hôte » (enduit latéral des tableaux), « Périmètre * Hauteur », etc.
+// Priorité : * / sur + - ; parenthèses, nombres (point ou virgule), signe -
+// et les variantes typographiques × · ÷ sont acceptées.
+
+class FormulaEvaluator {
+public:
+	FormulaEvaluator (const GS::Array<CWQuantity>& quantities) : quantities (quantities) {}
+
+	bool Evaluate (const GS::UniString& formula, double& outValue, GS::UniString& outError)
+	{
+		text = GS::ToWString (formula);
+		pos = 0;
+		error.Clear ();
+		SkipSpaces ();
+		if (pos >= text.size ()) {
+			outError = FR ("Formule vide.");
+			return false;
+		}
+
+		double value = 0.0;
+		if (!ParseSum (value))
+			return false;
+
+		SkipSpaces ();
+		if (pos < text.size ()) {
+			outError = FR ("Caractère inattendu : « ")
+				+ GS::ToUniString (std::wstring (1, text[pos])) + FR (" ».");
+			return false;
+		}
+
+		outValue = value;
+		return true;
+	}
+
+private:
+	const GS::Array<CWQuantity>&	quantities;
+	std::wstring					text;
+	size_t							pos = 0;
+	GS::UniString				error;
+
+	void SkipSpaces ()
+	{
+		while (pos < text.size ()
+				&& (text[pos] == L' ' || text[pos] == L'\t' || text[pos] == 0x00A0))
+			++pos;
+	}
+
+	bool ParseSum (double& out)
+	{
+		double value = 0.0;
+		if (!ParseProduct (value))
+			return false;
+		for (;;) {
+			SkipSpaces ();
+			if (pos < text.size () && (text[pos] == L'+' || text[pos] == L'-')) {
+				const wchar_t op = text[pos];
+				++pos;
+				double right = 0.0;
+				if (!ParseProduct (right))
+					return false;
+				value = (op == L'+') ? value + right : value - right;
+			} else {
+				break;
+			}
+		}
+		out = value;
+		return true;
+	}
+
+	bool ParseProduct (double& out)
+	{
+		double value = 0.0;
+		if (!ParseFactor (value))
+			return false;
+		for (;;) {
+			SkipSpaces ();
+			if (pos >= text.size ())
+				break;
+			const wchar_t ch = text[pos];
+			if (ch == L'*' || ch == 0x00D7 || ch == 0x00B7) {		// * × ·
+				++pos;
+				double right = 0.0;
+				if (!ParseFactor (right))
+					return false;
+				value *= right;
+			} else if (ch == L'/' || ch == 0x00F7) {				// / ÷
+				++pos;
+				double right = 0.0;
+				if (!ParseFactor (right))
+					return false;
+				if (right == 0.0) {
+					error = FR ("Division par zéro.");
+					return false;
+				}
+				value /= right;
+			} else {
+				break;
+			}
+		}
+		out = value;
+		return true;
+	}
+
+	bool ParseFactor (double& out)
+	{
+		SkipSpaces ();
+		if (pos >= text.size ()) {
+			error = FR ("Formule incomplète.");
+			return false;
+		}
+
+		const wchar_t ch = text[pos];
+		if (ch == L'(') {
+			++pos;
+			double value = 0.0;
+			if (!ParseSum (value))
+				return false;
+			SkipSpaces ();
+			if (pos >= text.size () || text[pos] != L')') {
+				error = FR ("Parenthèse fermante manquante.");
+				return false;
+			}
+			++pos;
+			out = value;
+			return true;
+		}
+		if (ch == L'-') {
+			++pos;
+			double value = 0.0;
+			if (!ParseFactor (value))
+				return false;
+			out = -value;
+			return true;
+		}
+		if (ch == L'+') {
+			++pos;
+			return ParseFactor (out);
+		}
+		if (ch >= L'0' && ch <= L'9')
+			return ParseNumber (out);
+		return ParseLabel (out);
+	}
+
+	bool ParseNumber (double& out)
+	{
+		std::wstring number;
+		bool hasSeparator = false;
+		while (pos < text.size ()) {
+			const wchar_t ch = text[pos];
+			if (ch >= L'0' && ch <= L'9') {
+				number += ch;
+				++pos;
+			} else if ((ch == L'.' || ch == L',') && !hasSeparator) {
+				hasSeparator = true;
+				number += L'.';
+				++pos;
+			} else {
+				break;
+			}
+		}
+		out = wcstod (number.c_str (), nullptr);
+		return true;
+	}
+
+	bool ParseLabel (double& out)
+	{
+		// Libellé le plus long à la position courante (« Surface nette » avant
+		// « Surface ») : les libellés peuvent contenir espaces et accents.
+		UIndex bestIndex = 0;
+		size_t bestLength = 0;
+		for (UIndex q = 0; q < quantities.GetSize (); ++q) {
+			const std::wstring label = GS::ToWString (quantities[q].label);
+			if (label.empty ())
+				continue;
+			if (text.compare (pos, label.size (), label) == 0 && label.size () > bestLength) {
+				bestIndex = q;
+				bestLength = label.size ();
+			}
+		}
+
+		if (bestLength == 0) {
+			size_t end = pos;
+			while (end < text.size () && text[end] != L' ' && text[end] != L'\t'
+				&& text[end] != L'+' && text[end] != L'-' && text[end] != L'*' && text[end] != L'/'
+				&& text[end] != L'(' && text[end] != L')')
+				++end;
+			error = FR ("Quantité inconnue : « ")
+				+ GS::ToUniString (text.substr (pos, end - pos)) + FR (" ».");
+			return false;
+		}
+
+		out = quantities[bestIndex].value;
+		pos += bestLength;
+		return true;
+	}
+};
+
+
+bool ArticleManager::ValidateFormula (const GS::UniString& formula, const GS::Array<CWQuantity>& availableQuantities,
+									  GS::UniString& outError)
+{
+	FormulaEvaluator evaluator (availableQuantities);
+	double value = 0.0;
+	return evaluator.Evaluate (formula, value, outError);
+}
+
+
 double ArticleManager::QuantityForArticle (const CWArticle& article, const GS::Array<CWQuantity>& quantities)
 {
+	// Formule dérivée (« Règles de calcul », spec : enduit latéral = contour
+	// de l'ouverture × épaisseur du mur hôte) : prioritaire sur le libellé.
+	// Si la ligne ne possède pas une quantité référencée, repli sur la règle.
+	if (!article.calcFormula.IsEmpty ()) {
+		FormulaEvaluator evaluator (quantities);
+		double value = 0.0;
+		GS::UniString formulaError;
+		if (evaluator.Evaluate (article.calcFormula, value, formulaError))
+			return value;
+	}
+
 	// Règle explicite (« Règles de calcul ») : la quantité adoptée est celle
 	// qui porte exactement ce libellé (Surface nette, Surface brute, Volume
 	// conditionné, Surface projetée…). Si la ligne ne la possède pas (autre
@@ -1481,9 +1706,19 @@ bool ArticleManager::LoadCalcRules (GS::Array<CWArticle>& ioArticles, GS::UniStr
 		// Les clés JSON sont stockées en UTF-8 brut (JsonValue::objectValue).
 		const auto idUtf8 = ioArticles[a].id.ToCStr (CC_UTF8);
 		const JsonValue* rule = rules->Find (idUtf8.Get ());
-		if (rule == nullptr || rule->type != JsonValue::Type::String)
-			continue;
-		ioArticles[a].calcQuantity = GS::UniString (rule->stringValue.c_str (), CC_UTF8);
+		if (rule != nullptr && rule->type == JsonValue::Type::String)
+			ioArticles[a].calcQuantity = GS::UniString (rule->stringValue.c_str (), CC_UTF8);
+	}
+
+	// Formules dérivées : {"formulas": {"ID": "Contour ouverture * Épaisseur mur hôte"}}.
+	const JsonValue* formulas = (root.type == JsonValue::Type::Object) ? root.Find ("formulas") : nullptr;
+	if (formulas != nullptr && formulas->type == JsonValue::Type::Object) {
+		for (UIndex a = 0; a < ioArticles.GetSize (); ++a) {
+			const auto idUtf8 = ioArticles[a].id.ToCStr (CC_UTF8);
+			const JsonValue* formula = formulas->Find (idUtf8.Get ());
+			if (formula != nullptr && formula->type == JsonValue::Type::String)
+				ioArticles[a].calcFormula = GS::UniString (formula->stringValue.c_str (), CC_UTF8);
+		}
 	}
 
 	return true;
@@ -1508,6 +1743,15 @@ bool ArticleManager::SaveCalcRules (const GS::Array<CWArticle>& articles, GS::Un
 			continue;	// article en automatique : rien à mémoriser
 		json += (first ? US ("") : US (",\n")) + US ("    ") + EscapeJsonText (articles[a].id)
 			+ US (": ") + EscapeJsonText (articles[a].calcQuantity);
+		first = false;
+	}
+	json += US ("\n  },\n  \"formulas\": {\n");
+	first = true;
+	for (UIndex a = 0; a < articles.GetSize (); ++a) {
+		if (articles[a].calcFormula.IsEmpty ())
+			continue;	// pas de formule dérivée : rien à mémoriser
+		json += (first ? US ("") : US (",\n")) + US ("    ") + EscapeJsonText (articles[a].id)
+			+ US (": ") + EscapeJsonText (articles[a].calcFormula);
 		first = false;
 	}
 	json += US ("\n  }\n}\n");

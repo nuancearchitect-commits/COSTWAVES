@@ -65,6 +65,17 @@ La palette :
      des points ; **hachure → surface + périmètre** (zones non modélisées :
      peinture, revêtement, terrasse, voirie, étanchéité…).
 
+0b. **Quantités extraites des ouvertures et des objets GDL** —
+   - **Fenêtres et portes** (portes-fenêtres comprises) : Surface, Volume,
+     Largeur, Hauteur, Surface brute, Hauteur appui, plus les quantités
+     dérivées `Contour ouverture` (2×(L+H)), `Épaisseur mur hôte` (mur
+     porteur, via le champ owner) et **`Surface tableau` = contour ×
+     épaisseur (enduit latéral)** ;
+   - **Objets GDL** : Surface, Volume (moteur Archicad) + dimensions
+     `Largeur A`, `Profondeur B` (élément) et `Hauteur ZZYZX` (paramètres de
+     la bibliothèque, via `APIMemoMask_AddPars`) — toutes exploitables dans
+     les règles et formules par article.
+
 1. **Sélecteur de système de classification** — liste tous les systèmes du projet
    (Archicad, CostWaves, Uniclass, etc.) ; changer de système relance la lecture.
 2. **Tableau** (en-têtes, **largeurs automatiques**, scroll horizontal,
@@ -122,10 +133,19 @@ La palette :
    - `Automatique (selon l'unité)` = première quantité de l'unité (défaut) ;
    si la quantité choisie n'existe pas sur une ligne (autre type d'élément),
    repli automatique sur l'unité.
+   **Formule dérivée** (champ « Formule dérivée », prioritaire sur le libellé) :
+   expression arithmétique sur les libellés des quantités de la ligne —
+   `+ - * / ( )`, nombres et variantes `× ÷`. Exemple : un article « enduit
+   latéral » au m² se calcule par `Contour ouverture * Épaisseur mur hôte`
+   (contour de la fenêtre × épaisseur du mur hôte). La formule est validée à
+   l'OK contre les quantités lues dans le projet ; si une ligne ne possède pas
+   une quantité référencée (autre type d'élément), repli sur le libellé puis
+   sur l'unité.
    La règle s'applique à la colonne `Facturé`, au récapitulatif par article,
-   aux exports JSON/CSV et au payload API (`calcQuantity` par article) ; elle est
-   mémorisée dans `CostWaves-calcul.json` à côté du PLN et peut aussi venir du
-   catalogue importé (champ `calcQuantity` ou `quantity` du JSON d'articles).
+   aux exports JSON/CSV et au payload API (`calcQuantity` + `calcFormula` par
+   article) ; elle est mémorisée dans `CostWaves-calcul.json` à côté du PLN
+   (sections `rules` et `formulas`) et peut aussi venir du catalogue importé
+   (champs `calcQuantity`/`quantity` et `calcFormula`/`formula` du JSON).
 
 ### Ce que la phase 1 lit dans Archicad
 
@@ -289,6 +309,22 @@ pas un choix.
    (`CostWaves-calcul.json` à côté du PLN) ; Annuler → aucune modification.
 5. Catalogue JSON avec `"calcQuantity": "Surface brute"` : la règle est
    appliquée dès l'import ; le champ `calcQuantity` part dans le payload API.
+
+### Phase 7 ter — Quantités dérivées et extraction ouvertures/objets GDL
+
+1. Fenêtre posée dans un mur : la ligne porte `Contour ouverture`,
+   `Épaisseur mur hôte` et `Surface tableau` (contour × épaisseur) dans ses
+   colonnes de quantités ; même chose pour une porte/porte-fenêtre.
+2. Article « Enduit latéral » (m²) : dans « Règles de calcul… », saisir la
+   formule `Contour ouverture * Épaisseur mur hôte` → OK : la colonne
+   `Facturé` des fenêtres affiche la surface du tableau ; une formule
+   invalide (libellé inconnu, parenthèse manquante) bloque la fermeture avec
+   un message.
+3. Objet GDL classé (sanitaire, mobilier…) : la ligne affiche `Largeur A`,
+   `Profondeur B`, `Hauteur ZZYZX` en plus de Surface/Volume.
+4. Fermer/réouvrir : les formules sont conservées
+   (`CostWaves-calcul.json`, section `formulas`) et partent dans le payload
+   API (`calcFormula`).
 
 ## 3. Build (Windows)
 
@@ -533,7 +569,7 @@ COSTWAVES/
 | **4 (codée)** | Ensembles CostWaves facturables (exclusion « consommé » automatique), facturation ENS, récapitulatif par article | 07, 12, 18–21, 23, 24, 29 |
 | **5 (codée)** | Palette modeless (navigation/sélection libres, suivi de sélection), tableau 6 colonnes, fenêtre « Créer le matériau… », « Créer un ensemble » / « Créer un groupe » (groupes numérotés, quantité = nombre de groupes) | 02, 05, 15, 22, 26–28 |
 | **6 (codée)** | Communication Archicad → CostWaves (spéc. §12/§13) : bouton « Envoyer vers CostWaves… » + commande de menu, fenêtre de réglages (URL, clé API, traitement des articles inconnus §6), payload JSON complet, envoi HTTP(S) via WinHTTP | 30, 31, 32, 33 |
-| **7 (codée)** | Sources de quantification (spéc. repostée §1–§10) : mode **Élément / Composants** exclusif, **dessins 2D** (ligne, polyligne, spline, arc, cercle, hachure) comme objets de métré à part entière dans le même tableau (colonne Source), filtre par type 2D, classe 2D = classification ou propriété CW_Article_ID ; **règles de calcul** : quantité à adopter par article (nette, brute, conditionnée, projetée…) choisie dans la fenêtre « Règles de calcul… » | — |
+| **7 (codée)** | Sources de quantification (spéc. repostée §1–§10) : mode **Élément / Composants** exclusif, **dessins 2D** (ligne, polyligne, spline, arc, cercle, hachure) comme objets de métré à part entière dans le même tableau (colonne Source), filtre par type 2D, classe 2D = classification ou propriété CW_Article_ID  ; **règles de calcul** : quantité à adopter par article (nette, brute, conditionnée, projetée…) et **formules dérivées** (`Contour ouverture * Épaisseur mur hôte` → enduit latéral) dans la fenêtre « Règles de calcul… » ; extraction enrichie des **portes/fenêtres** (contour, épaisseur mur hôte, surface tableau) et des **objets GDL** (A/B/ZZYZX) | — |
 | 8 | Synchro bidirectionnelle CostWaves ↔ Archicad, détection de modifications de quantités (le module `CostWavesApi` isole déjà le transport) | |
 
 Les choix définitifs de contenu des phases suivantes seront revalidés avant codage.

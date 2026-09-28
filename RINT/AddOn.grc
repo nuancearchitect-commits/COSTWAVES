@@ -199,6 +199,9 @@
 /* [  4] */ PopupControl               185  297  445   22 80 3
 /* [  5] */ Button                     420  395  100   23 LargePlain "OK"
 /* [  6] */ Button                     530  395  100   23 LargePlain "Annuler"
+/* [  7] */ LeftText                    10  330  170   18 LargePlain vTop | noTrunc Default "Formule dérivée :"
+/* [  8] */ TextEdit                   185  327  445   22 LargePlain frame | update | absolute | editable 255
+/* [  9] */ LeftText                    10  357  620   32 SmallPlain vTop | noTrunc Default "Libellés des quantités + nombres, ex. « Contour ouverture * Épaisseur mur hôte » (enduit latéral). Prioritaire sur le libellé ci-dessus."
 }
 
 'DLGH' ID_ADDON_DLG_CALC DLG_Calc_Rules {
@@ -208,4 +211,7 @@
 4    ""        PopupControl_0
 5    ""        Button_0
 6    ""        Button_1
+7    ""        LeftText_2
+8    ""        TextEdit_0
+9    ""        LeftText_3
 }

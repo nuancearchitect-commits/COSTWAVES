@@ -112,6 +112,10 @@ struct CWArticle {
 	GS::UniString	calcQuantity;	// règle de calcul : libellé de la quantité à adopter
 								// ("Surface nette", "Surface brute", "Volume conditionné"…).
 								// Vide = automatique (première quantité de l'unité).
+	GS::UniString	calcFormula;	// formule dérivée (prioritaire sur calcQuantity) :
+								// expression arithmétique sur les libellés de quantités
+								// de la ligne, ex. "Contour ouverture * Épaisseur mur hôte"
+								// (enduit latéral des tableaux).
 	short			depth = 0;	// profondeur dans la classification (0 = racine, pour l'indentation)
 
 	CWArticle () = default;

@@ -350,7 +350,8 @@ GS::UniString CostWavesApi::BuildPayload (const GS::UniString& projectId, const 
 		json += US ("{ \"id\": ") + JsonStr (articles[a].id)
 			+ US (", \"name\": ") + JsonStr (articles[a].name)
 			+ US (", \"unit\": ") + JsonStr (articles[a].unit)
-			+ US (", \"calcQuantity\": ") + JsonStr (articles[a].calcQuantity) + US (" }");
+			+ US (", \"calcQuantity\": ") + JsonStr (articles[a].calcQuantity)
+			+ US (", \"calcFormula\": ") + JsonStr (articles[a].calcFormula) + US (" }");
 	}
 	json += US (" ],\n");
 

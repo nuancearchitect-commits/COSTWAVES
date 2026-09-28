@@ -1,5 +1,7 @@
 #include "CostWavesPrecompiledHeader.hpp"
 
+#include <cstring>
+
 #include "ModelReader.hpp"
 
 #include "ArticleManager.hpp"
@@ -544,7 +546,119 @@ void ModelReader::AddQuantity (GS::Array<CWQuantity>& outQuantities, const char*
 }
 
 
-void ModelReader::ExtractQuantities (API_ElemTypeID typeID, const API_ElementQuantity& quantity,
+// --- Quantités dérivées : ouvertures (fenêtres/portes) et objets GDL ------------
+
+namespace {
+
+// Ajout direct d'une quantité (le modèle CWQuantity est public).
+void PushQuantity (GS::Array<CWQuantity>& outQuantities, const char* labelUtf8, const char* unitUtf8, double value)
+{
+	outQuantities.Push (CWQuantity (GS::UniString (labelUtf8, CC_UTF8), value, GS::UniString (unitUtf8, CC_UTF8)));
+}
+
+// Épaisseur du mur hôte d'une ouverture (fenêtre/porte) via son champ owner.
+double HostWallThickness (const API_Guid& ownerGuid)
+{
+	if (ownerGuid == APINULLGuid)
+		return 0.0;
+
+	API_Element wall;
+	BNZeroMemory (&wall, sizeof (wall));
+	wall.header.guid = ownerGuid;
+	if (ACAPI_Element_Get (&wall) != NoError)
+		return 0.0;
+	if (wall.header.type.typeID != API_WallID)
+		return 0.0;
+	return wall.wall.thickness;
+}
+
+// Fenêtres et portes (spec : quantité dérivée « enduit latéral ») : contour de
+// l'ouverture, épaisseur du mur hôte et surface du tableau = contour × épaisseur.
+void AddOpeningDerivedQuantities (const API_Guid& elemGuid, bool isDoor, double width, double height,
+								  GS::Array<CWQuantity>& outQuantities)
+{
+	if (width <= 0.0 || height <= 0.0)
+		return;
+
+	API_Element elem;
+	BNZeroMemory (&elem, sizeof (elem));
+	elem.header.guid = elemGuid;
+	if (ACAPI_Element_Get (&elem) != NoError)
+		return;
+
+	const API_Guid owner = isDoor ? elem.door.owner : elem.window.owner;
+	const double thickness = HostWallThickness (owner);
+	if (thickness <= 0.0)
+		return;
+
+	const double contour = 2.0 * (width + height);
+	PushQuantity (outQuantities, "Contour ouverture", "m", contour);
+	PushQuantity (outQuantities, "Épaisseur mur hôte", "m", thickness);
+	PushQuantity (outQuantities, "Surface tableau", "m²", contour * thickness);
+}
+
+// Objets GDL : dimensions A/B (struct de l'élément) et ZZYZX (paramètres du
+// memo, pattern DevKit : APIMemoMask_AddPars + handle de API_AddParType).
+void AddGdlDimensionQuantities (const API_Guid& elemGuid, bool withStructSizes,
+								GS::Array<CWQuantity>& outQuantities)
+{
+	if (withStructSizes) {
+		API_Element objElem;
+		BNZeroMemory (&objElem, sizeof (objElem));
+		objElem.header.guid = elemGuid;
+		if (ACAPI_Element_Get (&objElem) == NoError && objElem.header.type.typeID == API_ObjectID) {
+			if (objElem.object.xRatio > 0.0)
+				PushQuantity (outQuantities, "Largeur A", "m", objElem.object.xRatio);
+			if (objElem.object.yRatio > 0.0)
+				PushQuantity (outQuantities, "Profondeur B", "m", objElem.object.yRatio);
+		}
+	}
+
+	API_ElementMemo memo;
+	BNZeroMemory (&memo, sizeof (memo));
+	if (ACAPI_Element_GetMemo (elemGuid, &memo, APIMemoMask_AddPars) != NoError)
+		return;
+	if (memo.params == nullptr || *memo.params == nullptr) {
+		ACAPI_DisposeElemMemoHdls (&memo);
+		return;
+	}
+
+	const GSSize nParams = BMGetHandleSize (reinterpret_cast<GSHandle> (memo.params))
+		/ static_cast<GSSize> (sizeof (API_AddParType));
+	double paramA = 0.0;
+	double paramB = 0.0;
+	double paramZZYZX = 0.0;
+	bool hasParamA = false;
+	bool hasParamB = false;
+	for (GSIndex p = 0; p < nParams; ++p) {
+		const API_AddParType& par = (*memo.params)[p];
+		if (par.typeID != ParT_Length)
+			continue;
+		if (strcmp (par.name, "A") == 0) {
+			paramA = par.value.real;
+			hasParamA = true;
+		} else if (strcmp (par.name, "B") == 0) {
+			paramB = par.value.real;
+			hasParamB = true;
+		} else if (strcmp (par.name, "ZZYZX") == 0) {
+			paramZZYZX = par.value.real;
+		}
+	}
+	ACAPI_DisposeElemMemoHdls (&memo);
+
+	if (!withStructSizes && hasParamA && paramA > 0.0)
+		PushQuantity (outQuantities, "Largeur A", "m", paramA);
+	if (!withStructSizes && hasParamB && paramB > 0.0)
+		PushQuantity (outQuantities, "Profondeur B", "m", paramB);
+	if (paramZZYZX > 0.0)
+		PushQuantity (outQuantities, "Hauteur ZZYZX", "m", paramZZYZX);
+}
+
+} // namespace
+
+
+void ModelReader::ExtractQuantities (const API_Guid& elemGuid, API_ElemTypeID typeID,
+									 const API_ElementQuantity& quantity,
 									 GS::Array<CWQuantity>& outQuantities)
 {
 	switch (typeID) {
@@ -596,6 +710,10 @@ void ModelReader::ExtractQuantities (API_ElemTypeID typeID, const API_ElementQua
 			AddQuantity (outQuantities, "Hauteur", "m", quantity.window.height1);
 			AddQuantity (outQuantities, "Surface brute", "m²", quantity.window.grossSurf);
 			AddQuantity (outQuantities, "Hauteur appui", "m", quantity.window.sillHeight);
+			// Quantité dérivée : enduit latéral = contour de l'ouverture ×
+			// épaisseur du mur hôte (utilisable dans les formules par article).
+			AddOpeningDerivedQuantities (elemGuid, false, quantity.window.width1, quantity.window.height1,
+										 outQuantities);
 			break;
 
 		case API_DoorID:
@@ -606,17 +724,26 @@ void ModelReader::ExtractQuantities (API_ElemTypeID typeID, const API_ElementQua
 			AddQuantity (outQuantities, "Hauteur", "m", quantity.door.height1);
 			AddQuantity (outQuantities, "Surface brute", "m²", quantity.door.grossSurf);
 			AddQuantity (outQuantities, "Hauteur appui", "m", quantity.door.sillHeight);
+			// Quantité dérivée : enduit latéral = contour de l'ouverture ×
+			// épaisseur du mur hôte (portes, portes-fenêtres…).
+			AddOpeningDerivedQuantities (elemGuid, true, quantity.door.width1, quantity.door.height1,
+										 outQuantities);
 			break;
 
 		case API_ObjectID:
 			AddQuantity (outQuantities, "Surface", "m²", quantity.symb.surface);
 			AddQuantity (outQuantities, "Volume", "m³", quantity.symb.volume);
+			// Dimensions GDL : A et B depuis l'élément, ZZYZX (hauteur) depuis
+			// les paramètres de la bibliothèque.
+			AddGdlDimensionQuantities (elemGuid, true, outQuantities);
 			break;
 
 		case API_LampID:
 			// API_LightQuantity = API_ObjectQuantity, membre distinct de l'union.
 			AddQuantity (outQuantities, "Surface", "m²", quantity.light.surface);
 			AddQuantity (outQuantities, "Volume", "m³", quantity.light.volume);
+			// Dimensions GDL via les paramètres de la bibliothèque (A/B/ZZYZX).
+			AddGdlDimensionQuantities (elemGuid, false, outQuantities);
 			break;
 
 		case API_SkylightID:
@@ -911,7 +1038,7 @@ void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemType
 										  const GS::Array<API_CompositeQuantity>& compositeQuantities,
 										  CWElementRow& outRow, CWScanReport& outReport)
 {
-	ExtractQuantities (typeID, elementQuantity, outRow.quantities);
+	ExtractQuantities (elemGuid, typeID, elementQuantity, outRow.quantities);
 
 	// Phase 3 : structure composite de l'élément (mur, dallage, toit, coquille)
 	// pour enrichir chaque skin : nom du composite, épaisseur de couche,

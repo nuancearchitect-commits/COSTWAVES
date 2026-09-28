@@ -129,7 +129,8 @@ private:
 											 const GS::Array<API_CompositeQuantity>& compositeQuantities,
 											 CWElementRow& outRow, CWScanReport& outReport);
 
-	static void	ExtractQuantities (API_ElemTypeID typeID, const API_ElementQuantity& quantity,
+	static void	ExtractQuantities (const API_Guid& elemGuid, API_ElemTypeID typeID,
+						 const API_ElementQuantity& quantity,
 									GS::Array<CWQuantity>& outQuantities);
 	static void	AddQuantity (GS::Array<CWQuantity>& outQuantities, const char* labelUtf8,
 							   const char* unitUtf8, double value);

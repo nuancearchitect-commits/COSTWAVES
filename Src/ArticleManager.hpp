@@ -189,9 +189,17 @@ public:
 	static double	QuantityForUnit (const GS::Array<CWQuantity>& quantities, const GS::UniString& unit);
 
 	// Règle de calcul (fenêtre « Règles de calcul ») : quantité adoptée pour
-	// l'article — libellé explicite si calcQuantity est défini, sinon repli
-	// sur la première quantité de l'unité.
+	// l'article — formule dérivée (calcFormula, prioritaire), libellé explicite
+	// si calcQuantity est défini, sinon repli sur la première quantité de
+	// l'unité.
 	static double	QuantityForArticle (const CWArticle& article, const GS::Array<CWQuantity>& quantities);
+
+	// Valide une formule dérivée contre les quantités disponibles (syntaxe +
+	// libellés référencés). Renvoie false avec un message explicite sinon.
+	// Formule : libellés de quantités, nombres, + - * / ( ) — ex.
+	// « Contour ouverture * Épaisseur mur hôte ».
+	static bool		ValidateFormula (const GS::UniString& formula, const GS::Array<CWQuantity>& availableQuantities,
+									 GS::UniString& outError);
 
 	// Unité normalisée pour comparaison ("m²" -> "M2") : exposée aux fenêtres
 	// qui filtrent les quantités candidates par unité.
