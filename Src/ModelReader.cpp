@@ -22,6 +22,21 @@ const char* kElementIdPropertyGuidString = "B1B54D45-C951-42C9-9AF8-898F0BF212AB
 } // namespace
 
 
+// --- Caches de lecture (phase 3) ----------------------------------------------
+
+std::unordered_map<UInt32, GS::UniString>	ModelReader::typeNameCache;
+std::unordered_map<UInt32, GS::UniString>	ModelReader::materialNameCache;
+std::unordered_map<UInt32, CWSkinInfo>		ModelReader::compositeCache;
+
+
+void ModelReader::ClearCaches ()
+{
+	typeNameCache.clear ();
+	materialNameCache.clear ();
+	compositeCache.clear ();
+}
+
+
 GS::Array<CWSystemInfo> ModelReader::GetClassificationSystems ()
 {
 	GS::Array<CWSystemInfo> result;
@@ -77,36 +92,42 @@ bool ModelReader::ResolveElementIdPropertyGuid (API_Guid& outGuid, GS::UniString
 
 GS::UniString ModelReader::GetTypeName (const API_ElemType& type)
 {
-	static std::unordered_map<UInt32, GS::UniString> cache;
-
 	const UInt32 key = (static_cast<UInt32> (type.typeID) << 12)
 					 ^ static_cast<UInt32> (type.variationID);
 
-	const auto it = cache.find (key);
-	if (it != cache.end ())
+	const auto it = typeNameCache.find (key);
+	if (it != typeNameCache.end ())
 		return it->second;
 
 	GS::UniString name;
 	if (ACAPI_Element_GetElemTypeName (type, name) != NoError || name.IsEmpty ())
 		name = FR ("Type inconnu");
 
-	cache.emplace (key, name);
+	typeNameCache.emplace (key, name);
 	return name;
 }
 
 
 GS::UniString ModelReader::GetBuildingMaterialName (API_AttributeIndex index)
 {
+	// Phase 3 : un seul ACAPI_Attribute_Get par matériau distinct.
+	const UInt32 key = static_cast<UInt32> (index.GenerateHashValue ());
+
+	const auto it = materialNameCache.find (key);
+	if (it != materialNameCache.end ())
+		return it->second;
+
 	API_Attribute attribute;
 	BNZeroMemory (&attribute, sizeof (attribute));
 	attribute.header.typeID = API_BuildingMaterialID;
 	attribute.header.index = index;
 
-	if (ACAPI_Attribute_Get (&attribute) != NoError)
-		return FR ("Matériau ?");
+	GS::UniString name = FR ("Matériau ?");
+	if (ACAPI_Attribute_Get (&attribute) == NoError && attribute.header.name[0] != '\0')
+		name = GS::UniString (attribute.header.name, CC_UTF8);
 
-	// header.name est une chaîne C UTF-8 (voir API_Attr_Head).
-	return GS::UniString (attribute.header.name, CC_UTF8);
+	materialNameCache.emplace (key, name);
+	return name;
 }
 
 
@@ -137,6 +158,91 @@ GS::UniString ModelReader::GetElementIdValue (const API_Guid& elemGuid, const AP
 		return GS::UniString ();
 
 	return property.value.singleVariant.variant.uniStringValue;
+}
+
+
+API_AttributeIndex ModelReader::GetCompositeIndexOfElement (const API_Guid& elemGuid, API_ElemTypeID typeID)
+{
+	// Types exposant une structure composite : mur, dallage (champ .composite),
+	// toit et coquille (via le champ commun shellBase).
+	switch (typeID) {
+		case API_WallID:
+		case API_SlabID:
+		case API_RoofID:
+		case API_ShellID:
+			break;
+		default:
+			return APIInvalidAttributeIndex;
+	}
+
+	API_Element element;
+	BNZeroMemory (&element, sizeof (element));
+	element.header.guid = elemGuid;
+
+	if (ACAPI_Element_Get (&element) != NoError)
+		return APIInvalidAttributeIndex;
+
+	switch (typeID) {
+		case API_WallID:	return element.wall.composite;
+		case API_SlabID:	return element.slab.composite;
+		case API_RoofID:	return element.roof.shellBase.composite;
+		case API_ShellID:	return element.shell.shellBase.composite;
+		default:			return APIInvalidAttributeIndex;
+	}
+}
+
+
+bool ModelReader::GetCompositeInfo (API_AttributeIndex compositeIndex, CWSkinInfo& outInfo)
+{
+	outInfo = CWSkinInfo ();
+	if (!compositeIndex.IsPositive ())
+		return false;
+
+	// Phase 3 : un seul couple ACAPI_Attribute_Get/GetDef par composite distinct.
+	const UInt32 key = static_cast<UInt32> (compositeIndex.GenerateHashValue ());
+
+	const auto it = compositeCache.find (key);
+	if (it != compositeCache.end ()) {
+		outInfo = it->second;
+		return outInfo.valid;
+	}
+
+	CWSkinInfo info;
+
+	// 1) Attribut composite : nom + épaisseur totale.
+	API_Attribute attribute;
+	BNZeroMemory (&attribute, sizeof (attribute));
+	attribute.header.typeID = API_CompWallID;
+	attribute.header.index = compositeIndex;
+
+	if (ACAPI_Attribute_Get (&attribute) == NoError) {
+		info.valid = true;
+		info.name = GS::UniString (attribute.header.name, CC_UTF8);
+		info.totalThickness = attribute.compWall.totalThick;		// mètres
+
+		// 2) Couches du composite (définition étendue de l'attribut).
+		API_AttributeDef defs;
+		BNZeroMemory (&defs, sizeof (defs));
+		if (ACAPI_Attribute_GetDef (API_CompWallID, compositeIndex, &defs) == NoError
+			&& defs.cwall_compItems != nullptr) {
+			const GSSize byteCount = BMGetHandleSize (reinterpret_cast<GSConstHandle> (defs.cwall_compItems));
+			const long layerCount = static_cast<long> (byteCount / static_cast<GSSize> (sizeof (API_CWallComponent)));
+			for (long l = 0; l < layerCount; ++l) {
+				const API_CWallComponent& layer = (*defs.cwall_compItems)[l];
+				CWSkinLayer skinLayer;
+				skinLayer.buildingMaterial = layer.buildingMaterial;
+				skinLayer.thickness = layer.fillThick;			// mètres
+				skinLayer.core = (layer.flagBits & APICWallComp_Core) != 0;
+				skinLayer.finish = (layer.flagBits & APICWallComp_Finish) != 0;
+				info.layers.push_back (skinLayer);
+			}
+		}
+		ACAPI_DisposeAttrDefsHdls (&defs);
+	}
+
+	compositeCache.emplace (key, info);
+	outInfo = info;
+	return info.valid;
 }
 
 
@@ -193,7 +299,6 @@ void ModelReader::ExtractQuantities (API_ElemTypeID typeID, const API_ElementQua
 			break;
 
 		case API_WindowID:
-		case API_DoorID:
 			AddQuantity (outQuantities, "Surface", "m²", quantity.window.surface);
 			AddQuantity (outQuantities, "Volume", "m³", quantity.window.volume);
 			AddQuantity (outQuantities, "Largeur", "m", quantity.window.width1);
@@ -202,10 +307,25 @@ void ModelReader::ExtractQuantities (API_ElemTypeID typeID, const API_ElementQua
 			AddQuantity (outQuantities, "Hauteur appui", "m", quantity.window.sillHeight);
 			break;
 
+		case API_DoorID:
+			// API_DoorQuantity = API_WindowQuantity, membre distinct de l'union.
+			AddQuantity (outQuantities, "Surface", "m²", quantity.door.surface);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.door.volume);
+			AddQuantity (outQuantities, "Largeur", "m", quantity.door.width1);
+			AddQuantity (outQuantities, "Hauteur", "m", quantity.door.height1);
+			AddQuantity (outQuantities, "Surface brute", "m²", quantity.door.grossSurf);
+			AddQuantity (outQuantities, "Hauteur appui", "m", quantity.door.sillHeight);
+			break;
+
 		case API_ObjectID:
-		case API_LampID:
 			AddQuantity (outQuantities, "Surface", "m²", quantity.symb.surface);
 			AddQuantity (outQuantities, "Volume", "m³", quantity.symb.volume);
+			break;
+
+		case API_LampID:
+			// API_LightQuantity = API_ObjectQuantity, membre distinct de l'union.
+			AddQuantity (outQuantities, "Surface", "m²", quantity.light.surface);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.light.volume);
 			break;
 
 		case API_SkylightID:
@@ -287,8 +407,136 @@ void ModelReader::ExtractQuantities (API_ElemTypeID typeID, const API_ElementQua
 			AddQuantity (outQuantities, "Périmètre", "m", quantity.hatch.perimeter);
 			break;
 
+		// --- Phase 3 : sous-éléments de mur-rideau, escalier, garde-corps,
+		//     segments de colonne et de poutre (union API_ElementQuantity). ---
+
+		case API_CurtainWallFrameID:
+			AddQuantity (outQuantities, "Largeur", "m", quantity.cwFrame.width);
+			AddQuantity (outQuantities, "Profondeur", "m", quantity.cwFrame.depth);
+			AddQuantity (outQuantities, "Longueur", "m", quantity.cwFrame.length);
+			break;
+
+		case API_CurtainWallPanelID:
+			AddQuantity (outQuantities, "Surface", "m²", quantity.cwPanel.surface);
+			AddQuantity (outQuantities, "Surface brute", "m²", quantity.cwPanel.grossSurface);
+			AddQuantity (outQuantities, "Périmètre", "m", quantity.cwPanel.perimeter);
+			AddQuantity (outQuantities, "Périmètre brut", "m", quantity.cwPanel.grossPerimeter);
+			AddQuantity (outQuantities, "Largeur", "m", quantity.cwPanel.width);
+			AddQuantity (outQuantities, "Hauteur", "m", quantity.cwPanel.height);
+			AddQuantity (outQuantities, "Épaisseur", "mm", quantity.cwPanel.thickness * 1000.0);
+			break;
+
+		case API_CurtainWallAccessoryID:
+			AddQuantity (outQuantities, "Largeur", "m", quantity.cwAccessory.width);
+			AddQuantity (outQuantities, "Hauteur", "m", quantity.cwAccessory.height);
+			AddQuantity (outQuantities, "Longueur", "m", quantity.cwAccessory.length);
+			break;
+
+		case API_RiserID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.stairRiser.volume);
+			AddQuantity (outQuantities, "Largeur", "m", quantity.stairRiser.width);
+			AddQuantity (outQuantities, "Surface face", "m²", quantity.stairRiser.frontArea);
+			break;
+
+		case API_TreadID:
+			AddQuantity (outQuantities, "Surface", "m²", quantity.stairTread.area);
+			AddQuantity (outQuantities, "Volume", "m³", quantity.stairTread.volume);
+			AddQuantity (outQuantities, "Épaisseur", "mm", quantity.stairTread.thickness * 1000.0);
+			break;
+
+		case API_StairStructureID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.stairStructure.volume);
+			AddQuantity (outQuantities, "Épaisseur", "mm", quantity.stairStructure.thickness * 1000.0);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.stairStructure.length3D);
+			break;
+
+		case API_RailingToprailID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingToprail.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingToprail.length3D);
+			break;
+
+		case API_RailingHandrailID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingHandrail.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingHandrail.length3D);
+			break;
+
+		case API_RailingRailID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingRail.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingRail.length3D);
+			break;
+
+		case API_RailingToprailEndID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingToprailEnd.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingToprailEnd.length3D);
+			break;
+
+		case API_RailingHandrailEndID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingHandrailEnd.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingHandrailEnd.length3D);
+			break;
+
+		case API_RailingRailEndID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingRailEnd.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingRailEnd.length3D);
+			break;
+
+		case API_RailingToprailConnectionID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingToprailConnection.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingToprailConnection.length3D);
+			break;
+
+		case API_RailingHandrailConnectionID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingHandrailConnection.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingHandrailConnection.length3D);
+			break;
+
+		case API_RailingRailConnectionID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingRailConnection.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingRailConnection.length3D);
+			break;
+
+		case API_RailingPostID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingPost.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingPost.length3D);
+			break;
+
+		case API_RailingInnerPostID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingInnerPost.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingInnerPost.length3D);
+			break;
+
+		case API_RailingBalusterID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingBaluster.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingBaluster.length3D);
+			break;
+
+		case API_RailingPanelID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingPanel.volume);
+			break;
+
+		case API_RailingSegmentID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.trailingSegment.volume);
+			AddQuantity (outQuantities, "Longueur 3D", "m", quantity.trailingSegment.length3D);
+			break;
+
+		case API_ColumnSegmentID:
+			AddQuantity (outQuantities, "Volume brut", "m³", quantity.columnSegment.grossVolume);
+			AddQuantity (outQuantities, "Volume noyau brut", "m³", quantity.columnSegment.coreGrossVolume);
+			AddQuantity (outQuantities, "Volume revêtement brut", "m³", quantity.columnSegment.veneerGrossVolume);
+			AddQuantity (outQuantities, "Surface noyau brute", "m²", quantity.columnSegment.coreGrossSurface);
+			AddQuantity (outQuantities, "Surface revêtement brute", "m²", quantity.columnSegment.veneerGrossSurface);
+			break;
+
+		case API_BeamSegmentID:
+			AddQuantity (outQuantities, "Volume", "m³", quantity.beamSegment.volume);
+			AddQuantity (outQuantities, "Longueur", "m", quantity.beamSegment.length);
+			AddQuantity (outQuantities, "Surface supérieure", "m²", quantity.beamSegment.topSurface);
+			AddQuantity (outQuantities, "Surface inférieure", "m²", quantity.beamSegment.bottomSurface);
+			break;
+
 		default:
-			// Type non couvert en phase 1 : aucune quantité extraite.
+			// Type sans quantités exploitables (ex. jonction de mur-rideau,
+			// nœud / motif de garde-corps) : aucune quantité extraite.
 			break;
 	}
 }
@@ -335,11 +583,70 @@ GSErrCode ModelReader::GetSelectedElements (GS::Array<API_Guid>& outGuids)
 }
 
 
+void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemTypeID typeID,
+										  const API_ElementQuantity& elementQuantity,
+										  const GS::Array<API_CompositeQuantity>& compositeQuantities,
+										  CWElementRow& outRow, CWScanReport& outReport)
+{
+	ExtractQuantities (typeID, elementQuantity, outRow.quantities);
+
+	// Phase 3 : structure composite de l'élément (mur, dallage, toit, coquille)
+	// pour enrichir chaque skin : nom du composite, épaisseur de couche,
+	// position et flags cœur / finition.
+	CWSkinInfo compositeInfo;
+	const bool haveComposite = !compositeQuantities.IsEmpty ()
+		&& GetCompositeInfo (GetCompositeIndexOfElement (elemGuid, typeID), compositeInfo);
+
+	for (UIndex s = 0; s < compositeQuantities.GetSize (); ++s) {
+		const API_CompositeQuantity& skin = compositeQuantities[s];
+		CWComponentRow skinRow;
+		skinRow.kind = RowKind::Skin;
+		skinRow.label = GetBuildingMaterialName (skin.buildMatIndices);
+
+		if (haveComposite) {
+			// Correspondance skin -> couche du composite : par position
+			// d'abord, repli sur le matériau si l'ordre ne correspond pas.
+			long layerIndex = -1;
+			if (s < compositeInfo.layers.size ()
+				&& compositeInfo.layers[s].buildingMaterial == skin.buildMatIndices) {
+				layerIndex = static_cast<long> (s);
+			} else {
+				for (UIndex l = 0; l < compositeInfo.layers.size (); ++l) {
+					if (compositeInfo.layers[l].buildingMaterial == skin.buildMatIndices) {
+						layerIndex = static_cast<long> (l);
+						break;
+					}
+				}
+			}
+
+			if (layerIndex >= 0) {
+				const CWSkinLayer& layer = compositeInfo.layers[layerIndex];
+				skinRow.compositeName = compositeInfo.name;
+				skinRow.skinIndex = static_cast<short> (layerIndex);
+				skinRow.skinCount = static_cast<short> (compositeInfo.layers.size ());
+				skinRow.coreSkin = layer.core;
+				skinRow.finishSkin = layer.finish;
+				AddQuantity (skinRow.quantities, "Épaisseur", "mm", layer.thickness * 1000.0);
+			}
+		}
+
+		AddQuantity (skinRow.quantities, "Volume", "m³", skin.volumes);
+		AddQuantity (skinRow.quantities, "Surface projetée", "m²", skin.projectedArea);
+		outRow.components.Push (skinRow);
+		++outReport.skinCount;
+	}
+}
+
+
 GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdPropGuid,
 							 const GS::Array<API_Guid>* elemFilter,
 							 GS::Array<CWElementRow>& outRows, CWScanReport& outReport)
 {
 	outRows.Clear ();
+
+	// Phase 3 : purge des caches d'attributs (noms matériaux, composites,
+	// types) pour refléter d'éventuelles modifications depuis la dernière lecture.
+	ClearCaches ();
 
 	// 1) Noms des étages.
 	API_StoryInfo storyInfo;
@@ -365,18 +672,30 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 
 	const bool haveElemIdProp = (elemIdPropGuid != APINULLGuid);
 
+	// --- Passe 1 : en-têtes + classification -----------------------------------
+	// Les lignes sont créées ici (ordre = ordre du projet) ; les quantités et
+	// composants sont remplis ensuite (passes 2 et 3).
+	struct ItemInfo {
+		API_Guid	guid = APINULLGuid;
+		API_ElemType	type;
+		UIndex		rowIndex = 0;
+	};
+
+	GS::Array<ItemInfo> items;
+	std::unordered_map<UInt32, GS::Array<UIndex>> groupsByType;	// clé : typeID + variationID
+
 	for (UIndex i = 0; i < elemList.GetSize (); ++i) {
 		const API_Guid& elemGuid = elemList[i];
 
-		// 3) En-tête : type + étage.
+		// En-tête : type + étage.
 		API_Elem_Head header;
 		BNZeroMemory (&header, sizeof (header));
 		header.guid = elemGuid;
 		if (ACAPI_Element_GetHeader (&header) != NoError)
 			continue;
 
-		// 4) L'élément porte-t-il une classe dans le système choisi ?
-		//    (item [out] : guid nul si l'élément n'est pas classé dans ce système)
+		// L'élément porte-t-il une classe dans le système choisi ?
+		// (item [out] : guid nul si l'élément n'est pas classé dans ce système)
 		API_ClassificationItem item;
 		if (ACAPI_Element_GetClassificationInSystem (elemGuid, systemGuid, item) != NoError)
 			continue;
@@ -395,43 +714,100 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		if (haveElemIdProp)
 			row.elementId = GetElementIdValue (elemGuid, elemIdPropGuid);
 
-		// 5) Quantités de l'élément + skins composites.
-		API_ElementQuantity		elementQuantity;
-		GS::Array<API_CompositeQuantity>	compositeQuantities;
-		API_Quantities			quantities;
-		API_QuantitiesMask		mask;
-		API_QuantityPar			params;
+		ItemInfo info;
+		info.guid = elemGuid;
+		info.type = header.type;
+		info.rowIndex = outRows.GetSize ();
 
-		BNZeroMemory (&elementQuantity, sizeof (elementQuantity));
-		BNZeroMemory (&quantities, sizeof (quantities));
-		BNZeroMemory (&mask, sizeof (mask));
+		const UInt32 typeKey = (static_cast<UInt32> (header.type.typeID) << 12)
+							 ^ static_cast<UInt32> (header.type.variationID);
+		groupsByType[typeKey].Push (items.GetSize ());
+		items.Push (info);
+
+		outRows.Push (row);
+		++outReport.classifiedElements;
+	}
+
+	// --- Passe 2 : quantités, lues par lot (phase 3) ----------------------------
+	// ACAPI_Element_GetMoreQuantities traite d'un seul appel tous les éléments
+	// d'un même type ; en cas d'échec du lot, repli unitaire sur
+	// ACAPI_Element_GetQuantities (ancien comportement).
+	{
+		API_QuantityPar params;
 		BNZeroMemory (&params, sizeof (params));
 
+		API_QuantitiesMask mask;
+		BNZeroMemory (&mask, sizeof (mask));
 		ACAPI_ELEMENT_QUANTITIES_MASK_SETFULL (mask);
 
-		quantities.elements = &elementQuantity;
-		quantities.composites = &compositeQuantities;
+		for (const auto& group : groupsByType) {
+			const GS::Array<UIndex>& indices = group.second;
+			if (indices.IsEmpty ())
+				continue;
 
-		if (ACAPI_Element_GetQuantities (elemGuid, &params, &quantities, &mask) == NoError) {
-			ExtractQuantities (header.type.typeID, elementQuantity, row.quantities);
+			// Buffers de sortie : un par élément du lot, adressés par les
+			// API_Quantities (pattern du DevKit). Les std::vector sont
+			// construits à la taille finale : les adresses restent stables.
+			GS::Array<API_Guid> guids;
+			std::vector<API_ElementQuantity> quantityBuffers (indices.GetSize ());
+			std::vector<GS::Array<API_CompositeQuantity>> compositeBuffers (indices.GetSize ());
+			std::vector<GS::Array<API_ElemPartQuantity>> elemPartBuffers (indices.GetSize ());
+			std::vector<GS::Array<API_ElemPartCompositeQuantity>> elemPartCompositeBuffers (indices.GetSize ());
 
-			for (UIndex s = 0; s < compositeQuantities.GetSize (); ++s) {
-				const API_CompositeQuantity& skin = compositeQuantities[s];
-				CWComponentRow skinRow;
-				skinRow.kind = RowKind::Skin;
-				skinRow.label = GetBuildingMaterialName (skin.buildMatIndices);
-				AddQuantity (skinRow.quantities, "Volume", "m³", skin.volumes);
-				AddQuantity (skinRow.quantities, "Surface projetée", "m²", skin.projectedArea);
-				row.components.Push (skinRow);
-				++outReport.skinCount;
+			GS::Array<API_Quantities> quantities;
+			for (UIndex k = 0; k < indices.GetSize (); ++k) {
+				const ItemInfo& info = items[indices[k]];
+				guids.Push (info.guid);
+
+				API_Quantities q;
+				q.elements = &quantityBuffers[k];
+				q.composites = &compositeBuffers[k];
+				q.elemPartQuantities = &elemPartBuffers[k];
+				q.elemPartComposites = &elemPartCompositeBuffers[k];
+				quantities.Push (q);
 			}
-		} else {
-			++outReport.quantityErrors;
-		}
 
-		// 6) Composants (API 25+).
+			const GSErrCode batchErr = ACAPI_Element_GetMoreQuantities (&guids, &params, &quantities, &mask);
+
+			for (UIndex k = 0; k < indices.GetSize (); ++k) {
+				const ItemInfo& info = items[indices[k]];
+				CWElementRow& row = outRows[info.rowIndex];
+
+				if (batchErr == NoError) {
+					FillQuantitiesAndSkins (info.guid, info.type.typeID, quantityBuffers[k],
+											compositeBuffers[k], row, outReport);
+				} else {
+					// Repli unitaire pour ce lot.
+					API_ElementQuantity elementQuantity;
+					GS::Array<API_CompositeQuantity> compositeQuantities;
+					GS::Array<API_ElemPartQuantity> elemPartQuantities;
+					GS::Array<API_ElemPartCompositeQuantity> elemPartComposites;
+					BNZeroMemory (&elementQuantity, sizeof (elementQuantity));
+
+					API_Quantities single;
+					single.elements = &elementQuantity;
+					single.composites = &compositeQuantities;
+					single.elemPartQuantities = &elemPartQuantities;
+					single.elemPartComposites = &elemPartComposites;
+
+					if (ACAPI_Element_GetQuantities (info.guid, &params, &single, &mask) == NoError) {
+						FillQuantitiesAndSkins (info.guid, info.type.typeID, elementQuantity,
+												compositeQuantities, row, outReport);
+					} else {
+						++outReport.quantityErrors;
+					}
+				}
+			}
+		}
+	}
+
+	// --- Passe 3 : composants (API 25+) ------------------------------------------
+	for (UIndex i = 0; i < items.GetSize (); ++i) {
+		const ItemInfo& info = items[i];
+		CWElementRow& row = outRows[info.rowIndex];
+
 		GS::Array<API_ElemComponentID> components;
-		if (ACAPI_Element_GetComponents (elemGuid, components) == NoError) {
+		if (ACAPI_Element_GetComponents (info.guid, components) == NoError) {
 			for (UIndex c = 0; c < components.GetSize (); ++c) {
 				CWComponentRow compRow;
 				compRow.kind = RowKind::Component;
@@ -441,9 +817,6 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 				++outReport.componentCount;
 			}
 		}
-
-		outRows.Push (row);
-		++outReport.classifiedElements;
 	}
 
 	if (haveStories)

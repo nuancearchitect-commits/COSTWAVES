@@ -4,7 +4,31 @@
 #include "ACAPinc.h"
 #include "DataTypes.hpp"
 
+#include <unordered_map>
+
 namespace CostWaves {
+
+// --- Structure composite (phase 3) ---------------------------------------------
+
+// Une couche (skin) d'un attribut composite, telle que définie dans le projet.
+struct CWSkinLayer {
+	API_AttributeIndex	buildingMaterial;		// matériau de la couche
+	double				thickness = 0.0;		// épaisseur en mètres (fillThick)
+	bool				core = false;			// couche cœur (APICWallComp_Core)
+	bool				finish = false;			// couche finition (APICWallComp_Finish)
+
+	CWSkinLayer () : buildingMaterial (APIInvalidAttributeIndex) {}
+};
+
+// Informations d'un attribut composite (voir ModelReader::GetCompositeInfo).
+struct CWSkinInfo {
+	bool						valid = false;			// attribut lisible
+	GS::UniString				name;					// nom du composite
+	double						totalThickness = 0.0;	// épaisseur totale en mètres
+	std::vector<CWSkinLayer>	layers;					// couches, dans l'ordre du composite
+
+	CWSkinInfo () = default;
+};
 
 // Lecture des données du modèle Archicad :
 //  - systèmes de classification
@@ -41,10 +65,35 @@ public:
 	static GS::Array<CWPropertyEntry>	GetComponentProperties (const API_ElemComponentID& component);
 
 private:
+	// Caches de lecture (phase 3 : un seul appel API par attribut distinct),
+	// purgés au début de chaque Scan.
+	static std::unordered_map<UInt32, GS::UniString>	typeNameCache;
+	static std::unordered_map<UInt32, GS::UniString>	materialNameCache;
+	static std::unordered_map<UInt32, CWSkinInfo>		compositeCache;
+
+	static void				ClearCaches ();
+
 	static GS::UniString	GetTypeName (const API_ElemType& type);
 	static GS::UniString	GetBuildingMaterialName (API_AttributeIndex index);
 	static GS::UniString	GetStoryName (const API_StoryInfo& storyInfo, short floorInd);
 	static GS::UniString	GetElementIdValue (const API_Guid& elemGuid, const API_Guid& propGuid);
+
+	// Index de l'attribut composite utilisé par un élément (mur, dallage,
+	// toit, coquille). Retourne APIInvalidAttributeIndex si le type n'expose
+	// pas de composite ou si la lecture échoue.
+	static API_AttributeIndex	GetCompositeIndexOfElement (const API_Guid& elemGuid, API_ElemTypeID typeID);
+
+	// Attribut composite par index : nom, épaisseur totale et couches
+	// (matériau, épaisseur, flags cœur/finition). Résultat mis en cache.
+	// Retourne false si l'attribut est illisible ou l'index invalide.
+	static bool		GetCompositeInfo (API_AttributeIndex compositeIndex, CWSkinInfo& outInfo);
+
+	// Remplit une ligne (quantités + skins enrichis) à partir des quantités
+	// lues par ACAPI_Element_GetQuantities ou GetMoreQuantities.
+	static void		FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemTypeID typeID,
+											 const API_ElementQuantity& elementQuantity,
+											 const GS::Array<API_CompositeQuantity>& compositeQuantities,
+											 CWElementRow& outRow, CWScanReport& outReport);
 
 	static void	ExtractQuantities (API_ElemTypeID typeID, const API_ElementQuantity& quantity,
 									GS::Array<CWQuantity>& outQuantities);

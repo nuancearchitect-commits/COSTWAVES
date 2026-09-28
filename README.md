@@ -31,7 +31,7 @@ Code livré, à compiler sur Windows.
 
 ---
 
-## 2. Périmètre codé (phases 1 + 2)
+## 2. Périmètre codé (phases 1 → 3)
 
 L'Add-On ajoute une commande **« CostWaves – Lecture des quantités… »** (menu Options).
 
@@ -45,11 +45,14 @@ La fenêtre :
    | Type | GUID | ID élément | Étage | Classe | Quantités disponibles |
    |---|---|---|---|---|---|
    | Élément | `{8C1F…}` | `W-012` | `0 - Rez-de-chaussée` | `CW-MUR - Mur extérieur` | `Volume 12,34 m³ · Surface 45,67 m² · …` |
-   | Composant (skin) | | `W-012` | `0 - RDC` | `CW-MUR - …` | `Volume 1,23 m³ · Surface projetée 4,56 m²` |
+   | Skin — Brique (cœur) | | `W-012` | `0 - RDC` | `CW-MUR - …` | `Épaisseur 200 mm · Volume 1,23 m³ · Surface projetée 4,56 m²` |
    | Composant | `{A2B4…}` | `W-012` | `0 - RDC` | `CW-MUR - …` | *(propriétés dans le panneau détails)* |
 
-   - **Type** : `Élément` / `Composant` (composants « properties » Archicad 25+) /
-     `Composant (skin)` (couche d'une structure composite)
+   - **Type** : `Élément` / `Skin — <matériau>` (couche d'une structure composite,
+     avec marqueur `(cœur)` si la couche fait partie du noyau) / `Composant`
+     (composants « properties » Archicad 25+)
+   - **Détails d'un skin (phase 3)** : nom du **composite**, numéro de couche
+     (`couche 2/5`), épaisseur de la couche, marqueurs **cœur / finition**
    - **GUID** : GUID stable de l'élément ou du composant (tronqué à l'affichage,
      complet dans les détails et les exports)
    - **ID élément** : propriété intégrée « Element ID » d'Archicad (résolue par son
@@ -85,7 +88,26 @@ La fenêtre :
 Types d'éléments dont les quantités sont extraites en phase 1 : mur, dalle,
 colonne, poutre, fenêtre, porte, objet, lampe, lanterneau, terrain (mesh),
 toit, coque, morph, zone, escalier, garde-corps, mur-rideau, remplissage (hatch).
-Pour un autre type : ligne présente, quantités « — » (à étendre en phase 2).
+
+### Ce que la phase 3 ajoute
+
+| Donnée | API utilisée |
+|---|---|
+| **Lecture par lot** : toutes les quantités d'un même type en un appel (repli unitaire automatique si le lot échoue) | `ACAPI_Element_GetMoreQuantities` |
+| Attribut composite d'un élément (mur, dalle, toit, coquille) | `ACAPI_Element_Get` (`.composite` / `.shellBase.composite`) |
+| Couches du composite : matériau, épaisseur, cœur/finition | `ACAPI_Attribute_Get` + `ACAPI_Attribute_GetDef` (`cwall_compItems`) + `ACAPI_DisposeAttrDefsHdls` |
+| Noms de matériaux / composites / types mis en cache (1 appel par attribut distinct) | caches internes purgés à chaque lecture |
+| Quantités des sous-éléments de mur-rideau | montants (`cwFrame`), panneaux (`cwPanel`), accessoires (`cwAccessory`) |
+| Quantités des sous-éléments d'escalier | contremarches (`stairRiser`), marches (`stairTread`), structure (`stairStructure`) |
+| Quantités des sous-éléments de garde-corps | main courante, lisses, poteaux, balustres, panneaux, segments… (`railing*`) |
+| Segments de colonne / poutre | `columnSegment`, `beamSegment` |
+
+Tous les membres de l'union `API_ElementQuantity` sont désormais couverts
+(40 types d'éléments au total, contre 18 en phase 1). Les quantités par
+*partie* d'élément
+(`elemPartQuantities` / `elemPartCompositeQuantity`, ex. segments de mur
+multiniveaux) sont lues dans des buffers mais pas encore affichées — piste
+pour une phase ultérieure.
 
 ### Exports
 
@@ -215,7 +237,33 @@ Options utiles : `-b Debug` (configuration) · `-p` (package zip) ·
       « Affecter l'article » → toutes les lignes sont classées, message avec
       le décompte, **un seul Ctrl+Z** annule tout
 
-### Exports (les deux phases)
+### Phase 3 — composites avancés, tous types, performance
+
+- [ ] Un mur **composite** classé : chaque skin affiche `Skin — <matériau>`
+      et, dans les détails, le nom du composite, `couche i/n`, l'épaisseur
+      (mm) et le marqueur **cœur** sur les couches du noyau (vérifier contre
+      Options > Composites : ordre, épaisseurs, matériau)
+- [ ] Idem sur une **dalle**, un **toit** et une **coquille** composites
+- [ ] Une couche de finition (enduit/isolant côté finition) porte le
+      marqueur **finition** dans les détails
+- [ ] Épaisseurs de skins cohérentes : `Épaisseur 200 mm` pour une couche
+      réglée à 20 cm dans le composite
+- [ ] Export JSON : les skins d'un mur composite portent `"composite"`,
+      `"skinIndex"`, `"skinCount"`, `"core": true` (couches du noyau) ;
+      l'épaisseur apparaît dans `"quantities"` (unité `mm`)
+- [ ] Export CSV : lignes skins avec `Composant (skin) — <matériau> · <composite> (cœur)`
+      et une ligne `Épaisseur;200;mm`
+- [ ] **Nouveaux types couverts** : classer un montant de mur-rideau, un
+      panneau de mur-rideau, une contremarche/marche d'escalier, un segment
+      de garde-corps (via la classification par élément) → les quantités
+      (volume, longueur 3D…) apparaissent au lieu de « — »
+- [ ] **Porte / fenêtre / lampe** : les quantités apparaissent (les portes et
+      lampes lisaient le mauvais membre de l'union avant la phase 3)
+- [ ] **Performance** : sur un gros projet, la lecture est plus rapide qu'en
+      phase 2 (quantités lues par lot, un appel par type ; noms de matériaux
+      et composites mis en cache) ; pas de gel anormal de la fenêtre
+
+### Exports (toutes phases)
 
 - [ ] Export JSON valide (ouvrir dans un éditeur / validator)
 - [ ] Export CSV s'ouvre proprement dans Excel (accents, colonnes)
@@ -256,7 +304,7 @@ COSTWAVES/
 |---|---|---|
 | **1 (codée)** | Lecture + tableau + export fichiers | 01, 03, 04, 06, 08, 11, 25, export local |
 | **2 (codée)** | Articles : import JSON/classification, création de la classification CostWaves, affectation, lecture de la sélection, export enrichi | 13, 14, 16, 17, 30 (variante locale) |
-| 3 | Finesse : composites avancés, lecture par lot, tous les types | 09, 10 |
+| **3 (codée)** | Finesse : composites avancés (skins enrichis), lecture par lot, tous les types d'éléments | 09, 10 |
 | 4 | Groupes CostWaves, exclusion « consumed », facturation ENS, propriété `CW_Article_ID` | 07, 12, 18–21, 23, 24, 29 |
 | 5 | Synchro CostWaves (API `id/name/unit`), détection de modifications | 30, 31, 32, 33 |
 
@@ -279,6 +327,13 @@ Les choix définitifs de contenu des phases suivantes seront revalidés avant co
 - Les composants « properties » (AC 25+) et les « skins » composites sont
   affichés séparément : c'est un point à valider sur un vrai projet (phase 1 =
   détection de l'existant) avant de choisir comment les mapper aux articles.
+- **Skins ↔ couches du composite (phase 3)** : `API_CompositeQuantity`
+  n'identifie pas sa couche (le `compositeId` ne porte que le GUID du
+  sous-élément). La correspondance se fait donc par **position dans le
+  composite**, avec repli sur le **matériau** (`buildMatIndices`) si l'ordre
+  ne correspond pas ; sans correspondance fiable, le skin garde ses quantités
+  (volume, surface projetée) sans enrichissement. L'épaisseur de couche
+  (`fillThick`, en mètres dans l'API) est affichée/exportée en **mm**.
 - **Écritures annulables** : création de classification, affectation d'article
   (classe + propriété `CW_Article_ID`) sont enveloppées dans
   `ACAPI_CallUndoableCommand` (un seul niveau d'undo par action).

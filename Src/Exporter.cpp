@@ -261,7 +261,21 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 			firstComponent = false;
 
 			if (component.kind == RowKind::Skin) {
-				json += US ("{ \"kind\": \"skin\", \"material\": ") + JsonString (component.label) + ", \"quantities\": [";
+				json += US ("{ \"kind\": \"skin\", \"material\": ") + JsonString (component.label);
+				if (!component.compositeName.IsEmpty ()) {
+					json += US (", \"composite\": ") + JsonString (component.compositeName);
+					if (component.skinIndex >= 0 && component.skinCount > 0) {
+						json += US (", \"skinIndex\": ")
+							+ GS::ToUniString (std::to_wstring (component.skinIndex))
+							+ US (", \"skinCount\": ")
+							+ GS::ToUniString (std::to_wstring (component.skinCount));
+					}
+					if (component.coreSkin)
+						json += ", \"core\": true";
+					if (component.finishSkin)
+						json += ", \"finish\": true";
+				}
+				json += ", \"quantities\": [";
 				for (UIndex q = 0; q < component.quantities.GetSize (); ++q) {
 					if (q > 0)
 						json += ", ";
@@ -367,9 +381,16 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 		for (UIndex c = 0; c < row.components.GetSize (); ++c) {
 			const CWComponentRow& component = row.components[c];
 
-			const GS::UniString kindLabel = (component.kind == RowKind::Skin)
-				? FR ("Composant (skin) — ") + component.label
-				: FR ("Composant — ") + component.label;
+			GS::UniString kindLabel;
+			if (component.kind == RowKind::Skin) {
+				kindLabel = FR ("Composant (skin) — ") + component.label;
+				if (!component.compositeName.IsEmpty ())
+					kindLabel += FR (" · ") + component.compositeName;
+				if (component.coreSkin)
+					kindLabel += FR (" (cœur)");
+			} else {
+				kindLabel = FR ("Composant — ") + component.label;
+			}
 
 			const GS::UniString componentGuid = (component.guid == APINULLGuid)
 				? GS::UniString ()

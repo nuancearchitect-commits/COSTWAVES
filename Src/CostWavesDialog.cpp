@@ -349,8 +349,14 @@ void CostWavesDialog::FillTable ()
 
 			table.AppendItem ();
 			const short compItemIndex = table.GetItemCount ();
-			table.SetTabItemText (compItemIndex, 1,
-				component.kind == RowKind::Skin ? FR ("Composant (skin)") : FR ("Composant"));
+			if (component.kind == RowKind::Skin) {
+				GS::UniString skinText = FR ("Skin — ") + component.label;
+				if (component.coreSkin)
+					skinText += FR (" (cœur)");
+				table.SetTabItemText (compItemIndex, 1, skinText);
+			} else {
+				table.SetTabItemText (compItemIndex, 1, FR ("Composant"));
+			}
 			table.SetTabItemText (compItemIndex, 2,
 				component.guid == APINULLGuid ? GS::UniString () : APIGuidToString (component.guid));
 			table.SetTabItemText (compItemIndex, 3, element.elementId);
@@ -800,16 +806,37 @@ void CostWavesDialog::UpdateDetails (short listItem)
 
 	CWComponentRow& component = element.components[displayRow.componentIndex];
 
+	short lineIndex = 1;
 	if (component.kind == RowKind::Skin) {
-		SetDetailLine (1, FR ("Skin (composite) — matériau : ") + component.label);
-		SetDetailLine (2, FR ("Élément parent — ") + element.typeName + " — " + APIGuidToString (element.guid));
+		GS::UniString title = FR ("Skin (composite) — matériau : ") + component.label;
+		if (component.coreSkin)
+			title += FR (" · cœur");
+		if (component.finishSkin)
+			title += FR (" · finition");
+		SetDetailLine (lineIndex, title);
+		++lineIndex;
+
+		if (!component.compositeName.IsEmpty ()) {
+			GS::UniString compositeLine = FR ("Composite : ") + component.compositeName;
+			if (component.skinIndex >= 0 && component.skinCount > 0) {
+				compositeLine += FR (" · couche ")
+					+ GS::ToUniString (std::to_wstring (component.skinIndex + 1))
+					+ "/" + GS::ToUniString (std::to_wstring (component.skinCount));
+			}
+			SetDetailLine (lineIndex, compositeLine);
+			++lineIndex;
+		}
+
+		SetDetailLine (lineIndex, FR ("Élément parent — ") + element.typeName + " — " + APIGuidToString (element.guid));
+		++lineIndex;
 	} else {
-		SetDetailLine (1, FR ("Composant — ") + APIGuidToString (component.guid));
-		SetDetailLine (2, FR ("Élément parent — ") + element.typeName + " — "
+		SetDetailLine (lineIndex, FR ("Composant — ") + APIGuidToString (component.guid));
+		++lineIndex;
+		SetDetailLine (lineIndex, FR ("Élément parent — ") + element.typeName + " — "
 			+ APIGuidToString (element.guid) + " · ID : " + element.elementId);
+		++lineIndex;
 	}
 
-	short lineIndex = 3;
 	if (!component.quantities.IsEmpty ()) {
 		GS::UniString line;
 		for (UIndex q = 0; q < component.quantities.GetSize (); ++q) {

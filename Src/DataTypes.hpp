@@ -41,6 +41,13 @@ struct CWComponentRow {
 	GS::Array<CWQuantity>	quantities;				// volumes / surfaces du skin
 	GS::Array<CWPropertyEntry> properties;			// rempli à la demande (détails / export)
 	bool					propertiesFetched = false;
+
+	// Phase 3 — enrichissement des skins composites :
+	GS::UniString			compositeName;			// nom du composite (vide si inconnu)
+	short					skinIndex = -1;			// position dans le composite (0..n-1, -1 si inconnue)
+	short					skinCount = 0;			// nombre de couches du composite
+	bool					coreSkin = false;		// couche cœur (APICWallComp_Core)
+	bool					finishSkin = false;		// couche finition (APICWallComp_Finish)
 };
 
 // --- Ligne "élément" ----------------------------------------------------------
