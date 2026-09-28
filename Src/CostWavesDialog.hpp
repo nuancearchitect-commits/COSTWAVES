@@ -190,7 +190,7 @@ private:
 	DG::Button			sendButton;			// « Envoyer vers CostWaves… »
 	DG::LeftText	sourceLabel;			// « Source BIM : »
 	DG::PopUp		modePopup;			// Élément / Composants (skins)
-	DG::CheckItem	draw2DCheck;		// inclure les dessins 2D
+	DG::CheckBox		draw2DCheck;		// inclure les dessins 2D
 	DG::PopUp		draw2DTypePopup;	// filtre par type 2D
 	DG::LeftText		articlesInfo;
 	DG::LeftText		searchLabel;

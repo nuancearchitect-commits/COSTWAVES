@@ -394,7 +394,7 @@ CostWavesDialog::CostWavesDialog ()
 	draw2DTypePopup.AppendItem ();
 	draw2DTypePopup.SetItemText (7, FR ("Hachures"));
 	draw2DTypePopup.SelectItem (1);
-	draw2DTypePopup.Enable (false);
+	draw2DTypePopup.Disable ();
 
 	isFilling = false;
 	searchEdit.Attach (*this);		// SearchEditObserver
@@ -2022,7 +2022,10 @@ void CostWavesDialog::CheckItemChanged (const DG::CheckItemChangeEvent& ev)
 	if (ev.GetSource () == &draw2DCheck) {
 		// Inclure ou non les dessins 2D dans le scan (§2/§4) — relecture.
 		include2D = draw2DCheck.IsChecked ();
-		draw2DTypePopup.Enable (include2D);
+		if (include2D)
+			draw2DTypePopup.Enable ();
+		else
+			draw2DTypePopup.Disable ();
 		RefreshData ();
 	}
 }
