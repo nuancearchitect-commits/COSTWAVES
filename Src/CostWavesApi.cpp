@@ -604,7 +604,7 @@ CWApiSendResult CostWavesApi::Send (const CWApiSettings& settings, const GS::Uni
 	// Champs convenus de la réponse (présents ou non).
 	result.hasServerData = !result.rawResponse.IsEmpty ();
 	if (result.hasServerData) {
-		result.createdLines = static_cast<USize> (ExtractJsonNumber (responseW, L"createdLines"));
+		result.createdLines = static_cast<USize> (ExtractJsonNumber (responseW, L"createdLines");
 		result.updatedLines = static_cast<USize> (ExtractJsonNumber (responseW, L"updatedLines");
 		result.unknownArticles = ExtractJsonStringArray (responseW, L"unknownArticles");
 		ExtractJsonString (responseW, L"message", result.message);

@@ -82,6 +82,10 @@ public:
 	// sans effet si une boîte modale est ouverte ou si une lecture est en cours.
 	void					RefreshFromSelectionChange ();
 
+	// Communication Archicad -> CostWaves (spéc. §12/§13) : fenêtre de
+	// réglages (URL, clé API, articles inconnus) puis envoi du payload.
+	void	SendToCostWaves ();
+
 	// Public : la suppression est opérée par GS::Ref (singleton statique).
 	~CostWavesDialog ();
 
@@ -130,9 +134,6 @@ private:
 	void	UngroupSelected ();		// dissout le(s) ensemble(s)/groupe(s) sélectionné(s)
 	void	ShowSummary ();		// fenêtre « Récapitulatif par article »
 
-	// Communication Archicad -> CostWaves (spéc. §12/§13) : fenêtre de
-	// réglages (URL, clé API, articles inconnus) puis envoi du payload.
-	void	SendToCostWaves ();
 
 	// Résout l'item de classification de l'article (système « CostWaves » en
 	// priorité, sinon le système courant). Retourne false si introuvable.

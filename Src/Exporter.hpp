@@ -15,6 +15,11 @@ namespace CostWaves {
 //   <Projet>_CostWaves_<AAAAMMJJ_HHMMSS>.json / .csv
 class Exporter {
 public:
+
+	// Helpers réutilisés par le module de communication CostWaves (phase 6).
+	static bool			WriteUtf8File (const GS::UniString& path, const GS::UniString& content, bool withBom);
+	static GS::UniString	JsonString (const GS::UniString& text);
+	static GS::UniString	Timestamp ();
 	// Dossier du projet (à côté du .PLN) ou dossier Documents si le projet
 	// n'est pas enregistré. Nom du projet ("SansTitre" si non enregistré).
 	static bool		ResolveProjectLocation (GS::UniString& outFolder, GS::UniString& outProjectName);
@@ -35,10 +40,7 @@ public:
 
 private:
 	static bool			BuildExportPath (const char* extension, GS::UniString& outPath, GS::UniString& outError);
-	static bool			WriteUtf8File (const GS::UniString& path, const GS::UniString& content, bool withBom);
 	static GS::UniString	EscapeJson (const GS::UniString& text);
-	static GS::UniString	JsonString (const GS::UniString& text);
-	static GS::UniString	Timestamp ();
 };
 
 } // namespace CostWaves
