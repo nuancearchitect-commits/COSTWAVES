@@ -81,6 +81,9 @@ private:
 	static std::unordered_map<UInt32, GS::UniString>	typeNameCache;
 	static std::unordered_map<UInt32, GS::UniString>	materialNameCache;
 	static std::unordered_map<UInt32, CWSkinInfo>		compositeCache;
+	// Classification des matériaux dans le système scanné (phase 5) :
+	// index du matériau -> (id de classe, nom) ; id vide = sans classe.
+	static std::unordered_map<UInt32, GS::Pair<GS::UniString, GS::UniString>>	materialClassCache;
 
 	static void				ClearCaches ();
 
@@ -88,6 +91,11 @@ private:
 	static GS::UniString	GetBuildingMaterialName (API_AttributeIndex index);
 	static GS::UniString	GetStoryName (const API_StoryInfo& storyInfo, short floorInd);
 	static GS::UniString	GetElementIdValue (const API_Guid& elemGuid, const API_Guid& propGuid);
+
+	// Classe du matériau de construction dans le système donné (résultat mis
+	// en cache ; retourne false si le matériau n'est pas classé).
+	static bool	GetMaterialClassification (API_AttributeIndex materialIndex, const API_Guid& systemGuid,
+										 GS::UniString& outItemId, GS::UniString& outItemName);
 
 	// Index de l'attribut composite utilisé par un élément (mur, dallage,
 	// toit, coquille). Retourne APIInvalidAttributeIndex si le type n'expose
@@ -102,6 +110,7 @@ private:
 	// Remplit une ligne (quantités + skins enrichis) à partir des quantités
 	// lues par ACAPI_Element_GetQuantities ou GetMoreQuantities.
 	static void		FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemTypeID typeID,
+										 const API_Guid& systemGuid,
 											 const API_ElementQuantity& elementQuantity,
 											 const GS::Array<API_CompositeQuantity>& compositeQuantities,
 											 CWElementRow& outRow, CWScanReport& outReport);

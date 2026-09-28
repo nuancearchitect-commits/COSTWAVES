@@ -31,24 +31,14 @@ GS::UniString FormatValue (double value)
 	return GS::ToUniString (text);
 }
 
-// GUID de disposition de la fenêtre (fixe, pour la mémorisation écran).
-const char* kSummaryDialogGuidString = "6F4A9C1E-8B2D-4E7A-9C3F-5D8E1B2A4C6D";
-
 } // namespace
 
 
 SummaryDialog::SummaryDialog (const GS::Array<CWArticleSummary>& summary)
-	:	DG::ModalDialog (DG::NativePoint (DG::NativeUnit (80), DG::NativeUnit (80)), 600, 360,
-						APIGuid2GSGuid (APIGuidFromString (kSummaryDialogGuidString)),
-						DG::ModalDialog::NoGrow, DG::ModalDialog::TopCaption,
-						DG::ModalDialog::NormalFrame),
-		table (GetReference (), DG::Rect (10, 10, 590, 310),
-			   DG::MultiSelListBox::VScroll, DG::MultiSelListBox::PartialItems,
-			   DG::MultiSelListBox::Header, 21, DG::MultiSelListBox::Frame),
-		closeButton (GetReference (), DG::Rect (490, 322, 590, 345))
+	:	DG::ModalDialog (ACAPI_GetOwnResModule (), ID_ADDON_DLG_SUMMARY, ACAPI_GetOwnResModule ()),
+		table (GetReference (), TableId),
+		closeButton (GetReference (), CloseButtonId)
 {
-	SetTitle (FR ("CostWaves — Récapitulatif par article"));
-	closeButton.SetText (FR ("Fermer"));
 	closeButton.Attach (*this);
 
 	InitTable ();
@@ -58,7 +48,7 @@ SummaryDialog::SummaryDialog (const GS::Array<CWArticleSummary>& summary)
 
 void SummaryDialog::InitTable ()
 {
-	const short columnCount = 7;
+	const short columnCount = 8;
 
 	table.SetHeaderItemCount (columnCount);
 	table.SetHeaderItemText (1, FR ("Article"));
@@ -67,14 +57,15 @@ void SummaryDialog::InitTable ()
 	table.SetHeaderItemText (4, FR ("Éléments"));
 	table.SetHeaderItemText (5, FR ("Ensembles"));
 	table.SetHeaderItemText (6, FR ("Groupes"));
-	table.SetHeaderItemText (7, FR ("Quantité totale"));
+	table.SetHeaderItemText (7, FR ("Skins"));
+	table.SetHeaderItemText (8, FR ("Quantité totale"));
 
-	// Le contrôle est créé en code : définir les champs de tabulation
+	// Le GRC ne définit pas les colonnes : créer les champs de tabulation
 	// (sans cela, seule la première colonne s'affiche).
 	table.SetTabFieldCount (columnCount);
 
 	const short tableWidth = table.GetWidth ();
-	const short proportions[columnCount] = { 13, 30, 8, 11, 11, 11, 16 };
+	const short proportions[columnCount] = { 13, 27, 8, 10, 10, 10, 8, 14 };
 
 	const short totalProportion = 100;
 	short position = 0;
@@ -83,7 +74,7 @@ void SummaryDialog::InitTable ()
 		table.SetHeaderItemSize (i, width);
 		table.SetHeaderItemSizeableFlag (i, true);
 		table.SetTabFieldProperties (i, position, position + width,
-									 DG::ListBox::Left, DG::ListBox::MiddleTruncate, i > 1);
+								 DG::ListBox::Left, DG::ListBox::MiddleTruncate, i > 1);
 		position = static_cast<short> (position + width);
 	}
 }
@@ -105,7 +96,9 @@ void SummaryDialog::Fill (const GS::Array<CWArticleSummary>& summary)
 			GS::ToUniString (std::to_wstring (static_cast<int> (entry.groupCount))));
 		table.SetTabItemText (itemIndex, 6,
 			GS::ToUniString (std::to_wstring (static_cast<int> (entry.numberedGroupCount))));
-		table.SetTabItemText (itemIndex, 7, FormatValue (entry.totalQuantity));
+		table.SetTabItemText (itemIndex, 7,
+			GS::ToUniString (std::to_wstring (static_cast<int> (entry.skinCount))));
+		table.SetTabItemText (itemIndex, 8, FormatValue (entry.totalQuantity));
 	}
 }
 

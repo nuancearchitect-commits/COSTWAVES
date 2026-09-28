@@ -3,6 +3,7 @@
 #include "MaterialDialog.hpp"
 
 #include "ArticleManager.hpp"
+
 #include "UniStringWStringConversion.hpp"
 
 #include <cwchar>
@@ -21,9 +22,6 @@ GS::UniString US (const char* utf8Text)
 {
 	return GS::UniString (utf8Text, CC_UTF8);
 }
-
-// GUID de disposition de la fenêtre (fixe, pour la mémorisation écran).
-const char* kMaterialDialogGuidString = "9A5C2F80-D1E4-4B77-A3C6-6F2E85D0B419";
 
 // Remplit un popup avec tous les attributs du type donné (index — nom).
 // preferredNamePart : nom (ou fragment) à présélectionner si présent.
@@ -96,57 +94,38 @@ void FillPenPopup (DG::PopUp& popup, GS::Array<short>& outIndices, short default
 
 
 MaterialDialog::MaterialDialog (const GS::Array<CWSystemInfo>& inSystems)
-	:	DG::ModalDialog (DG::NativePoint (DG::NativeUnit (90), DG::NativeUnit (90)), 640, 430,
-							APIGuid2GSGuid (APIGuidFromString (kMaterialDialogGuidString)),
-							DG::ModalDialog::NoGrow, DG::ModalDialog::TopCaption,
-							DG::ModalDialog::NormalFrame),
-		nameLabel (GetReference (), DG::Rect (10, 14, 190, 32)),
-		nameEdit (GetReference (), DG::Rect (195, 11, 630, 33)),
-		newClassCheck (GetReference (), DG::Rect (10, 44, 520, 64)),
-		systemLabel (GetReference (), DG::Rect (30, 72, 190, 90)),
-		systemPopup (GetReference (), DG::Rect (195, 69, 630, 91), 80, 3),
-		parentLabel (GetReference (), DG::Rect (30, 100, 160, 118)),
-		parentPopup (GetReference (), DG::Rect (195, 97, 630, 119), 80, 3),
-		classIdLabel (GetReference (), DG::Rect (30, 128, 160, 146)),
-		classIdEdit (GetReference (), DG::Rect (195, 125, 310, 147)),
-		classNameLabel (GetReference (), DG::Rect (330, 128, 450, 146)),
-		classNameEdit (GetReference (), DG::Rect (455, 125, 630, 147)),
-		existingLabel (GetReference (), DG::Rect (30, 156, 190, 174)),
-		existingPopup (GetReference (), DG::Rect (195, 153, 630, 175), 80, 3),
-		fillLabel (GetReference (), DG::Rect (10, 188, 190, 206)),
-		fillPopup (GetReference (), DG::Rect (195, 185, 630, 207), 80, 3),
-		surfaceLabel (GetReference (), DG::Rect (10, 216, 190, 234)),
-		surfacePopup (GetReference (), DG::Rect (195, 213, 630, 235), 80, 3),
-		penFgLabel (GetReference (), DG::Rect (10, 244, 180, 262)),
-		penFgPopup (GetReference (), DG::Rect (195, 241, 410, 263), 80, 3),
-		penBgLabel (GetReference (), DG::Rect (420, 244, 540, 262)),
-		penBgPopup (GetReference (), DG::Rect (545, 241, 630, 263), 80, 3),
-		priorityLabel (GetReference (), DG::Rect (10, 272, 260, 290)),
-		priorityEdit (GetReference (), DG::Rect (265, 269, 345, 291)),
-		noteText (GetReference (), DG::Rect (10, 300, 630, 360)),
-		createButton (GetReference (), DG::Rect (420, 395, 520, 418)),
-		cancelButton (GetReference (), DG::Rect (530, 395, 630, 418)),
+	:	DG::ModalDialog (ACAPI_GetOwnResModule (), ID_ADDON_DLG_MATERIAL, ACAPI_GetOwnResModule ()),
+		nameLabel (GetReference (), NameLabelId),
+		nameEdit (GetReference (), NameEditId),
+		newClassCheck (GetReference (), NewClassCheckId),
+		systemLabel (GetReference (), SystemLabelId),
+		systemPopup (GetReference (), SystemPopupId),
+		parentLabel (GetReference (), ParentLabelId),
+		parentPopup (GetReference (), ParentPopupId),
+		classIdLabel (GetReference (), ClassIdLabelId),
+		classIdEdit (GetReference (), ClassIdEditId),
+		classNameLabel (GetReference (), ClassNameLabelId),
+		classNameEdit (GetReference (), ClassNameEditId),
+		existingLabel (GetReference (), ExistingLabelId),
+		existingPopup (GetReference (), ExistingPopupId),
+		fillLabel (GetReference (), FillLabelId),
+		fillPopup (GetReference (), FillPopupId),
+		surfaceLabel (GetReference (), SurfaceLabelId),
+		surfacePopup (GetReference (), SurfacePopupId),
+		penFgLabel (GetReference (), PenFgLabelId),
+		penFgPopup (GetReference (), PenFgPopupId),
+		penBgLabel (GetReference (), PenBgLabelId),
+		penBgPopup (GetReference (), PenBgPopupId),
+		priorityLabel (GetReference (), PriorityLabelId),
+		priorityEdit (GetReference (), PriorityEditId),
+		noteText (GetReference (), NoteTextId),
+		createButton (GetReference (), CreateButtonId),
+		cancelButton (GetReference (), CancelButtonId),
 		systems (inSystems)
 {
-	SetTitle (FR ("CostWaves — Créer le matériau"));
-
-	nameLabel.SetText (FR ("Nom du matériau :"));
-	newClassCheck.SetText (FR ("Créer une nouvelle classe pour ce matériau"));
-	systemLabel.SetText (FR ("Système de classification :"));
-	parentLabel.SetText (FR ("Classe parente :"));
-	classIdLabel.SetText (FR ("ID de la classe :"));
-	classNameLabel.SetText (FR ("Nom de la classe :"));
-	existingLabel.SetText (FR ("Classe existante :"));
-	fillLabel.SetText (FR ("Hachure (coupe) :"));
-	surfaceLabel.SetText (FR ("Surface de coupe :"));
-	penFgLabel.SetText (FR ("Stylo avant-plan :"));
-	penBgLabel.SetText (FR ("Stylo arrière-plan :"));
-	priorityLabel.SetText (FR ("Puissance (priorité de connexion 1–1000) :"));
 	noteText.SetText (FR ("La classe sert d'article dans le métré ; le matériau est lié à cette classe.\n")
 					  + FR ("S'il existe déjà un matériau de ce nom, ses attributs (hachure, surface, stylos, puissance) sont mis à jour.\n")
 					  + FR ("L'ID proposé est le premier disponible parmi les enfants de la classe parente."));
-	createButton.SetText (FR ("Créer"));
-	cancelButton.SetText (FR ("Annuler"));
 
 	FillSystemsPopup ();
 	ReloadClassPopups ();

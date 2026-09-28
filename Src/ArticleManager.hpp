@@ -180,6 +180,10 @@ public:
 	// L'unité est-elle une facturation « à l'ensemble » (forfait) ?
 	static bool		IsEnsUnit (const GS::UniString& unit);
 
+	// Première quantité de la liste portant l'unité donnée (0 si absente).
+	// Comparaison normalisée (majuscules, ² -> 2, ³ -> 3).
+	static double	QuantityForUnit (const GS::Array<CWQuantity>& quantities, const GS::UniString& unit);
+
 	// Récapitulatif par article : parcourt les lignes facturables (éléments
 	// libres + ensembles ; les membres consommés sont exclus) et totalise
 	// les quantités facturées par article (identifié par la classe).

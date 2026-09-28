@@ -28,10 +28,14 @@ const char* kElementIdPropertyGuidString = "B1B54D45-C951-42C9-9AF8-898F0BF212AB
 std::unordered_map<UInt32, GS::UniString>	ModelReader::typeNameCache;
 std::unordered_map<UInt32, GS::UniString>	ModelReader::materialNameCache;
 std::unordered_map<UInt32, CWSkinInfo>		ModelReader::compositeCache;
+// Classification du matériau dans le système scanné (index -> id, nom).
+// id vide = connu SANS classe (mis en cache pour éviter les rappels API).
+std::unordered_map<UInt32, GS::Pair<GS::UniString, GS::UniString>>	ModelReader::materialClassCache;
 
 
 void ModelReader::ClearCaches ()
 {
+	materialClassCache.clear ();
 	typeNameCache.clear ();
 	materialNameCache.clear ();
 	compositeCache.clear ();
@@ -159,6 +163,41 @@ GS::UniString ModelReader::GetElementIdValue (const API_Guid& elemGuid, const AP
 		return GS::UniString ();
 
 	return property.value.singleVariant.variant.uniStringValue;
+}
+
+
+bool ModelReader::GetMaterialClassification (API_AttributeIndex materialIndex, const API_Guid& systemGuid,
+											 GS::UniString& outItemId, GS::UniString& outItemName)
+{
+	outItemId.Clear ();
+	outItemName.Clear ();
+
+	if (!materialIndex.IsPositive ())
+		return false;
+
+	const UInt32 key = static_cast<UInt32> (materialIndex.ToInt32_Deprecated ());
+	const auto cached = materialClassCache.find (key);
+	if (cached != materialClassCache.end ()) {
+		outItemId = cached->second.first;
+		outItemName = cached->second.second;
+		return !outItemId.IsEmpty ();
+	}
+
+	API_Attr_Head attrHead;
+	BNZeroMemory (&attrHead, sizeof (attrHead));
+	attrHead.typeID = API_BuildingMaterialID;
+	attrHead.index = materialIndex;
+
+	API_ClassificationItem item;
+	if (ACAPI_Attribute_GetClassificationInSystem (attrHead, systemGuid, item) == NoError
+		&& item.guid != APINULLGuid) {
+		outItemId = item.id;
+		outItemName = item.name;
+	}
+
+	GS::Pair<GS::UniString, GS::UniString> entry (outItemId, outItemName);
+	materialClassCache[key] = entry;
+	return !outItemId.IsEmpty ();
 }
 
 
@@ -616,6 +655,7 @@ GSErrCode ModelReader::CollectGroupValues (const API_Guid& groupPropGuid,
 
 
 void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemTypeID typeID,
+										  const API_Guid& systemGuid,
 										  const API_ElementQuantity& elementQuantity,
 										  const GS::Array<API_CompositeQuantity>& compositeQuantities,
 										  CWElementRow& outRow, CWScanReport& outReport)
@@ -634,6 +674,12 @@ void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemType
 		CWComponentRow skinRow;
 		skinRow.kind = RowKind::Skin;
 		skinRow.label = GetBuildingMaterialName (skin.buildMatIndices);
+
+		// Phase 5 : le skin porte la classe de son MATÉRIAU (un mur sans
+		// classe dont les couches ont des matériaux classés est « appelé »).
+		if (GetMaterialClassification (skin.buildMatIndices, systemGuid,
+										  skinRow.classItemId, skinRow.classItemName))
+			++outReport.classifiedSkins;
 
 		if (haveComposite) {
 			// Correspondance skin -> couche du composite : par position
@@ -728,13 +774,28 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		if (ACAPI_Element_GetHeader (&header) != NoError)
 			continue;
 
-		// L'élément porte-t-il une classe dans le système choisi ?
-		// (item [out] : guid nul si l'élément n'est pas classé dans ce système)
+		// Règle d'appel (phase 5) : l'élément est « appelé » s'il porte une
+		// classe dans le système choisi, OU si un de ses skins a un matériau
+		// classé (mur sans classe avec des couches classées → appelé via ses
+		// skins, qui portent la classe de leur matériau).
 		API_ClassificationItem item;
-		if (ACAPI_Element_GetClassificationInSystem (elemGuid, systemGuid, item) != NoError)
-			continue;
-		if (item.guid == APINULLGuid)
-			continue;	// pas de classe dans ce système
+		const bool elementClassified = (ACAPI_Element_GetClassificationInSystem (elemGuid, systemGuid, item) == NoError
+											   && item.guid != APINULLGuid);
+
+		bool hasClassifiedSkin = false;
+		if (!elementClassified) {
+			CWSkinInfo compositeInfo;
+			if (GetCompositeInfo (GetCompositeIndexOfElement (elemGuid, header.type.typeID), compositeInfo)) {
+				for (UIndex l = 0; l < compositeInfo.layers.size () && !hasClassifiedSkin; ++l) {
+					GS::UniString skinClassId;
+					GS::UniString skinClassName;
+					hasClassifiedSkin = GetMaterialClassification (compositeInfo.layers[l].buildingMaterial,
+																  systemGuid, skinClassId, skinClassName);
+				}
+			}
+			if (!hasClassifiedSkin)
+				continue;	// aucune classe, ni l'élément ni ses skins
+		}
 
 		CWElementRow row;
 		row.guid = elemGuid;
@@ -743,8 +804,10 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		row.floorInd = header.floorInd;
 		if (haveStories)
 			row.storyName = GetStoryName (storyInfo, header.floorInd);
-		row.classItemId = item.id;
-		row.classItemName = item.name;
+		if (elementClassified) {
+			row.classItemId = item.id;
+			row.classItemName = item.name;
+		}
 		if (haveElemIdProp)
 			row.elementId = GetElementIdValue (elemGuid, elemIdPropGuid);
 
@@ -765,7 +828,8 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		items.Push (info);
 
 		outRows.Push (row);
-		++outReport.classifiedElements;
+		if (elementClassified)
+			++outReport.classifiedElements;
 	}
 
 	// --- Passe 2 : quantités, lues par lot (phase 3) ----------------------------
@@ -814,7 +878,7 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 				CWElementRow& row = outRows[info.rowIndex];
 
 				if (batchErr == NoError) {
-					FillQuantitiesAndSkins (info.guid, info.type.typeID, quantityBuffers[k],
+					FillQuantitiesAndSkins (info.guid, info.type.typeID, systemGuid, quantityBuffers[k],
 											compositeBuffers[k], row, outReport);
 				} else {
 					// Repli unitaire pour ce lot.
@@ -831,7 +895,7 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 					single.elemPartComposites = &elemPartComposites;
 
 					if (ACAPI_Element_GetQuantities (info.guid, &params, &single, &mask) == NoError) {
-						FillQuantitiesAndSkins (info.guid, info.type.typeID, elementQuantity,
+						FillQuantitiesAndSkins (info.guid, info.type.typeID, systemGuid, elementQuantity,
 												compositeQuantities, row, outReport);
 					} else {
 						++outReport.quantityErrors;

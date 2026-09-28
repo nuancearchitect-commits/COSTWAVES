@@ -4,19 +4,29 @@
 #include "ACAPinc.h"
 #include "DGModule.hpp"
 
+#include "ResourceIds.hpp"
 #include "DataTypes.hpp"
 
 namespace CostWaves {
 
 // Fenêtre de choix de l'article (classe de classification) pour « Créer un
-// ensemble » / « Créer un groupe » (phase 5) :
+// ensemble » / « Créer un groupe » :
 //  - affiche le nombre d'éléments sélectionnés dans le plan ;
-//  - liste les articles connus de la palette (import JSON ou classification).
-// Fenêtre modale créée entièrement en code (pas de ressource GRC).
+//  - liste les articles connus de la palette (import JSON ou classification),
+//    hiérarchiquement (indentés comme la classification).
+// Fenêtre modale définie en ressource GRC (ID_ADDON_DLG_PICKER).
 class ArticlePickerDialog final :	public DG::ModalDialog,
 									public DG::ButtonItemObserver
 {
 public:
+	enum ItemIds {
+		InfoTextId			= 1,
+		ArticleLabelId		= 2,
+		ArticlePopupId		= 3,
+		CreateButtonId		= 4,
+		CancelButtonId		= 5
+	};
+
 	ArticlePickerDialog (const GS::Array<CWArticle>& articles, USize selectedElementCount, bool numbered);
 
 	bool		IsAccepted () const { return accepted; }

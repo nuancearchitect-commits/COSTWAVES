@@ -44,6 +44,12 @@ struct CWComponentRow {
 	GS::Array<CWPropertyEntry> properties;			// rempli à la demande (détails / export)
 	bool					propertiesFetched = false;
 
+	// Phase 5 : classification du MATÉRIAU du skin (l'élément parent peut ne
+	// pas avoir de classe — un mur non classé dont les couches ont des
+	// matériaux classés est « appelé » via ses skins).
+	GS::UniString			classItemId;			// classe du matériau (vide = aucune)
+	GS::UniString			classItemName;
+
 	// Phase 3 — enrichissement des skins composites :
 	GS::UniString			compositeName;			// nom du composite (vide si inconnu)
 	short					skinIndex = -1;			// position dans le composite (0..n-1, -1 si inconnue)
@@ -93,6 +99,7 @@ struct CWArticle {
 	GS::UniString	id;		// identifiant CostWaves = id de l'item de classification
 	GS::UniString	name;	// libellé
 	GS::UniString	unit;	// "m2", "m3", "m", "U"... (vide si inconnue)
+	short			depth = 0;	// profondeur dans la classification (0 = racine, pour l'indentation)
 
 	CWArticle () = default;
 	CWArticle (const GS::UniString& inId, const GS::UniString& inName, const GS::UniString& inUnit)
@@ -120,6 +127,7 @@ struct CWArticleSummary {
 	USize					elementCount = 0;	// éléments facturés individuellement
 	USize					groupCount = 0;		// ensembles facturés
 	USize					numberedGroupCount = 0;	// groupes numérotés facturés (1 par groupe)
+	USize					skinCount = 0;		// skins classés facturés (matériau classé)
 	double					totalQuantity = 0.0;	// somme des quantités facturées
 
 	CWArticleSummary () = default;
@@ -133,6 +141,7 @@ struct CWScanReport {
 	USize	componentCount = 0;			// composants (API 25+) sur les éléments classés
 	USize	skinCount = 0;				// skins composites sur les éléments classés
 	USize	quantityErrors = 0;			// échecs ACAPI_Element_GetQuantities
+	USize	classifiedSkins = 0;		// skins dont le matériau porte une classe
 	USize					groupCount = 0;				// ensembles CostWaves (phase 4)
 	USize					numberedGroupCount = 0;		// groupes numérotés CostWaves (phase 5)
 	USize					consumedElements = 0;		// éléments membres d'un ensemble/groupe (consommés)

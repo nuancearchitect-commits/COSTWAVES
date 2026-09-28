@@ -226,6 +226,7 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 	json += US ("    \"classifiedElements\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.classifiedElements))) + ",\n";
 	json += US ("    \"components\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.componentCount))) + ",\n";
 	json += US ("    \"skins\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.skinCount))) + ",\n";
+	json += US ("    \"classifiedSkins\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.classifiedSkins))) + ",\n";
 	json += US ("    \"groups\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.groupCount))) + ",\n";
 	json += US ("    \"numberedGroups\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.numberedGroupCount))) + ",\n";
 	json += US ("    \"consumedElements\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.consumedElements))) + "\n";
@@ -245,6 +246,7 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 				+ ", \"elementCount\": " + GS::ToUniString (std::to_wstring (static_cast<int> (entry.elementCount)))
 				+ ", \"groupCount\": " + GS::ToUniString (std::to_wstring (static_cast<int> (entry.groupCount)))
 				+ ", \"numberedGroupCount\": " + GS::ToUniString (std::to_wstring (static_cast<int> (entry.numberedGroupCount)))
+				+ ", \"skinCount\": " + GS::ToUniString (std::to_wstring (static_cast<int> (entry.skinCount)))
 				+ ", \"totalQuantity\": " + FormatDouble (entry.totalQuantity) + " }";
 			if (s + 1 < summary.GetSize ())
 				json += ",";
@@ -356,6 +358,9 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 
 			if (component.kind == RowKind::Skin) {
 				json += US ("{ \"kind\": \"skin\", \"material\": ") + JsonString (component.label);
+				if (!component.classItemId.IsEmpty ())
+					json += US (", \"classification\": { \"itemId\": ") + JsonString (component.classItemId)
+						+ US (", \"itemName\": ") + JsonString (component.classItemName) + " }";
 				if (!component.compositeName.IsEmpty ()) {
 					json += US (", \"composite\": ") + JsonString (component.compositeName);
 					if (component.skinIndex >= 0 && component.skinCount > 0) {
@@ -507,12 +512,19 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 				? GS::UniString ()
 				: APIGuidToString (component.guid);
 
+			// Skin classé (phase 5) : la classe facturée est celle du MATÉRIAU.
+			const bool skinHasClass = (component.kind == RowKind::Skin && !component.classItemId.IsEmpty ());
+			const GS::UniString componentClasse = skinHasClass
+				? (component.classItemId + " - " + component.classItemName)
+				: classe;
+			const GS::UniString componentArticleId = skinHasClass ? component.classItemId : articleId;
+
 			const GS::UniString componentPrefix = protect (kindLabel) + ";"
 				+ protect (componentGuid) + ";"
 				+ protect (row.elementId) + ";"
 				+ protect (story) + ";"
-				+ protect (classe) + ";"
-				+ protect (articleId) + ";";
+				+ protect (componentClasse) + ";"
+				+ protect (componentArticleId) + ";";
 
 			if (component.quantities.IsEmpty ()) {
 				csv += componentPrefix + ";;;\n";
@@ -536,11 +548,20 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 			csv += "\n";
 			for (UIndex s = 0; s < summary.GetSize (); ++s) {
 				const CWArticleSummary& entry = summary[s];
+				GS::UniString counts = GS::ToUniString (std::to_wstring (static_cast<int> (entry.elementCount)))
+					+ FR (" él");
+				if (entry.groupCount > 0)
+					counts += FR (" + ") + GS::ToUniString (std::to_wstring (static_cast<int> (entry.groupCount))) + FR (" ens.");
+				if (entry.numberedGroupCount > 0)
+					counts += FR (" + ") + GS::ToUniString (std::to_wstring (static_cast<int> (entry.numberedGroupCount))) + FR (" gr.");
+				if (entry.skinCount > 0)
+					counts += FR (" + ") + GS::ToUniString (std::to_wstring (static_cast<int> (entry.skinCount))) + FR (" skins");
 				csv += FR ("Récapitulatif") + ";;;;;"
 					+ protect (entry.articleId) + ";"
 					+ protect (entry.articleName) + ";"
 					+ protect (FormatDouble (entry.totalQuantity)) + ";"
-					+ protect (entry.unit) + "\n";
+					+ protect (entry.unit) + ";"
+					+ protect (counts) + "\n";
 			}
 		}
 	}

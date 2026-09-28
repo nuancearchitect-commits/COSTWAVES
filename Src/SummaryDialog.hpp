@@ -4,27 +4,30 @@
 #include "ACAPinc.h"
 #include "DGModule.hpp"
 
+#include "ResourceIds.hpp"
 #include "DataTypes.hpp"
 
 namespace CostWaves {
 
-// Fenêtre « Récapitulatif par article » (phase 4) :
+// Fenêtre « Récapitulatif par article » :
 //  - une ligne par article facturé : identifiant, libellé, unité,
-//    nombre d'éléments et d'ensembles, quantité totale facturée
-//  - fenêtre créée entièrement en code (pas de ressource GRC)
+//    nombre d'éléments, d'ensembles, de groupes et de skins classés,
+//    quantité totale facturée
 // Les articles à l'unité ENS (ou vide) sont facturés au forfait :
-// quantité 1 par ligne facturée (élément ou ensemble).
+// quantité 1 par ligne facturée (élément ou ensemble). Les groupes
+// numérotés comptent 1 par groupe ; les skins classés sont facturés sur
+// l'article de leur matériau.
+// Fenêtre modale définie en ressource GRC (ID_ADDON_DLG_SUMMARY).
 class SummaryDialog final :	public DG::ModalDialog,
-							public DG::ButtonItemObserver
+								public DG::ButtonItemObserver
 {
 public:
-	// Identifiants libres (items créés programmatiquement).
-	enum DialogItemIds {
+	enum ItemIds {
 		TableId		= 1,
 		CloseButtonId	= 2
 	};
 
-	explicit SummaryDialog (const GS::Array<CWArticleSummary>& summary);
+	SummaryDialog (const GS::Array<CWArticleSummary>& summary);
 
 private:
 	// DG::ButtonItemObserver

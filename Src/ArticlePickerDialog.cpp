@@ -2,6 +2,8 @@
 
 #include "ArticlePickerDialog.hpp"
 
+#include "ResourceIds.hpp"
+
 #include "UniStringWStringConversion.hpp"
 
 #include <cwchar>
@@ -16,23 +18,26 @@ GS::UniString FR (const char* utf8Text)
 	return GS::UniString (utf8Text, CC_UTF8);
 }
 
-// GUID de disposition de la fenêtre (fixe, pour la mémorisation écran).
-const char* kArticlePickerGuidString = "4B9D1E62-C7A4-4F58-8D21-9E6C3B0A7F14";
+// Indentation hiérarchique (une unité par niveau de classification).
+GS::UniString Indent (short depth)
+{
+	GS::UniString indent;
+	for (short d = 0; d < depth; ++d)
+		indent += FR ("    ");
+	return indent;
+}
 
 } // namespace
 
 
 ArticlePickerDialog::ArticlePickerDialog (const GS::Array<CWArticle>& inArticles,
 										  USize selectedElementCount, bool numbered)
-	:	DG::ModalDialog (DG::NativePoint (DG::NativeUnit (120), DG::NativeUnit (120)), 440, 180,
-							APIGuid2GSGuid (APIGuidFromString (kArticlePickerGuidString)),
-							DG::ModalDialog::NoGrow, DG::ModalDialog::TopCaption,
-							DG::ModalDialog::NormalFrame),
-		infoText (GetReference (), DG::Rect (10, 12, 430, 30)),
-		articleLabel (GetReference (), DG::Rect (10, 46, 430, 64)),
-		articlePopup (GetReference (), DG::Rect (10, 68, 430, 90), 80, 3),
-		createButton (GetReference (), DG::Rect (200, 140, 320, 163)),
-		cancelButton (GetReference (), DG::Rect (330, 140, 430, 163)),
+	:	DG::ModalDialog (ACAPI_GetOwnResModule (), ID_ADDON_DLG_PICKER, ACAPI_GetOwnResModule ()),
+		infoText (GetReference (), InfoTextId),
+		articleLabel (GetReference (), ArticleLabelId),
+		articlePopup (GetReference (), ArticlePopupId),
+		createButton (GetReference (), CreateButtonId),
+		cancelButton (GetReference (), CancelButtonId),
 		articles (inArticles)
 {
 	SetTitle (numbered ? FR ("CostWaves — Créer un groupe")
@@ -44,8 +49,9 @@ ArticlePickerDialog::ArticlePickerDialog (const GS::Array<CWArticle>& inArticles
 	articleLabel.SetText (numbered ? FR ("Article (classe) du groupe — la quantité facturée sera le nombre de groupes :")
 								   : FR ("Article (classe) de l'ensemble :"));
 
+	// Liste hiérarchique (indentée comme la classification).
 	for (UIndex i = 0; i < articles.GetSize (); ++i) {
-		GS::UniString label = articles[i].id + FR (" — ") + articles[i].name;
+		GS::UniString label = Indent (articles[i].depth) + articles[i].id + FR (" — ") + articles[i].name;
 		if (!articles[i].unit.IsEmpty ())
 			label += FR (" (") + articles[i].unit + FR (")");
 		articlePopup.AppendItem ();
@@ -55,7 +61,6 @@ ArticlePickerDialog::ArticlePickerDialog (const GS::Array<CWArticle>& inArticles
 		articlePopup.SelectItem (1);
 
 	createButton.SetText (numbered ? FR ("Créer le groupe") : FR ("Créer l'ensemble"));
-	cancelButton.SetText (FR ("Annuler"));
 
 	createButton.Attach (*this);
 	cancelButton.Attach (*this);

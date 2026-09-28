@@ -418,13 +418,18 @@ bool ArticleManager::CollectFromClassification (const API_Guid& systemGuid, GS::
 {
 	outArticles.Clear ();
 
+	// Collecte hiérarchique : les articles gardent leur profondeur pour
+	// l'affichage indenté (listes « comme la classification »).
 	GS::Array<API_ClassificationItem> items;
-	EnumerateItems (systemGuid, items);
+	GS::Array<short> depths;
+	CollectItems (systemGuid, items, depths);
 
 	for (UIndex i = 0; i < items.GetSize (); ++i) {
 		if (items[i].id.IsEmpty ())
 			continue;
-		outArticles.Push (CWArticle (items[i].id, items[i].name, GS::UniString ()));
+		CWArticle article (items[i].id, items[i].name, GS::UniString ());
+		article.depth = (i < depths.GetSize () ? depths[i] : 0);
+		outArticles.Push (article);
 	}
 
 	return true;
@@ -1027,12 +1032,7 @@ GS::UniString NormalizeUnit (const GS::UniString& unit)
 // Première quantité de la ligne portant l'unité donnée (0 sinon).
 double ElementQuantityForUnit (const CWElementRow& row, const GS::UniString& unit)
 {
-	const GS::UniString wanted = NormalizeUnit (unit);
-	for (UIndex q = 0; q < row.quantities.GetSize (); ++q) {
-		if (NormalizeUnit (row.quantities[q].unit) == wanted)
-			return row.quantities[q].value;
-	}
-	return 0.0;
+	return ArticleManager::QuantityForUnit (row.quantities, unit);
 }
 
 // Ligne d'un élément par GUID (nullptr si absente).
@@ -1334,6 +1334,17 @@ GSErrCode ArticleManager::DissolveGroupFromElements (const GS::Array<API_Guid>& 
 }
 
 
+double ArticleManager::QuantityForUnit (const GS::Array<CWQuantity>& quantities, const GS::UniString& unit)
+{
+	const GS::UniString wanted = NormalizeUnit (unit);
+	for (UIndex q = 0; q < quantities.GetSize (); ++q) {
+		if (NormalizeUnit (quantities[q].unit) == wanted)
+			return quantities[q].value;
+	}
+	return 0.0;
+}
+
+
 bool ArticleManager::IsEnsUnit (const GS::UniString& unit)
 {
 	return unit.IsEmpty () || NormalizeUnit (unit) == GS::UniString ("ENS");
@@ -1381,46 +1392,47 @@ void ArticleManager::BuildArticleSummary (const GS::Array<CWElementRow>& rows,
 {
 	outSummary.Clear ();
 
+	// Entrée du récapitulatif pour l'article donné (créée si absente).
+	auto findEntry = [&] (const GS::UniString& articleId, const GS::UniString& articleName,
+						  UIndex& outIndex) -> CWArticleSummary& {
+		for (UIndex s = 0; s < outSummary.GetSize (); ++s) {
+			if (outSummary[s].articleId == articleId) {
+				outIndex = s;
+				return outSummary[s];
+			}
+		}
+		CWArticleSummary entry;
+		entry.articleId = articleId;
+		entry.articleName = articleName;
+		entry.unit = FR ("?");
+		outSummary.Push (entry);
+		outIndex = outSummary.GetSize () - 1;
+		return outSummary[outIndex];
+	};
+
+	// Article du catalogue correspondant à l'identifiant (nullptr si inconnu).
+	auto findArticle = [&] (const GS::UniString& articleId) -> const CWArticle* {
+		for (UIndex a = 0; a < articles.GetSize (); ++a) {
+			if (articles[a].id == articleId)
+				return &articles[a];
+		}
+		return nullptr;
+	};
+
 	for (UIndex i = 0; i < rows.GetSize (); ++i) {
 		const CWElementRow& row = rows[i];
 
-		// Les membres consommés sont facturés via leur ensemble.
+		// Les membres consommés sont facturés via leur ensemble/groupe.
 		if (row.consumed)
 			continue;
 
 		if (row.classItemId.IsEmpty ())
 			continue;
 
-		// Entrée du récapitulatif (créée si absente).
 		UIndex entryIndex = 0;
-		bool found = false;
-		for (UIndex s = 0; s < outSummary.GetSize (); ++s) {
-			if (outSummary[s].articleId == row.classItemId) {
-				entryIndex = s;
-				found = true;
-				break;
-			}
-		}
-		if (!found) {
-			CWArticleSummary entry;
-			entry.articleId = row.classItemId;
-			entry.articleName = row.classItemName;
-			entry.unit = FR ("?");
-			outSummary.Push (entry);
-			entryIndex = outSummary.GetSize () - 1;
-		}
+		CWArticleSummary& entry = findEntry (row.classItemId, row.classItemName, entryIndex);
 
-		CWArticleSummary& entry = outSummary[entryIndex];
-
-		// Article connu ? (unité de facturation)
-		const CWArticle* article = nullptr;
-		for (UIndex a = 0; a < articles.GetSize (); ++a) {
-			if (articles[a].id == row.classItemId) {
-				article = &articles[a];
-				break;
-			}
-		}
-
+		const CWArticle* article = findArticle (row.classItemId);
 		if (article != nullptr) {
 			entry.articleName = article->name;
 			GS::UniString unit;
@@ -1435,6 +1447,29 @@ void ArticleManager::BuildArticleSummary (const GS::Array<CWElementRow>& rows,
 			++entry.groupCount;
 		else
 			++entry.elementCount;
+
+		// Skins classés (phase 5) : facturés sur l'article de leur matériau,
+		// même si l'élément parent n'a pas de classe.
+		for (UIndex c = 0; c < row.components.GetSize (); ++c) {
+			const CWComponentRow& component = row.components[c];
+			if (component.kind != RowKind::Skin || component.classItemId.IsEmpty ())
+				continue;
+
+			UIndex skinEntryIndex = 0;
+			CWArticleSummary& skinEntry = findEntry (component.classItemId, component.classItemName, skinEntryIndex);
+
+			const CWArticle* skinArticle = findArticle (component.classItemId);
+			if (skinArticle != nullptr) {
+				skinEntry.articleName = skinArticle->name;
+				GS::UniString unit;
+				const double quantity = IsEnsUnit (skinArticle->unit)
+					? 1.0
+					: QuantityForUnit (component.quantities, skinArticle->unit);
+				skinEntry.totalQuantity += quantity;
+				skinEntry.unit = skinArticle->unit.IsEmpty () ? FR ("ENS") : skinArticle->unit;
+			}
+			++skinEntry.skinCount;
+		}
 	}
 }
 

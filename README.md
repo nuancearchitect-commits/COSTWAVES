@@ -43,26 +43,31 @@ La palette :
 
 1. **Sélecteur de système de classification** — liste tous les systèmes du projet
    (Archicad, CostWaves, Uniclass, etc.) ; changer de système relance la lecture.
-2. **Tableau** (colonnes redimensionnables) — pour chaque élément portant une
-   classe du système choisi, et pour chacun de ses composants :
+2. **Tableau** (en-têtes, colonnes redimensionnables) — **une colonne par type
+   de quantité** (Surface, Volume, Longueur 3D, Épaisseur… selon les lignes
+   lues) plus une colonne **Facturé** (quantité facturée au sens du métré).
+   Sont « appelés » : les éléments portant une classe du système choisi, **et
+   les skins dont le matériau porte une classe** — un mur sans classe dont les
+   couches ont des matériaux classés est appelé via ses skins (chacun porte la
+   classe de son matériau) :
 
-   | Type | GUID | ID élément | Étage | Classe | Quantités disponibles |
-   |---|---|---|---|---|---|
-   | Élément | `{8C1F…}` | `W-012` | `0 - Rez-de-chaussée` | `CW-MUR - Mur extérieur` | `Volume 12,34 m³ · Surface 45,67 m² · …` |
-   | Ensemble | | `CW-G-20260928-153000` | `0 - RDC` | `CW-PORTE - Porte…` | `CW-PORTE · 1 ENS` |
-   | Membre (consommé) | `{A2B4…}` | `D-007` | `0 - RDC` | `CW-PORTE - …` | `Surface 1,8 m² · …` |
-   | Skin — Brique (cœur) | | `W-012` | `0 - RDC` | `CW-MUR - …` | `Épaisseur 200 mm · Volume 1,23 m³ · Surface projetée 4,56 m²` |
-   | Composant | `{A2B4…}` | `W-012` | `0 - RDC` | `CW-MUR - …` | *(propriétés dans le panneau détails)* |
+   | Type | ID élément | Étage | Classe | Facturé | Surface | Volume | … |
+   |---|---|---|---|---|---|---|---|
+   | Élément | `W-012` | `0 - RDC` | `CW-MUR - Mur extérieur` | `12,34 m³` | `45,67` | `12,34` | |
+   | Groupe n° 1 | | `0 - RDC` | `CW-PORTE - Porte…` | `1 ENS (par groupe)` | | | |
+   | Membre (consommé) | `D-007` | `0 - RDC` | `CW-PORTE - …` | `—` | `1,8` | | |
+   | Skin — Brique (cœur) | `W-012` | `0 - RDC` | `CW-BRIQ - Brique…` *(classe du matériau)* | `1,23 m³` | `4,56` | `1,23` | |
 
-   - **Type** : `Élément` / `Ensemble` (ligne facturable groupant des membres) /
-     `Membre (consommé)` (élément d'un ensemble, non facturé seul) /
-     `Skin — <matériau>` (couche d'une structure composite,
-     avec marqueur `(cœur)` si la couche fait partie du noyau) / `Composant`
+   - **Type** : `Élément` / `Ensemble` / `Groupe n° n` (lignes facturables
+     groupant des membres) / `Membre (consommé)` (élément d'un ensemble ou
+     groupe, non facturé seul) / `Skin — <matériau>` (couche d'une structure
+     composite, avec marqueur `(cœur)` si la couche fait partie du noyau —
+     la colonne Classe porte alors **la classe du matériau**) / `Composant`
      (composants « properties » Archicad 25+)
    - **Détails d'un skin (phase 3)** : nom du **composite**, numéro de couche
      (`couche 2/5`), épaisseur de la couche, marqueurs **cœur / finition**
-   - **GUID** : GUID stable de l'élément ou du composant (tronqué à l'affichage,
-     complet dans les détails et les exports)
+   - **GUID** : GUID stable de l'élément ou du composant — affiché dans le
+     panneau de détails et les exports
    - **ID élément** : propriété intégrée « Element ID » d'Archicad (résolue par son
      GUID intégré `B1B54D45-…`, avec repli par recherche de nom)
    - **Étage** : index + nom de l'étage
@@ -76,7 +81,8 @@ La palette :
 5. **Ligne d'état** : `N éléments classés · N composants · N skins · N éléments analysés`.
 6. **Articles (phase 2)** : case `Sélection uniquement` (cochée par défaut : la palette
  **suit la sélection du plan en direct** — on sélectionne dans Archicad, le tableau s'actualise),
-   popup d'articles, `Affecter l'article` · `Importer des articles…` · `Créer la classification`.
+   popup d'articles **hiérarchique** (indenté comme l'arbre des classifications),
+   `Affecter l'article` · `Importer des articles…` · `Créer la classification`.
 
 ### Ce que la phase 1 lit dans Archicad
 
@@ -144,7 +150,9 @@ résolu sans création pour ne rien écrire lors des lectures).
 | **Créer un ensemble** | Nouveau flux : on sélectionne des éléments **dans le plan**, on clique, une fenêtre propose de choisir **l'article (classe)** ; chaque membre reçoit la classe, `CW_Article_ID` et `CW_Group_ID` (identifiant `CW-E-…`). Une seule commande annulable. |
 | **Créer un groupe** | Même flux que l'ensemble, mais chaque groupe reçoit un **numéro** (`CW-N-1`, `CW-N-2`, …). **La quantité réelle du métré est le nombre de groupes** de l'article : 3 groupes créés = quantité 3 (les membres sont consommés, comme pour les ensembles). |
 | **Dissoudre ensemble / groupe** | Fonctionne sur les lignes `Ensemble` et `Groupe n° …` (ou leurs membres) : retire `CW_Group_ID`, une commande annulable. |
-| **Récapitulatif enrichi** | Colonnes `Éléments` · `Ensembles` · `Groupes` · `Quantité totale` ; les exports JSON/CSV portent `groupType` (`ensemble`/`numbered`), `groupNumber`, `numberedGroups` et `numberedGroupCount`. |
+| **Récapitulatif enrichi** | Colonnes `Éléments` · `Ensembles` · `Groupes` · `Skins` · `Quantité totale` ; les exports JSON/CSV portent `groupType` (`ensemble`/`numbered`), `groupNumber`, `numberedGroups`, `numberedGroupCount` et `skinCount`. |
+| **Skins classés (révision)** | Un élément sans classe dont au moins une couche a un **matériau classé** est appelé ; chaque skin porte la classe de son matériau (colonne Classe), est facturé sur l'article de ce matériau (colonne Facturé, récapitulatif `Skins`) et l'export JSON/CSV porte sa classification. |
+| **Fenêtres en ressources GRC** | Les fenêtres « Créer le matériau… », choix d'article et récapitulatif sont définies en GRC (elles s'ouvraient vides en création programmatique). |
 
 
 Fichiers écrits **à côté du .PLN** (ou dans *Documents* si projet non enregistré) :

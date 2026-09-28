@@ -104,7 +104,6 @@ private:
 	// DG::SearchEditObserver
 	virtual void	SearchTextChanged (const DG::SearchEditChangeEvent& ev) override;
 
-	void	InitTable ();
 	void	LoadSystems ();
 	void	RefreshData ();
 	void	FillTable ();
@@ -141,6 +140,10 @@ private:
 	// Tri du tableau par colonne (les composants restent rattachés à leur
 	// élément). Applique le tri courant à "rows".
 	void	SortRows ();
+
+	// Texte de la colonne « Facturé » (élément/ensemble/groupe, puis skin).
+	GS::UniString	BilledText (const CWElementRow& row) const;
+	GS::UniString	SkinBilledText (const CWComponentRow& skin) const;
 
 	// Ligne d'affichage : référence vers un élément, un de ses composants,
 	// ou un membre d'ensemble (phase 4).
@@ -193,6 +196,10 @@ private:
 	GS::Array<DisplayRow>	displayRows;
 
 	GS::UniString			searchFilter;		// filtre de recherche courant
+
+	// Libellés des colonnes de quantités (une colonne par type, reconstruits
+	// à chaque remplissage du tableau).
+	GS::Array<GS::UniString>	quantityColumnLabels;
 
 	short					sortColumn = 0;		// colonne de tri (0 = aucun, sinon 1..6)
 	bool					sortAscending = true;
