@@ -119,6 +119,10 @@ public:
 	// (APINULLGuid sinon) — utilisé pour la lecture au scan.
 	static API_Guid		FindGroupIdPropertyGuid ();
 
+	// GUID de la définition CW_Article_ID SANS création (repli de classe
+	// des dessins 2D — spec §8/§9). APINULLGuid si absente.
+	static API_Guid		FindArticleIdPropertyGuid ();
+
 	// Génère un identifiant d'ensemble unique ("CW-E-…") parmi les
 	// identifiants déjà utilisés (existingIds).
 	static GS::UniString	GenerateGroupId (const GS::Array<GS::UniString>& existingIds);
@@ -187,8 +191,13 @@ public:
 	// Récapitulatif par article : parcourt les lignes facturables (éléments
 	// libres + ensembles ; les membres consommés sont exclus) et totalise
 	// les quantités facturées par article (identifié par la classe).
+	// Le mode (§3) détermine la facturation : CWQuantMode::Element -> les
+	// éléments (jamais leurs skins) ; CWQuantMode::Component -> les skins
+	// classés (jamais l'élément parent). Les dessins 2D sont toujours
+	// facturés comme éléments.
 	static void	BuildArticleSummary (const GS::Array<CWElementRow>&	rows,
 									   const GS::Array<CWArticle>&		articles,
+									   CWQuantMode						mode,
 									   GS::Array<CWArticleSummary>&	outSummary);
 
 private:

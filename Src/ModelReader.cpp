@@ -27,6 +27,7 @@ const char* kElementIdPropertyGuidString = "B1B54D45-C951-42C9-9AF8-898F0BF212AB
 
 std::unordered_map<UInt32, GS::UniString>	ModelReader::typeNameCache;
 std::unordered_map<UInt32, GS::UniString>	ModelReader::materialNameCache;
+std::unordered_map<UInt32, GS::UniString>	ModelReader::layerNameCache;
 std::unordered_map<UInt32, CWSkinInfo>		ModelReader::compositeCache;
 // Classification du matériau dans le système scanné (index -> id, nom).
 // id vide = connu SANS classe (mis en cache pour éviter les rappels API).
@@ -36,6 +37,7 @@ std::unordered_map<UInt32, GS::Pair<GS::UniString, GS::UniString>>	ModelReader::
 void ModelReader::ClearCaches ()
 {
 	materialClassCache.clear ();
+	layerNameCache.clear ();
 	typeNameCache.clear ();
 	materialNameCache.clear ();
 	compositeCache.clear ();
@@ -198,6 +200,255 @@ bool ModelReader::GetMaterialClassification (API_AttributeIndex materialIndex, c
 	GS::Pair<GS::UniString, GS::UniString> entry (outItemId, outItemName);
 	materialClassCache[key] = entry;
 	return !outItemId.IsEmpty ();
+}
+
+
+bool ModelReader::Is2DType (API_ElemTypeID typeID)
+{
+	switch (typeID) {
+		case API_LineID:
+		case API_PolyLineID:
+		case API_SplineID:
+		case API_ArcID:
+		case API_CircleID:
+		case API_HatchID:
+			return true;
+		default:
+			return false;
+	}
+}
+
+
+GS::UniString ModelReader::GetLayerName (API_AttributeIndex layerIndex)
+{
+	if (!layerIndex.IsPositive ())
+		return GS::UniString ();
+
+	// Phase 3 : un seul ACAPI_Attribute_Get par calque distinct.
+	const UInt32 key = static_cast<UInt32> (layerIndex.GenerateHashValue ());
+	const auto it = layerNameCache.find (key);
+	if (it != layerNameCache.end ())
+		return it->second;
+
+	GS::UniString name;
+	API_Attribute attribute;
+	BNZeroMemory (&attribute, sizeof (attribute));
+	attribute.header.typeID = API_LayerID;
+	attribute.header.index = layerIndex;
+
+	if (ACAPI_Attribute_Get (&attribute) == NoError)
+		name = GS::UniString (attribute.header.name, CC_UTF8);
+
+	layerNameCache.emplace (key, name);
+	return name;
+}
+
+
+namespace {
+
+const double kPi = 3.14159265358979323846;
+
+// Longueur d'un arc de cercle defined par sa corde et son angle :
+// r = corde / (2 sin(|angle|/2)), longueur = r * |angle|.
+double ArcLengthFromChordAngle (double chord, double angle)
+{
+	if (fabs (angle) < 1e-9 || fabs (chord) < 1e-12)
+		return chord;
+	const double half = fabs (angle) / 2.0;
+	if (half >= kPi - 1e-9)
+		return kPi * chord / 2.0;		// demi-cercle et plus
+	const double radius = chord / (2.0 * sin (half));
+	return radius * fabs (angle);
+}
+
+// Marque les arêtes couvertes par un enregistrement d'arc : les arêtes
+// partant de begIndex jusqu'à endIndex EXCLU (l'arête partant d'endIndex
+// est droite), en bouclant sur le contour si besoin.
+void MarkArcEdges (const API_PolyArc& arc, Int32 nCoords, std::vector<bool>& isArcEdge)
+{
+	if (arc.begIndex == arc.endIndex)
+		return;		// arc complet : corde nulle, géré par ArcEdgesTotal
+
+	Int32 i = arc.begIndex;
+	const Int32 safety = 2 * nCoords + 2;
+	for (Int32 step = 0; step <= safety; ++step) {
+		if (i == arc.endIndex)
+			return;			// l'arc s'arrête AU sommet endIndex
+		isArcEdge[static_cast<size_t> (i)] = true;
+		i = (i % nCoords) + 1;
+	}
+}
+
+// Somme des longueurs d'arc (un enregistrement API_PolyArc = un arc).
+double ArcEdgesTotal (const API_Coord* coords, Int32 nCoords, const API_PolyArc* arcs, Int32 nArcs)
+{
+	if (arcs == nullptr || nArcs <= 0)
+		return 0.0;
+
+	double total = 0.0;
+	for (Int32 a = 0; a < nArcs; ++a) {
+		const API_PolyArc& arc = arcs[a];
+		if (arc.begIndex < 1 || arc.endIndex < 1 || arc.begIndex > nCoords || arc.endIndex > nCoords)
+			continue;
+		const API_Coord& c1 = coords[arc.begIndex - 1];
+		const API_Coord& c2 = coords[arc.endIndex - 1];
+		const double chord = sqrt ((c2.x - c1.x) * (c2.x - c1.x)
+									 + (c2.y - c1.y) * (c2.y - c1.y));
+		total += ArcLengthFromChordAngle (chord, arc.arcAngle);
+	}
+	return total;
+}
+
+} // namespace
+
+
+void ModelReader::Extract2DQuantities (const API_Guid& elemGuid, API_ElemTypeID typeID,
+										   GS::Array<CWQuantity>& outQuantities)
+{
+	switch (typeID) {
+		case API_LineID:
+		case API_PolyLineID:
+		case API_SplineID:
+		case API_ArcID:
+		case API_CircleID:
+			break;
+
+		case API_HatchID:
+		default:
+			// Les hachures passent par le pipeline des quantités
+			// (API_HatchQuantity : surface + périmètre) — rien à calculer ici.
+			return;
+	}
+
+	API_Element element;
+	BNZeroMemory (&element, sizeof (element));
+	element.header.guid = elemGuid;
+	if (ACAPI_Element_Get (&element) != NoError)
+		return;
+
+	if (typeID == API_LineID) {
+		// §5 : longueur géométrique du segment.
+		const API_Coord& beg = element.line.begC;
+		const API_Coord& end = element.line.endC;
+		const double length = sqrt ((end.x - beg.x) * (end.x - beg.x)
+										 + (end.y - beg.y) * (end.y - beg.y));
+		AddQuantity (outQuantities, "Longueur", "m", length);
+		return;
+	}
+
+	if (typeID == API_ArcID || typeID == API_CircleID) {
+		// §5/§6 : arc → longueur d'arc ; cercle → circonférence, surface,
+		// rayon, diamètre (l'utilisateur choisit la mesure à facturer).
+		const API_ArcType& arc = (typeID == API_CircleID) ? element.circle : element.arc;
+		const double r = arc.r;
+
+		double span = fabs (arc.endAng - arc.begAng);
+		if (span > 2.0 * kPi)
+			span = 2.0 * kPi;
+
+		if (typeID == API_CircleID || arc.whole) {
+			AddQuantity (outQuantities, "Circonférence", "m", 2.0 * kPi * r);
+			AddQuantity (outQuantities, "Surface", "m²", kPi * r * r);
+			AddQuantity (outQuantities, "Rayon", "m", r);
+			AddQuantity (outQuantities, "Diamètre", "m", 2.0 * r);
+		} else {
+			AddQuantity (outQuantities, "Longueur", "m", r * span);
+			AddQuantity (outQuantities, "Rayon", "m", r);
+		}
+		return;
+	}
+
+	// Polylignes et splines : coordonnées via le memo (masque polygone).
+	API_ElementMemo memo;
+	BNZeroMemory (&memo, sizeof (memo));
+	if (ACAPI_Element_GetMemo (elemGuid, &memo, APIMemoMask_Polygon) != NoError)
+		return;
+
+	if (typeID == API_PolyLineID) {
+		const Int32 nCoords = element.polyLine.poly.nCoords;
+		const Int32 nSubPolys = element.polyLine.poly.nSubPolys > 0
+			? element.polyLine.poly.nSubPolys : 1;
+		if (memo.coords != nullptr && *memo.coords != nullptr && nCoords >= 2) {
+			const API_Coord* coords = *memo.coords;
+			const API_PolyArc* arcs = (memo.parcs != nullptr && *memo.parcs != nullptr)
+				? *memo.parcs : nullptr;
+			const Int32 nArcs = arcs != nullptr ? element.polyLine.poly.nArcs : 0;
+
+			// Fins de sous-contours (1-based) : (*pends)[k] = dernier sommet
+			// du (k+1)-ième sous-contour. Sans pends : contour unique.
+			std::vector<Int32> subEnds;
+			subEnds.push_back (nCoords);
+			if (nSubPolys > 1 && memo.pends != nullptr && *memo.pends != nullptr) {
+				subEnds.clear ();
+				const Int32 nEnds = static_cast<Int32> (BMGetHandleSize (
+					reinterpret_cast<GSHandle> (memo.pends)) / sizeof (Int32));
+				for (Int32 e = 0; e < nEnds && e < nSubPolys; ++e)
+					subEnds.push_back ((*memo.pends)[e]);
+				if (subEnds.empty ())
+					subEnds.push_back (nCoords);
+			}
+
+			// Arête sortante du sommet i : vers i+1, ou retour au début du
+			// sous-contour si i en est le dernier sommet.
+			auto nextOf = [&subEnds, nCoords] (Int32 i) -> Int32 {
+				for (size_t k = 0; k < subEnds.size (); ++k) {
+					if (subEnds[k] == i)
+						return (k == 0) ? 1 : subEnds[k - 1] + 1;
+				}
+				return (i % nCoords) + 1;
+			};
+
+			// Arêtes droites hors arcs…
+			std::vector<bool> isArcEdge (static_cast<size_t> (nCoords) + 1, false);
+			for (Int32 a = 0; a < nArcs; ++a) {
+				if (arcs[a].begIndex >= 1 && arcs[a].begIndex <= nCoords
+					&& arcs[a].endIndex >= 1 && arcs[a].endIndex <= nCoords)
+					MarkArcEdges (arcs[a], nCoords, isArcEdge);
+			}
+			double straight = 0.0;
+			for (Int32 i = 1; i <= nCoords; ++i) {
+				if (isArcEdge[static_cast<size_t> (i)])
+					continue;
+				const API_Coord& c1 = coords[i - 1];
+				const API_Coord& c2 = coords[nextOf (i) - 1];
+				straight += sqrt ((c2.x - c1.x) * (c2.x - c1.x)
+									+ (c2.y - c1.y) * (c2.y - c1.y));
+			}
+
+			// … + longueurs d'arcs (corde/angle -> longueur d'arc).
+			AddQuantity (outQuantities, "Longueur", "m", straight + ArcEdgesTotal (coords, nCoords, arcs, nArcs));
+		}
+		ACAPI_DisposeElemMemoHdls (&memo);
+		return;
+	}
+
+	if (typeID == API_SplineID) {
+		// §5 : longueur géométrique (approximation : polyligne joignant les
+		// points de la spline ; l'index 0 est un point utilisé).
+		if (memo.coords != nullptr && *memo.coords != nullptr) {
+			const Int32 nPoints = static_cast<Int32> (BMGetHandleSize (
+				reinterpret_cast<GSHandle> (memo.coords)) / sizeof (API_Coord));
+			if (nPoints >= 2) {
+				const API_Coord* coords = *memo.coords;
+				double length = 0.0;
+				for (Int32 i = 1; i < nPoints; ++i) {
+					const API_Coord& c1 = coords[i - 1];
+					const API_Coord& c2 = coords[i];
+					length += sqrt ((c2.x - c1.x) * (c2.x - c1.x)
+									   + (c2.y - c1.y) * (c2.y - c1.y));
+				}
+				if (element.spline.closed && nPoints > 2) {
+					const API_Coord& c1 = coords[nPoints - 1];
+					const API_Coord& c2 = coords[0];
+					length += sqrt ((c2.x - c1.x) * (c2.x - c1.x)
+									   + (c2.y - c1.y) * (c2.y - c1.y));
+				}
+				AddQuantity (outQuantities, "Longueur", "m", length);
+			}
+		}
+		ACAPI_DisposeElemMemoHdls (&memo);
+		return;
+	}
 }
 
 
@@ -717,7 +968,7 @@ void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemType
 
 
 GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdPropGuid,
-							 const API_Guid& groupPropGuid,
+							 const API_Guid& groupPropGuid, bool include2D,
 							 const GS::Array<API_Guid>* elemFilter,
 							 GS::Array<CWElementRow>& outRows, CWScanReport& outReport)
 {
@@ -778,12 +1029,33 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		// classe dans le système choisi, OU si un de ses skins a un matériau
 		// classé (mur sans classe avec des couches classées → appelé via ses
 		// skins, qui portent la classe de leur matériau).
+		// Dessins 2D (spec §2/§4) : ligne, polyligne, spline, arc, cercle,
+		// hachure — source de quantification indépendante, incluse sur
+		// demande de l'utilisateur.
+		const bool is2D = Is2DType (header.type.typeID);
+		if (is2D && !include2D)
+			continue;
+
 		API_ClassificationItem item;
-		const bool elementClassified = (ACAPI_Element_GetClassificationInSystem (elemGuid, systemGuid, item) == NoError
+		bool elementClassified = (ACAPI_Element_GetClassificationInSystem (elemGuid, systemGuid, item) == NoError
 											   && item.guid != APINULLGuid);
 
+		// Repli 2D : classe portée par la propriété CW_Article_ID
+		// (affectée par l'utilisateur) si le dessin n'est pas classé.
+		if (is2D && !elementClassified) {
+			const API_Guid articlePropGuid = ArticleManager::FindArticleIdPropertyGuid ();
+			if (articlePropGuid != APINULLGuid) {
+				const GS::UniString articleId = GetElementIdValue (elemGuid, articlePropGuid);
+				if (!articleId.IsEmpty ()) {
+					item.id = articleId;
+					item.name = articleId;
+					elementClassified = true;
+				}
+			}
+		}
+
 		bool hasClassifiedSkin = false;
-		if (!elementClassified) {
+		if (!is2D && !elementClassified) {
 			CWSkinInfo compositeInfo;
 			if (GetCompositeInfo (GetCompositeIndexOfElement (elemGuid, header.type.typeID), compositeInfo)) {
 				for (UIndex l = 0; l < compositeInfo.layers.size () && !hasClassifiedSkin; ++l) {
@@ -804,6 +1076,8 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		row.floorInd = header.floorInd;
 		if (haveStories)
 			row.storyName = GetStoryName (storyInfo, header.floorInd);
+		row.is2D = is2D;
+		row.layerName = GetLayerName (header.layer);
 		if (elementClassified) {
 			row.classItemId = item.id;
 			row.classItemName = item.name;
@@ -824,12 +1098,21 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 
 		const UInt32 typeKey = (static_cast<UInt32> (header.type.typeID) << 12)
 							 ^ static_cast<UInt32> (header.type.variationID);
-		groupsByType[typeKey].Push (items.GetSize ());
+		// Les hachures passent par le batch des quantités (surface/périmètre) ;
+		// les autres dessins 2D sont calculés géométriquement en passe 1.
+		if (!is2D || header.type.typeID == API_HatchID)
+			groupsByType[typeKey].Push (items.GetSize ());
+		else
+			Extract2DQuantities (elemGuid, header.type.typeID, row.quantities);
 		items.Push (info);
 
 		outRows.Push (row);
-		if (elementClassified)
-			++outReport.classifiedElements;
+		if (elementClassified) {
+			if (is2D)
+				++outReport.classified2D;
+			else
+				++outReport.classifiedElements;
+		}
 	}
 
 	// --- Passe 2 : quantités, lues par lot (phase 3) ----------------------------
@@ -906,9 +1189,13 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 	}
 
 	// --- Passe 3 : composants (API 25+) ------------------------------------------
+	// Les dessins 2D sont des objets de métré à part entière : jamais de
+	// composants (spec §2/§8).
 	for (UIndex i = 0; i < items.GetSize (); ++i) {
 		const ItemInfo& info = items[i];
 		CWElementRow& row = outRows[info.rowIndex];
+		if (row.is2D)
+			continue;
 
 		GS::Array<API_ElemComponentID> components;
 		if (ACAPI_Element_GetComponents (info.guid, components) == NoError) {

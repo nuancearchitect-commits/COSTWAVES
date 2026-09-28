@@ -25,6 +25,7 @@ class CostWavesDialog final :	public DG::Palette,
 								public DG::PanelObserver,
 								public DG::ButtonItemObserver,
 								public DG::PopUpObserver,
+								public DG::CheckItemObserver,
 								public DG::ListBoxObserver,
 								public DG::SearchEditObserver
 {
@@ -60,7 +61,11 @@ public:
 		UngroupButtonId		= 26,
 		SummaryButtonId		= 27,
 		CreateGroupButtonId	= 28,
-		SendButtonId		= 29
+		SendButtonId		= 29,
+		SourceLabelId		= 30,
+		ModePopupId			= 31,
+		Draw2DCheckId		= 32,
+		Draw2DTypePopupId	= 33
 	};
 
 	// Singleton : la palette vit aussi longtemps que l'add-on.
@@ -98,6 +103,9 @@ private:
 
 	// DG::ButtonItemObserver
 	virtual void	ButtonClicked (const DG::ButtonClickEvent& ev) override;
+
+	// DG::CheckItemObserver
+	virtual void	CheckItemChanged (const DG::CheckItemChangeEvent& ev) override;
 
 	// DG::PopUpObserver
 	virtual void	PopUpChanged (const DG::PopUpChangeEvent& ev) override;
@@ -180,6 +188,10 @@ private:
 	DG::Button			ungroupButton;
 	DG::Button			summaryButton;
 	DG::Button			sendButton;			// « Envoyer vers CostWaves… »
+	DG::LeftText	sourceLabel;			// « Source BIM : »
+	DG::PopUp		modePopup;			// Élément / Composants (skins)
+	DG::CheckItem	draw2DCheck;		// inclure les dessins 2D
+	DG::PopUp		draw2DTypePopup;	// filtre par type 2D
 	DG::LeftText		articlesInfo;
 	DG::LeftText		searchLabel;
 	DG::SearchEdit		searchEdit;
@@ -206,6 +218,10 @@ private:
 	// Libellés des colonnes de quantités (une colonne par type, reconstruits
 	// à chaque remplissage du tableau).
 	GS::Array<GS::UniString>	quantityColumnLabels;
+
+	// Mode de quantification BIM (§3) et filtres des dessins 2D (§9/§10).
+	CWQuantMode			quantMode = CWQuantMode::Element;
+	bool				include2D = false;
 
 	short					sortColumn = 0;		// colonne de tri (0 = aucun, sinon 1..6)
 	bool					sortAscending = true;

@@ -7,6 +7,14 @@ namespace CostWaves {
 
 // --- Valeurs par défaut ------------------------------------------------------
 
+// Mode de quantification BIM (spec §3) : l'utilisateur calcule soit
+// l'ÉLÉMENT, soit ses COMPOSANTS (skins) — jamais les deux à la fois.
+// Les dessins 2D forment une catégorie indépendante, toujours incluse.
+enum class CWQuantMode {
+	Element = 0,		// quantités de l'élément (mur, dalle…)
+	Component = 1		// quantités des skins de chaque élément
+};
+
 enum class RowKind {
 	Element,
 	Component,	// composant "properties" (API 25+)
@@ -65,6 +73,8 @@ struct CWElementRow {
 	API_ElemType			type;
 	GS::UniString			typeName;		// nom localisé (ex. "Mur")
 	GS::UniString			elementId;		// propriété intégrée "Element ID"
+	GS::UniString			layerName;		// calque (filtre métré 2D : CW-METRE-…)
+	bool				is2D = false;		// dessin 2D (ligne, polyligne, spline, arc, cercle, hachure)
 	short					floorInd = 0;
 	GS::UniString			storyName;		// nom de l'étage
 	GS::UniString			classItemId;	// ex. "CW-MUR"
@@ -142,6 +152,7 @@ struct CWScanReport {
 	USize	skinCount = 0;				// skins composites sur les éléments classés
 	USize	quantityErrors = 0;			// échecs ACAPI_Element_GetQuantities
 	USize	classifiedSkins = 0;		// skins dont le matériau porte une classe
+	USize	classified2D = 0;		// dessins 2D classés (lignes, hachures…)
 	USize					groupCount = 0;				// ensembles CostWaves (phase 4)
 	USize					numberedGroupCount = 0;		// groupes numérotés CostWaves (phase 5)
 	USize					consumedElements = 0;		// éléments membres d'un ensemble/groupe (consommés)

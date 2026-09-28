@@ -208,7 +208,8 @@ GS::UniString Exporter::JsonString (const GS::UniString& text)
 }
 
 
-GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array<CWElementRow>& rows,
+GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, CWQuantMode mode,
+								const GS::Array<CWElementRow>& rows,
 								const CWScanReport& report, const GS::Array<CWArticle>& articles,
 								GS::UniString& outPath, GS::UniString& outError)
 {
@@ -229,13 +230,14 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 	json += US ("    \"classifiedSkins\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.classifiedSkins))) + ",\n";
 	json += US ("    \"groups\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.groupCount))) + ",\n";
 	json += US ("    \"numberedGroups\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.numberedGroupCount))) + ",\n";
-	json += US ("    \"consumedElements\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.consumedElements))) + "\n";
+	json += US ("    \"consumedElements\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.consumedElements))) + ",\n";
+	json += US ("    \"classified2D\": ") + GS::ToUniString (std::to_wstring (static_cast<int> (report.classified2D))) + "\n";
 	json += "  },\n";
 
 	// Récapitulatif par article (phase 4) : totaux facturés.
 	{
 		GS::Array<CWArticleSummary> summary;
-		ArticleManager::BuildArticleSummary (rows, articles, summary);
+		ArticleManager::BuildArticleSummary (rows, articles, mode, summary);
 
 		json += "  \"summary\": [\n";
 		for (UIndex s = 0; s < summary.GetSize (); ++s) {
@@ -423,7 +425,8 @@ GSErrCode Exporter::ExportJSON (const GS::UniString& systemName, const GS::Array
 }
 
 
-GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<CWElementRow>& rows,
+GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, CWQuantMode mode,
+							   const GS::Array<CWElementRow>& rows,
 							   const CWScanReport& report, const GS::Array<CWArticle>& articles,
 							   GS::UniString& outPath, GS::UniString& outError)
 {
@@ -434,7 +437,7 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 		return APIERR_GENERAL;
 
 	GS::UniString csv;
-	csv += FR ("Type;GUID;ID élément;Étage;Classe;Article;Libellé;Valeur;Unité\n");
+	csv += FR ("Source;Type;GUID;ID élément;Étage;Calque;Classe;Article;Libellé;Valeur;Unité\n");
 
 	// Séparateur CSV : la valeur peut contenir ';' — on protège par des guillemets.
 	const auto protect = [] (const GS::UniString& value) -> GS::UniString {
@@ -466,10 +469,15 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 				: FR ("Ensemble"))
 			: (row.consumed ? FR ("Membre (consommé)") : FR ("Élément"));
 
-		const GS::UniString elementPrefix = rowType + ";"
+		// Source de quantification (spec §1) : dessin 2D ou élément BIM.
+		const GS::UniString source = row.is2D ? FR ("2D") : FR ("BIM");
+
+		const GS::UniString elementPrefix = source + ";"
+			+ rowType + ";"
 			+ protect (APIGuidToString (row.guid)) + ";"
 			+ protect (row.elementId) + ";"
 			+ protect (story) + ";"
+			+ protect (row.layerName) + ";"
 			+ protect (classe) + ";"
 			+ protect (articleId) + ";";
 
@@ -519,10 +527,12 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 				: classe;
 			const GS::UniString componentArticleId = skinHasClass ? component.classItemId : articleId;
 
-			const GS::UniString componentPrefix = protect (kindLabel) + ";"
+			const GS::UniString componentPrefix = FR ("Composant") + ";"
+				+ protect (kindLabel) + ";"
 				+ protect (componentGuid) + ";"
 				+ protect (row.elementId) + ";"
 				+ protect (story) + ";"
+				+ protect (row.layerName) + ";"
 				+ protect (componentClasse) + ";"
 				+ protect (componentArticleId) + ";";
 
@@ -542,7 +552,7 @@ GSErrCode Exporter::ExportCSV (const GS::UniString& systemName, const GS::Array<
 	// Récapitulatif par article (phase 4) : une ligne par article facturé.
 	{
 		GS::Array<CWArticleSummary> summary;
-		ArticleManager::BuildArticleSummary (rows, articles, summary);
+		ArticleManager::BuildArticleSummary (rows, articles, mode, summary);
 
 		if (!summary.IsEmpty ()) {
 			csv += "\n";

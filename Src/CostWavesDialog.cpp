@@ -50,6 +50,23 @@ bool LineFits (const GS::UniString& line, const GS::UniString& chunk)
 	return line.GetLength () + chunk.GetLength () < 110u;
 }
 
+// Le libellé de type d'une ligne correspond-il au filtre 2D choisi ?
+// (index popup : 1 = tous, 2 = Lignes, …, 7 = Hachures)
+bool Matches2DTypeFilter (const CWElementRow& row, short typeFilter)
+{
+	if (typeFilter <= 1)
+		return true;
+
+	const GS::UniString needle = (typeFilter == 2) ? FR ("Ligne")
+		: (typeFilter == 3) ? FR ("Polyligne")
+		: (typeFilter == 4) ? FR ("Spline")
+		: (typeFilter == 5) ? FR ("Arc")
+		: (typeFilter == 6) ? FR ("Cercle")
+		: FR ("Hachure");
+
+	return row.typeName.ToUpperCase ().BeginsWith (needle.ToUpperCase ());
+}
+
 // Ajoute à outLabels les libellés de quantités pas encore vus (ordre de
 // première apparition).
 void CollectQuantityLabels (const GS::Array<CWQuantity>& quantities, GS::Array<GS::UniString>& outLabels)
@@ -146,22 +163,28 @@ bool RowLess (const CWElementRow& a, const CWElementRow& b, short column,
 			  const GS::Array<GS::UniString>& quantityLabels)
 {
 	switch (column) {
-		case 1:
+		case 1: {
+			// Source (BIM avant 2D), puis type.
+			if (a.is2D != b.is2D)
+				return a.is2D < b.is2D;
 			return a.typeName.ToUpperCase () < b.typeName.ToUpperCase ();
+		}
 		case 2:
-			return a.elementId.ToUpperCase () < b.elementId.ToUpperCase ();
+			return a.typeName.ToUpperCase () < b.typeName.ToUpperCase ();
 		case 3:
+			return a.elementId.ToUpperCase () < b.elementId.ToUpperCase ();
+		case 4:
 			if (a.floorInd != b.floorInd)
 				return a.floorInd < b.floorInd;
 			return a.storyName.ToUpperCase () < b.storyName.ToUpperCase ();
-		case 4: {
+		case 5: {
 			// (a + b + c) renvoie une Concatenation, pas une UniString :
 			// passer par des locales pour pouvoir appeler ToUpperCase.
 			const GS::UniString keyA = a.classItemId + US (" ") + a.classItemName;
 			const GS::UniString keyB = b.classItemId + US (" ") + b.classItemName;
 			return keyA.ToUpperCase () < keyB.ToUpperCase ();
 		}
-		case 5: {
+		case 6: {
 			const CWArticle* articleA = FindArticleById (articles, a.classItemId);
 			const CWArticle* articleB = FindArticleById (articles, b.classItemId);
 			double valueA = 0.0;
@@ -177,7 +200,7 @@ bool RowLess (const CWElementRow& a, const CWElementRow& b, short column,
 			return valueA < valueB;
 		}
 		default: {
-			const UIndex labelIndex = static_cast<UIndex> (column) - 6;
+			const UIndex labelIndex = static_cast<UIndex> (column) - 7;
 			if (labelIndex >= quantityLabels.GetSize ())
 				return false;
 			return QuantityValueForLabel (a.quantities, quantityLabels[labelIndex])
@@ -315,6 +338,10 @@ CostWavesDialog::CostWavesDialog ()
 		ungroupButton (GetReference (), UngroupButtonId),
 		summaryButton (GetReference (), SummaryButtonId),
 		sendButton (GetReference (), SendButtonId),
+		sourceLabel (GetReference (), SourceLabelId),
+		modePopup (GetReference (), ModePopupId),
+		draw2DCheck (GetReference (), Draw2DCheckId),
+		draw2DTypePopup (GetReference (), Draw2DTypePopupId),
 		articlesInfo (GetReference (), ArticlesInfoId),
 		searchLabel (GetReference (), SearchLabelId),
 		searchEdit (GetReference (), SearchEditId),
@@ -337,6 +364,39 @@ CostWavesDialog::CostWavesDialog ()
 	ungroupButton.Attach (*this);	// ButtonItemObserver
 	summaryButton.Attach (*this);	// ButtonItemObserver
 	sendButton.Attach (*this);	// ButtonItemObserver
+	modePopup.Attach (*this);		// PopUpObserver
+	draw2DTypePopup.Attach (*this);	// PopUpObserver
+	draw2DCheck.Attach (*this);	// CheckItemObserver
+
+	isFilling = true;
+
+	// Mode de quantification BIM (§3) : l'élément OU ses composants,
+	// jamais les deux simultanément.
+	modePopup.AppendItem ();
+	modePopup.SetItemText (1, FR ("Élément"));
+	modePopup.AppendItem ();
+	modePopup.SetItemText (2, FR ("Composants (skins)"));
+	modePopup.SelectItem (1);
+
+	// Filtre des dessins 2D par type (§9/§10) : tous par défaut.
+	draw2DTypePopup.AppendItem ();
+	draw2DTypePopup.SetItemText (1, FR ("Tous types 2D"));
+	draw2DTypePopup.AppendItem ();
+	draw2DTypePopup.SetItemText (2, FR ("Lignes"));
+	draw2DTypePopup.AppendItem ();
+	draw2DTypePopup.SetItemText (3, FR ("Polylignes"));
+	draw2DTypePopup.AppendItem ();
+	draw2DTypePopup.SetItemText (4, FR ("Splines"));
+	draw2DTypePopup.AppendItem ();
+	draw2DTypePopup.SetItemText (5, FR ("Arcs"));
+	draw2DTypePopup.AppendItem ();
+	draw2DTypePopup.SetItemText (6, FR ("Cercles"));
+	draw2DTypePopup.AppendItem ();
+	draw2DTypePopup.SetItemText (7, FR ("Hachures"));
+	draw2DTypePopup.SelectItem (1);
+	draw2DTypePopup.Enable (false);
+
+	isFilling = false;
 	searchEdit.Attach (*this);		// SearchEditObserver
 	exportJsonButton.Attach (*this);
 	exportCsvButton.Attach (*this);
@@ -434,7 +494,8 @@ void CostWavesDialog::RefreshData ()
 	rows.Clear ();
 	// CW_Group_ID : résolu à chaque lecture (peut être créé entre-temps).
 	groupPropGuid = ArticleManager::FindGroupIdPropertyGuid ();
-	ModelReader::Scan (selectedSystem, elemIdPropGuid, groupPropGuid, filter, rows, report);
+	ModelReader::Scan (selectedSystem, elemIdPropGuid, groupPropGuid, include2D,
+					  filter, rows, report);
 	FillTable ();
 
 	isFilling = false;
@@ -448,7 +509,7 @@ void CostWavesDialog::RefreshData ()
 
 void CostWavesDialog::SortRows ()
 {
-	const short columnCount = static_cast<short> (5 + quantityColumnLabels.GetSize ());
+	const short columnCount = static_cast<short> (6 + quantityColumnLabels.GetSize ());
 	if (sortColumn < 1 || sortColumn > columnCount || rows.GetSize () < 2)
 		return;
 
@@ -507,18 +568,19 @@ void CostWavesDialog::FillTable ()
 	// Tri courant avant affichage (utilise les libellés frais).
 	SortRows ();
 
-	const short baseColumnCount = 5;	// Type, ID, Étage, Classe, Facturé
+	const short baseColumnCount = 6;	// Source, Type, ID, Étage/Calque, Classe, Facturé
 	const short columnCount = static_cast<short> (baseColumnCount + quantityColumnLabels.GetSize ());
 
 	table.SetHeaderItemCount (columnCount);
 	// Le GRC ne définit pas les colonnes : créer les champs de tabulation
 	// (sans cela, seule la première colonne s'affiche).
 	table.SetTabFieldCount (columnCount);
-	table.SetHeaderItemText (1, FR ("Type"));
-	table.SetHeaderItemText (2, FR ("ID élément"));
-	table.SetHeaderItemText (3, FR ("Étage"));
-	table.SetHeaderItemText (4, FR ("Classe"));
-	table.SetHeaderItemText (5, FR ("Facturé"));
+	table.SetHeaderItemText (1, FR ("Source"));
+	table.SetHeaderItemText (2, FR ("Type"));
+	table.SetHeaderItemText (3, FR ("ID élément"));
+	table.SetHeaderItemText (4, FR ("Étage / Calque"));
+	table.SetHeaderItemText (5, FR ("Classe"));
+	table.SetHeaderItemText (6, FR ("Facturé"));
 	for (UIndex q = 0; q < quantityColumnLabels.GetSize (); ++q)
 		table.SetHeaderItemText (static_cast<short> (baseColumnCount + 1 + q), quantityColumnLabels[q]);
 
@@ -558,22 +620,25 @@ void CostWavesDialog::FillTable ()
 		}
 	};
 
-	auto appendRow = [&] (const GS::UniString& typeText, const GS::UniString& idText,
-						  const GS::UniString& floorText, const GS::UniString& classText,
-						  const GS::UniString& billedText, const GS::Array<CWQuantity>& quantities,
+	auto appendRow = [&] (const GS::UniString& sourceText, const GS::UniString& typeText,
+						  const GS::UniString& idText, const GS::UniString& floorText,
+						  const GS::UniString& classText, const GS::UniString& billedText,
+						  const GS::Array<CWQuantity>& quantities,
 						  RowKind displayKind, UIndex elementIndex, UIndex componentIndex, UIndex memberIndex) {
 		table.AppendItem ();
 		const short itemIndex = table.GetItemCount ();
-		table.SetTabItemText (itemIndex, 1, typeText);
-		table.SetTabItemText (itemIndex, 2, idText);
-		table.SetTabItemText (itemIndex, 3, floorText);
-		table.SetTabItemText (itemIndex, 4, classText);
-		table.SetTabItemText (itemIndex, 5, billedText);
-		trackWidth (1, typeText);
-		trackWidth (2, idText);
-		trackWidth (3, floorText);
-		trackWidth (4, classText);
-		trackWidth (5, billedText);
+		table.SetTabItemText (itemIndex, 1, sourceText);
+		table.SetTabItemText (itemIndex, 2, typeText);
+		table.SetTabItemText (itemIndex, 3, idText);
+		table.SetTabItemText (itemIndex, 4, floorText);
+		table.SetTabItemText (itemIndex, 5, classText);
+		table.SetTabItemText (itemIndex, 6, billedText);
+		trackWidth (1, sourceText);
+		trackWidth (2, typeText);
+		trackWidth (3, idText);
+		trackWidth (4, floorText);
+		trackWidth (5, classText);
+		trackWidth (6, billedText);
 		fillQuantityCells (itemIndex, quantities);
 
 		DisplayRow displayRow;
@@ -594,12 +659,26 @@ void CostWavesDialog::FillTable ()
 
 		const bool elementHasClass = !element.classItemId.IsEmpty ();
 
+		// Filtre des dessins 2D par type (§9/§10).
+		if (element.is2D && !Matches2DTypeFilter (element, draw2DTypePopup.GetSelectedItem ()))
+			continue;
+
+		// Mode de quantification BIM (§3) : en mode Composants, les lignes
+		// d'éléments BIM n'apparaissent pas (seuls leurs skins classés) ;
+		// les dessins 2D (catégorie indépendante) restent affichés.
+		if (quantMode == CWQuantMode::Component && !element.is2D && !element.isGroupRow)
+			continue;
+
 		const GS::UniString floorText = element.storyName.IsEmpty ()
 			? GS::ToUniString (std::to_wstring (static_cast<int> (element.floorInd)))
 			: GS::ToUniString (std::to_wstring (static_cast<int> (element.floorInd))) + " - " + element.storyName;
+		const GS::UniString layerText = element.is2D && !element.layerName.IsEmpty ()
+			? element.layerName
+			: floorText;
 		const GS::UniString classText = element.classItemId.IsEmpty ()
 			? element.classItemName
 			: element.classItemId + " - " + element.classItemName;
+		const GS::UniString sourceText = element.is2D ? FR ("2D") : FR ("BIM");
 
 		// Ligne de l'élément (seulement s'il porte une classe).
 		if (elementHasClass) {
@@ -609,8 +688,8 @@ void CostWavesDialog::FillTable ()
 					: FR ("Ensemble"))
 				: FR ("Élément");
 
-			if (lineMatches (typeText, element.elementId, floorText, classText)) {
-				appendRow (typeText, element.elementId, floorText, classText,
+			if (lineMatches (typeText, element.elementId, layerText, classText)) {
+				appendRow (sourceText, typeText, element.elementId, layerText, classText,
 						   BilledText (element), element.quantities,
 						   element.isGroupRow ? RowKind::Group : RowKind::Element, e, 0, 0);
 
@@ -637,30 +716,33 @@ void CostWavesDialog::FillTable ()
 					const GS::UniString memberType = FR ("Membre (consommé)");
 
 					if (lineMatches (memberType, memberRow->elementId, memberFloor, memberClass))
-						appendRow (memberType, memberRow->elementId, memberFloor, memberClass,
+						appendRow (sourceText, memberType, memberRow->elementId, memberFloor, memberClass,
 								   FR ("—"), memberRow->quantities,
 								   RowKind::GroupMember, e, 0, memberIndex);
 				}
 			}
 		}
 
-		// Skins classés : affichés avec la classe de leur MATÉRIAU, même si
-		// l'élément parent n'a pas de classe (mur sans classe à couches
-		// classées → seules les couches classées apparaissent).
-		for (UIndex c = 0; c < element.components.GetSize (); ++c) {
-			const CWComponentRow& component = element.components[c];
-			if (component.kind != RowKind::Skin || component.classItemId.IsEmpty ())
-				continue;
+		// Skins classés (mode Composants) : affichés avec la classe de leur
+		// MATÉRIAU, même si l'élément parent n'a pas de classe (mur sans
+		// classe à couches classées → seules les couches classées apparaissent).
+		// En mode Élément (§3), les skins ne sont ni affichés ni facturés.
+		if (quantMode == CWQuantMode::Component) {
+			for (UIndex c = 0; c < element.components.GetSize (); ++c) {
+				const CWComponentRow& component = element.components[c];
+				if (component.kind != RowKind::Skin || component.classItemId.IsEmpty ())
+					continue;
 
-			GS::UniString skinType = FR ("Skin — ") + component.label;
-			if (component.coreSkin)
-				skinType += FR (" (cœur)");
-			const GS::UniString skinClass = component.classItemId + " - " + component.classItemName;
+				GS::UniString skinType = FR ("Skin — ") + component.label;
+				if (component.coreSkin)
+					skinType += FR (" (cœur)");
+				const GS::UniString skinClass = component.classItemId + " - " + component.classItemName;
 
-			if (lineMatches (skinType, element.elementId, floorText, skinClass))
-				appendRow (skinType, element.elementId, floorText, skinClass,
-						   SkinBilledText (component), component.quantities,
-						   RowKind::Skin, e, c, 0);
+				if (lineMatches (skinType, element.elementId, layerText, skinClass))
+					appendRow (FR ("Composant"), skinType, element.elementId, layerText, skinClass,
+							   SkinBilledText (component), component.quantities,
+							   RowKind::Skin, e, c, 0);
+			}
 		}
 	}
 
@@ -668,11 +750,12 @@ void CostWavesDialog::FillTable ()
 	// Largeur estimée par colonne : maximum des contenus ET des en-têtes
 	// (en unités de dialogue) ; le total peut dépasser la largeur du
 	// contrôle → le GRC active le scroll horizontal (HVScroll).
-	trackWidth (1, FR ("Type"));
-	trackWidth (2, FR ("ID élément"));
-	trackWidth (3, FR ("Étage"));
-	trackWidth (4, FR ("Classe"));
-	trackWidth (5, FR ("Facturé"));
+	trackWidth (1, FR ("Source"));
+	trackWidth (2, FR ("Type"));
+	trackWidth (3, FR ("ID élément"));
+	trackWidth (4, FR ("Étage / Calque"));
+	trackWidth (5, FR ("Classe"));
+	trackWidth (6, FR ("Facturé"));
 	for (UIndex q = 0; q < quantityColumnLabels.GetSize (); ++q)
 		trackWidth (static_cast<short> (baseColumnCount + 1 + q), quantityColumnLabels[q]);
 	for (short i = 1; i <= columnCount; ++i) {
@@ -749,6 +832,8 @@ void CostWavesDialog::UpdateStatus ()
 {
 	GS::UniString status = GS::ToUniString (std::to_wstring (static_cast<int> (report.classifiedElements)))
 		+ FR (" éléments classés · ")
+		+ GS::ToUniString (std::to_wstring (static_cast<int> (report.classified2D)))
+		+ FR (" dessins 2D · ")
 		+ GS::ToUniString (std::to_wstring (static_cast<int> (report.classifiedSkins)))
 		+ FR (" skins classés · ")
 		+ GS::ToUniString (std::to_wstring (static_cast<int> (report.componentCount)))
@@ -1182,9 +1267,10 @@ void CostWavesDialog::UpdateDetails (short listItem)
 
 	if (displayRow.kind == RowKind::Element) {
 		SetDetailLine (1, FR ("Élément — ") + element.typeName + " — " + APIGuidToString (element.guid));
-		SetDetailLine (2, FR ("ID : ") + (element.elementId.IsEmpty () ? FR ("(vide)") : element.elementId)
+		SetDetailLine (2, FR ("Source : ") + (element.is2D ? FR ("dessin 2D") : FR ("BIM"))
+			+ FR (" · ID : ") + (element.elementId.IsEmpty () ? FR ("(vide)") : element.elementId)
 			+ FR (" · Étage : ") + floorText
-			+ FR (" · Type : ") + element.typeName);
+			+ (element.layerName.IsEmpty () ? GS::UniString () : FR (" · Calque : ") + element.layerName));
 		SetDetailLine (3, FR ("Classe : ") + element.classItemId + " (" + element.classItemName + ")");
 
 		// Quantités complètes, réparties sur les lignes restantes.
@@ -1664,7 +1750,7 @@ void CostWavesDialog::ShowSummary ()
 	}
 
 	GS::Array<CWArticleSummary> summary;
-	ArticleManager::BuildArticleSummary (rows, articles, summary);
+	ArticleManager::BuildArticleSummary (rows, articles, quantMode, summary);
 
 	if (summary.IsEmpty ()) {
 		DG::WarningAlert (FR ("Aucun article facturable."),
@@ -1695,7 +1781,7 @@ void CostWavesDialog::SendToCostWaves ()
 
 	// Récapitulatif facturé + comptage du contenu de l'envoi.
 	GS::Array<CWArticleSummary> summary;
-	ArticleManager::BuildArticleSummary (rows, articles, summary);
+	ArticleManager::BuildArticleSummary (rows, articles, quantMode, summary);
 
 	USize classifiedElements = 0;
 	USize classifiedSkins = 0;
@@ -1731,7 +1817,8 @@ void CostWavesDialog::SendToCostWaves ()
 	Exporter::ResolveProjectLocation (folder, projectName);
 
 	const GS::UniString payload = CostWavesApi::BuildPayload (projectName, projectName,
-															  rows, articles, summary, settings);
+															  rows, articles, quantMode,
+															  summary, settings);
 
 	DG::InformationAlert (FR ("Envoi en cours…"),
 						  FR ("L'envoi vers CostWaves est bloquant pendant quelques secondes ; le résultat s'affichera ensuite."),
@@ -1800,8 +1887,8 @@ void CostWavesDialog::Export (bool jsonFormat)
 	GS::UniString error;
 
 	const GSErrCode err = jsonFormat
-		? Exporter::ExportJSON (systemName, rows, report, articles, path, error)
-		: Exporter::ExportCSV (systemName, rows, report, articles, path, error);
+		? Exporter::ExportJSON (systemName, quantMode, rows, report, articles, path, error)
+		: Exporter::ExportCSV (systemName, quantMode, rows, report, articles, path, error);
 
 	if (err == NoError) {
 		DG::InformationAlert (FR ("Export réussi."), path, FR ("OK"));
@@ -1913,6 +2000,30 @@ void CostWavesDialog::PopUpChanged (const DG::PopUpChangeEvent& ev)
 			ReloadArticlesFromSystem ();
 			RefreshData ();
 		}
+	} else if (ev.GetSource () == &modePopup) {
+		// Mode de quantification BIM (§3) : Élément ou Composants — le
+		// tableau et la facturation sont recalculés (pas de relecture).
+		quantMode = (modePopup.GetSelectedItem () == 2) ? CWQuantMode::Component
+														: CWQuantMode::Element;
+		FillTable ();
+		UpdateStatus ();
+	} else if (ev.GetSource () == &draw2DTypePopup) {
+		// Filtre par type de dessin 2D (§9/§10) : affichage seul.
+		FillTable ();
+	}
+}
+
+
+void CostWavesDialog::CheckItemChanged (const DG::CheckItemChangeEvent& ev)
+{
+	if (isFilling)
+		return;
+
+	if (ev.GetSource () == &draw2DCheck) {
+		// Inclure ou non les dessins 2D dans le scan (§2/§4) — relecture.
+		include2D = draw2DCheck.IsChecked ();
+		draw2DTypePopup.Enable (include2D);
+		RefreshData ();
 	}
 }
 
@@ -1933,7 +2044,7 @@ void CostWavesDialog::ListBoxHeaderItemClicked (const DG::ListBoxHeaderItemClick
 		return;
 
 	const short column = ev.GetHeaderItem ();
-	const short columnCount = static_cast<short> (5 + quantityColumnLabels.GetSize ());
+	const short columnCount = static_cast<short> (6 + quantityColumnLabels.GetSize ());
 	if (column < 1 || column > columnCount)
 		return;
 

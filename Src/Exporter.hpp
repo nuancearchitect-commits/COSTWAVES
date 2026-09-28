@@ -25,6 +25,7 @@ public:
 	static bool		ResolveProjectLocation (GS::UniString& outFolder, GS::UniString& outProjectName);
 
 	static GSErrCode	ExportJSON (const GS::UniString&				systemName,
+								   CWQuantMode						mode,
 								   const GS::Array<CWElementRow>&	rows,
 								   const CWScanReport&				report,
 								   const GS::Array<CWArticle>&		articles,
@@ -32,6 +33,7 @@ public:
 								   GS::UniString&					outError);
 
 	static GSErrCode	ExportCSV (const GS::UniString&				systemName,
+								  CWQuantMode						mode,
 								  const GS::Array<CWElementRow>&	rows,
 								  const CWScanReport&				report,
 								  const GS::Array<CWArticle>&		articles,

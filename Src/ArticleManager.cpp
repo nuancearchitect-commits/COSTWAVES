@@ -723,8 +723,10 @@ GSErrCode ArticleManager::AssignArticleToElements (const GS::Array<API_Guid>& el
 					}
 				}
 
-				// 2) Propriété CW_Article_ID (best effort : ne compte pas comme échec).
-				if (step == NoError && articleIdPropGuid != APINULLGuid && !articleId.IsEmpty ()) {
+				// 2) Propriété CW_Article_ID (best effort : ne compte pas comme
+				//    échec). Posée même si la classification a échoué — c'est
+				//    le repli de classe des dessins 2D (spec §8/§9).
+				if (articleIdPropGuid != APINULLGuid && !articleId.IsEmpty ()) {
 					API_Property property;
 					property.definition.guid = articleIdPropGuid;
 					property.isDefault = false;
@@ -1071,6 +1073,32 @@ API_Guid ArticleManager::EnsureGroupIdProperty (GS::UniString& outError)
 }
 
 
+API_Guid ArticleManager::FindArticleIdPropertyGuid ()
+{
+	const GS::UniString groupName (PropertyGroupName (), CC_UTF8);
+	const GS::UniString propertyName (ArticleIdPropertyName (), CC_UTF8);
+
+	GS::Array<API_PropertyGroup> groups;
+	if (ACAPI_Property_GetPropertyGroups (groups) != NoError)
+		return APINULLGuid;
+
+	for (UIndex g = 0; g < groups.GetSize (); ++g) {
+		if (groups[g].name != groupName)
+			continue;
+
+		GS::Array<API_PropertyDefinition> definitions;
+		if (ACAPI_Property_GetPropertyDefinitions (groups[g].guid, definitions) == NoError) {
+			for (UIndex d = 0; d < definitions.GetSize (); ++d) {
+				if (definitions[d].name == propertyName)
+					return definitions[d].guid;
+			}
+		}
+	}
+
+	return APINULLGuid;
+}
+
+
 API_Guid ArticleManager::FindGroupIdPropertyGuid ()
 {
 	const GS::UniString groupName (PropertyGroupName (), CC_UTF8);
@@ -1397,6 +1425,7 @@ double ArticleManager::ComputeBilledQuantity (const CWArticle& article, const CW
 
 void ArticleManager::BuildArticleSummary (const GS::Array<CWElementRow>& rows,
 										  const GS::Array<CWArticle>& articles,
+										  CWQuantMode mode,
 										  GS::Array<CWArticleSummary>& outSummary)
 {
 	outSummary.Clear ();
@@ -1438,27 +1467,37 @@ void ArticleManager::BuildArticleSummary (const GS::Array<CWElementRow>& rows,
 		if (row.classItemId.IsEmpty ())
 			continue;
 
-		UIndex entryIndex = 0;
-		CWArticleSummary& entry = findEntry (row.classItemId, row.classItemName, entryIndex);
+		// Mode de quantification BIM (§3) : l'ÉLÉMENT ou ses COMPOSANTS,
+		// jamais les deux. Les dessins 2D (catégorie indépendante) sont
+		// toujours facturés comme éléments.
+		const bool billElement = (mode != CWQuantMode::Component) || row.is2D;
 
-		const CWArticle* article = findArticle (row.classItemId);
-		if (article != nullptr) {
-			entry.articleName = article->name;
-			GS::UniString unit;
-			entry.totalQuantity += ComputeBilledQuantity (*article, row, rows, unit);
-			entry.unit = unit;
+		if (billElement) {
+			UIndex entryIndex = 0;
+			CWArticleSummary& entry = findEntry (row.classItemId, row.classItemName, entryIndex);
+
+			const CWArticle* article = findArticle (row.classItemId);
+			if (article != nullptr) {
+				entry.articleName = article->name;
+				GS::UniString unit;
+				entry.totalQuantity += ComputeBilledQuantity (*article, row, rows, unit);
+				entry.unit = unit;
+			}
+			// Article inconnu : comptage sans total (unité "?").
+
+			if (row.isNumberedGroup)
+				++entry.numberedGroupCount;
+			else if (row.isGroupRow)
+				++entry.groupCount;
+			else
+				++entry.elementCount;
 		}
-		// Article inconnu : comptage sans total (unité "?").
 
-		if (row.isNumberedGroup)
-			++entry.numberedGroupCount;
-		else if (row.isGroupRow)
-			++entry.groupCount;
-		else
-			++entry.elementCount;
+		// Skins classés (phase 5) : facturés sur l'article de leur matériau
+		// en mode Composants uniquement (jamais avec l'élément parent).
+		if (mode != CWQuantMode::Component)
+			continue;
 
-		// Skins classés (phase 5) : facturés sur l'article de leur matériau,
-		// même si l'élément parent n'a pas de classe.
 		for (UIndex c = 0; c < row.components.GetSize (); ++c) {
 			const CWComponentRow& component = row.components[c];
 			if (component.kind != RowKind::Skin || component.classItemId.IsEmpty ())

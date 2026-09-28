@@ -54,6 +54,7 @@ public:
 	static GS::UniString	BuildPayload (const GS::UniString& projectId, const GS::UniString& projectName,
 										 const GS::Array<CWElementRow>& rows,
 										 const GS::Array<CWArticle>& articles,
+										 CWQuantMode mode,
 										 const GS::Array<CWArticleSummary>& summary,
 										 const CWApiSettings& settings);
 

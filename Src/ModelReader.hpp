@@ -54,9 +54,22 @@ public:
 	// groupPropGuid (optionnel) : guid de la propriété CW_Group_ID — si valide,
 	// chaque élément groupé est marqué « consommé » et une ligne virtuelle
 	// « Ensemble » (ou « Groupe n », valeurs CW-N-…) est ajoutée par groupe.
+	// Dessin 2D ? (ligne, polyligne, spline, arc, cercle, hachure — spec §2)
+	static bool		Is2DType (API_ElemTypeID typeID);
+
+	// Nom du calque d'un élément (cache) — filtre métré 2D (CW-METRE-…).
+	static GS::UniString	GetLayerName (API_AttributeIndex layerIndex);
+
+	// Quantités géométriques des dessins 2D (§5/§6) : longueur des lignes,
+	// polylignes (arcs compris), arcs ; rayon/diamètre/circonférence/surface
+	// des cercles. Les hachures passent par le pipeline des quantités.
+	static void		Extract2DQuantities (const API_Guid& elemGuid, API_ElemTypeID typeID,
+									 GS::Array<CWQuantity>& outQuantities);
+
 	static GSErrCode		Scan (const API_Guid&			systemGuid,
 							 const API_Guid&			elemIdPropGuid,
 							 const API_Guid&			groupPropGuid,
+							 bool					include2D,
 							 const GS::Array<API_Guid>*	elemFilter,
 							 GS::Array<CWElementRow>&	outRows,
 							 CWScanReport&				outReport);
@@ -80,6 +93,7 @@ private:
 	// purgés au début de chaque Scan.
 	static std::unordered_map<UInt32, GS::UniString>	typeNameCache;
 	static std::unordered_map<UInt32, GS::UniString>	materialNameCache;
+	static std::unordered_map<UInt32, GS::UniString>	layerNameCache;
 	static std::unordered_map<UInt32, CWSkinInfo>		compositeCache;
 	// Classification des matériaux dans le système scanné (phase 5) :
 	// index du matériau -> (id de classe, nom) ; id vide = sans classe.
