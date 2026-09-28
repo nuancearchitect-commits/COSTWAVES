@@ -98,9 +98,13 @@ bool RowLess (const CWElementRow& a, const CWElementRow& b, short column)
 			if (a.floorInd != b.floorInd)
 				return a.floorInd < b.floorInd;
 			return a.storyName.ToUpperCase () < b.storyName.ToUpperCase ();
-		case 5:
-			return (a.classItemId + US (" ") + a.classItemName).ToUpperCase ()
-				 < (b.classItemId + US (" ") + b.classItemName).ToUpperCase ();
+		case 5: {
+			// (a + b + c) renvoie une Concatenation, pas une UniString :
+			// passer par des locales pour pouvoir appeler ToUpperCase.
+			const GS::UniString keyA = a.classItemId + US (" ") + a.classItemName;
+			const GS::UniString keyB = b.classItemId + US (" ") + b.classItemName;
+			return keyA.ToUpperCase () < keyB.ToUpperCase ();
+		}
 		case 6:
 			return FirstQuantityValue (a) < FirstQuantityValue (b);
 		default:

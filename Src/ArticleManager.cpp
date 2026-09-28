@@ -18,6 +18,12 @@ GS::UniString FR (const char* utf8Text)
 	return GS::UniString (utf8Text, CC_UTF8);
 }
 
+// Littéral -> GS::UniString (départ de chaîne pour l'opérateur +).
+GS::UniString US (const char* utf8Text)
+{
+	return GS::UniString (utf8Text, CC_UTF8);
+}
+
 GS::UniString ErrorCodeText (GSErrCode err)
 {
 	return GS::ToUniString (std::to_wstring (static_cast<int> (err)));

@@ -72,7 +72,8 @@ bool Exporter::ResolveProjectLocation (GS::UniString& outFolder, GS::UniString& 
 
 	// Dossier + nom du projet enregistré.
 	API_ProjectInfo projectInfo;
-	BNZeroMemory (&projectInfo, sizeof (projectInfo));
+	// NB : API_ProjectInfo n'est pas trivially copyable (destructeur qui
+	// libère les pointeurs) — son constructeur par défaut met tout à zéro.
 
 	if (ACAPI_ProjectOperation_Project (&projectInfo) == NoError) {
 		if (!projectInfo.untitled && projectInfo.location != nullptr) {

@@ -45,17 +45,24 @@ jobs:
           python Tools/BuildAddOn.py --configFile config.json -v 29 -b Release -p 2>&1 | Tee-Object -FilePath build.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Rapport d'échec (issue avec la fin du log)
+      - name: Rapport d'échec (issue avec les erreurs)
         if: failure()
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          $tail = if (Test-Path build.log) { (Get-Content build.log -Tail 150) -join "`n" } else { "(build.log absent)" }
+          $errors = if (Test-Path build.log) { (Select-String -Path build.log -Pattern "error" | Select-Object -Last 150 | ForEach-Object { $_.Line }) -join "`n" } else { "(build.log absent)" }
+          $tail = if (Test-Path build.log) { (Get-Content build.log -Tail 25) -join "`n" } else { "" }
           $body = @"
           Échec du build — run ${{ github.run_id }}, commit ${{ github.sha }}.
 
+          Erreurs :
+          ~~~
+          $errors
+          ~~~
+
+          Fin du log :
           ~~~
           $tail
           ~~~
