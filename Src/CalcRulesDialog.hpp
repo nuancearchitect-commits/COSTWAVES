@@ -20,7 +20,7 @@ namespace CostWaves {
 //    (comportement historique) ;
 //  - les articles à l'ensemble (ENS) facturent 1 par ligne : pas de règle.
 // Fenêtre modale définie en ressource GRC (ID_ADDON_DLG_CALC).
-class CalcRulesDialog final :\tpublic DG::ModalDialog,
+class CalcRulesDialog final :	public DG::ModalDialog,
 							public DG::ButtonItemObserver,
 							public DG::ListBoxObserver,
 							public DG::PopUpObserver

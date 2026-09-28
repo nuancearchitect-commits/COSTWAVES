@@ -116,7 +116,7 @@ void CalcRulesDialog::UpdateQuantityPopup ()
 	popupLabels.Clear ();
 
 	if (selectedArticleIndex < 1 || static_cast<UIndex> (selectedArticleIndex) > articles.GetSize ()) {
-		quantityPopup.Enable (false);
+		quantityPopup.Disable ();
 		return;
 	}
 
