@@ -2,6 +2,8 @@
 
 #include "RuleLibrary.hpp"
 
+#include "UniStringWStringConversion.hpp"
+
 #include "Exporter.hpp"
 
 #include <string>
@@ -89,13 +91,17 @@ public:
 	{
 		pos = 0;
 		errorPos = 0;
-		if (!ParseValue (outValue))
+		if (!ParseValue (outValue)) {
+			outErrorPos = errorPos;
 			return false;
+		}
 		SkipSpaces ();
 		if (pos < s.size ()) {
 			errorPos = pos;
+			outErrorPos = errorPos;
 			return false;
 		}
+		outErrorPos = errorPos;
 		return true;
 	}
 
@@ -477,11 +483,11 @@ void RuleLibrary::CollectAvailableStructures (CWStructureType structureType,
 		return;
 	}
 
-	API_AttrTypeID typeID = API_CompID;
+	API_AttrTypeID typeID = API_CompWallID;
 	switch (structureType) {
 		case CWStructureType::BuildingMaterial:	typeID = API_BuildingMaterialID; break;
-		case CWStructureType::Composite:		typeID = API_CompID; break;
-		case CWStructureType::Profile:			typeID = API_ProfileAttrID; break;
+		case CWStructureType::Composite:		typeID = API_CompWallID; break;
+		case CWStructureType::Profile:			typeID = API_ProfileID; break;
 		default: return;		// favoris : saisie manuelle (listing ultérieur)
 	}
 
