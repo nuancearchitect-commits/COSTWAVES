@@ -16,6 +16,7 @@ concurrency:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   build:
@@ -40,7 +41,26 @@ jobs:
 
       - name: Build (Tools/BuildAddOn.py — DevKit officiel GRAPHISOFT 29.3100)
         shell: pwsh
-        run: python Tools/BuildAddOn.py --configFile config.json -v 29 -b Release -p
+        run: |
+          python Tools/BuildAddOn.py --configFile config.json -v 29 -b Release -p 2>&1 | Tee-Object -FilePath build.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Rapport d'échec (issue avec la fin du log)
+        if: failure()
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $tail = if (Test-Path build.log) { (Get-Content build.log -Tail 150) -join "`n" } else { "(build.log absent)" }
+          $body = @"
+          Échec du build — run ${{ github.run_id }}, commit ${{ github.sha }}.
+
+          ~~~
+          $tail
+          ~~~
+          "@
+          gh issue create --title "CI : échec du build APX (commit ${{ github.sha }})" --body "$body" || Write-Host "création d'issue impossible"
 
       - name: Localisation et vérification du .apx
         id: apx
