@@ -3,6 +3,7 @@
 #include "MaterialDialog.hpp"
 
 #include "ArticleManager.hpp"
+#include "UniStringWStringConversion.hpp"
 
 #include <cwchar>
 

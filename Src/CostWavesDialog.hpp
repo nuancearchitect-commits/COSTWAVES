@@ -65,7 +65,7 @@ public:
 	// Singleton : la palette vit aussi longtemps que l'add-on.
 	static bool				HasInstance ();
 	static CostWavesDialog&	Instance ();
-	static void				RegisterPalette ();		// ACAPI_RegisterModelessWindow (Initialize)
+	static GSErrCode			RegisterPalette ();		// ACAPI_RegisterModelessWindow (Initialize)
 
 	// Callback de changement de sélection Archicad (installé via
 	// ACAPI_Notification_CatchSelectionChange) : actualise la palette si

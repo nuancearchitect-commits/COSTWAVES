@@ -2,6 +2,8 @@
 
 #include "ArticlePickerDialog.hpp"
 
+#include "UniStringWStringConversion.hpp"
+
 #include <cwchar>
 
 namespace CostWaves {
