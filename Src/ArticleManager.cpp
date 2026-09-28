@@ -648,71 +648,83 @@ API_Guid ArticleManager::EnsureArticleIdProperty (GS::UniString& outError)
 }
 
 
-GSErrCode ArticleManager::AssignArticleToElement (const API_Guid& elemGuid, const API_Guid& systemGuid,
-												  const API_Guid& itemGuid, const GS::UniString& articleId,
-												  const API_Guid& articleIdPropGuid, bool& outChanged,
-												  GS::UniString& outError)
+GSErrCode ArticleManager::AssignArticleToElements (const GS::Array<API_Guid>& elemGuids,
+												   const API_Guid& systemGuid, const API_Guid& itemGuid,
+												   const GS::UniString& articleId, const API_Guid& articleIdPropGuid,
+												   USize& outChangedCount, USize& outFailedCount,
+												   GS::UniString& outError)
 {
-	outChanged = false;
+	outChangedCount = 0;
+	outFailedCount = 0;
 
-	bool			changed = false;
-	GS::UniString	errorNote;
-	GS::UniString	warningNote;
+	if (elemGuids.IsEmpty ()) {
+		outError = FR ("Aucun élément à traiter.");
+		return APIERR_GENERAL;
+	}
 
-	const GSErrCode result = ACAPI_CallUndoableCommand (FR ("CostWaves : affectation d'article"),
+	USize			changedCount = 0;
+	USize			failedCount = 0;
+	GS::UniString	firstError;
+
+	const GSErrCode result = ACAPI_CallUndoableCommand (FR ("CostWaves : affectation d'articles"),
 		[&]() -> GSErrCode {
-			// Classe déjà portée par l'élément dans ce système ?
-			API_ClassificationItem current;
-			const GSErrCode getErr = ACAPI_Element_GetClassificationInSystem (elemGuid, systemGuid, current);
-			if (getErr != NoError || current.guid != itemGuid) {
-				if (getErr == NoError && current.guid != APINULLGuid) {
-					const GSErrCode removeErr = ACAPI_Element_RemoveClassificationItem (elemGuid, current.guid);
-					if (removeErr != NoError) {
-						errorNote = FR ("Impossible de retirer la classe précédente (code ")
-								  + ErrorCodeText (removeErr) + FR (").");
-						return removeErr;
+			for (UIndex i = 0; i < elemGuids.GetSize (); ++i) {
+				const API_Guid& elemGuid = elemGuids[i];
+				bool			elementChanged = false;
+				GSErrCode		step = NoError;
+
+				// 1) Classification dans le système.
+				API_ClassificationItem current;
+				const GSErrCode getErr = ACAPI_Element_GetClassificationInSystem (elemGuid, systemGuid, current);
+				if (getErr != NoError || current.guid != itemGuid) {
+					if (getErr == NoError && current.guid != APINULLGuid) {
+						step = ACAPI_Element_RemoveClassificationItem (elemGuid, current.guid);
+						if (step == NoError)
+							elementChanged = true;
 					}
-					changed = true;
+
+					if (step == NoError) {
+						step = ACAPI_Element_AddClassificationItem (elemGuid, itemGuid);
+						if (step == NoError)
+							elementChanged = true;
+					}
 				}
 
-				const GSErrCode addErr = ACAPI_Element_AddClassificationItem (elemGuid, itemGuid);
-				if (addErr != NoError) {
-					errorNote = FR ("Impossible d'affecter la classe (code ")
-							  + ErrorCodeText (addErr) + FR (").");
-					return addErr;
+				// 2) Propriété CW_Article_ID (best effort : ne compte pas comme échec).
+				if (step == NoError && articleIdPropGuid != APINULLGuid && !articleId.IsEmpty ()) {
+					API_Property property;
+					property.definition.guid = articleIdPropGuid;
+					property.isDefault = false;
+					property.value.singleVariant.variant.type = API_PropertyStringValueType;
+					property.value.singleVariant.variant.uniStringValue = articleId;
+
+					if (ACAPI_Element_SetProperty (elemGuid, property) == NoError)
+						elementChanged = true;
 				}
 
-				changed = true;
+				if (step != NoError) {
+					++failedCount;
+					if (firstError.IsEmpty ())
+						firstError = FR ("Élément ") + APIGuidToString (elemGuid)
+								   + FR (" : code ") + ErrorCodeText (step) + FR (".");
+				} else if (elementChanged) {
+					++changedCount;
+				}
 			}
 
-			// Propriété CW_Article_ID (best effort : ne bloque pas l'affectation).
-			if (articleIdPropGuid != APINULLGuid && !articleId.IsEmpty ()) {
-				API_Property property;
-				property.definition.guid = articleIdPropGuid;
-				property.isDefault = false;
-				property.value.singleVariant.variant.type = API_PropertyStringValueType;
-				property.value.singleVariant.variant.uniStringValue = articleId;
-
-				const GSErrCode propErr = ACAPI_Element_SetProperty (elemGuid, property);
-				if (propErr == NoError) {
-					changed = true;
-				} else {
-					warningNote = FR ("Article affecté, mais écriture de la propriété CW_Article_ID impossible (code ")
-								+ ErrorCodeText (propErr) + FR (").");
-				}
-			}
-
+			// Les échecs individuels sont comptés : la commande réussit
+			// globalement dès qu'au moins une affectation a passé.
 			return NoError;
 		});
 
-	outChanged = changed;
+	outChangedCount = changedCount;
+	outFailedCount = failedCount;
 
-	if (result != NoError) {
-		outError = errorNote.IsEmpty ()
-			? FR ("Affectation impossible (code ") + ErrorCodeText (result) + FR (").")
-			: errorNote;
-	} else if (!warningNote.IsEmpty ()) {
-		outError = warningNote;
+	if (changedCount == 0 && failedCount > 0) {
+		outError = firstError.IsEmpty ()
+			? FR ("Affectation impossible.")
+			: firstError;
+		return APIERR_GENERAL;
 	}
 
 	return result;

@@ -8,6 +8,7 @@
 
 #include "UniStringWStringConversion.hpp"
 
+#include <algorithm>
 #include <cwchar>
 
 namespace CostWaves {
@@ -61,6 +62,36 @@ GS::UniString QuantitiesSummary (const GS::Array<CWQuantity>& quantities, USize 
 bool LineFits (const GS::UniString& line, const GS::UniString& chunk)
 {
 	return line.GetLength () + chunk.GetLength () < 110u;
+}
+
+// Première quantité (clé de tri numérique), 0 si aucune.
+double FirstQuantityValue (const CWElementRow& element)
+{
+	return element.quantities.IsEmpty () ? 0.0 : element.quantities[0].value;
+}
+
+// a < b selon la colonne de tri (1..6) ?
+bool RowLess (const CWElementRow& a, const CWElementRow& b, short column)
+{
+	switch (column) {
+		case 1:
+			return a.typeName.ToUpperCase () < b.typeName.ToUpperCase ();
+		case 2:
+			return APIGuidToString (a.guid) < APIGuidToString (b.guid);
+		case 3:
+			return a.elementId.ToUpperCase () < b.elementId.ToUpperCase ();
+		case 4:
+			if (a.floorInd != b.floorInd)
+				return a.floorInd < b.floorInd;
+			return a.storyName.ToUpperCase () < b.storyName.ToUpperCase ();
+		case 5:
+			return (a.classItemId + US (" ") + a.classItemName).ToUpperCase ()
+				 < (b.classItemId + US (" ") + b.classItemName).ToUpperCase ();
+		case 6:
+			return FirstQuantityValue (a) < FirstQuantityValue (b);
+		default:
+			return false;
+	}
 }
 
 } // namespace
@@ -185,7 +216,14 @@ void CostWavesDialog::RefreshData ()
 	GS::Array<API_Guid> selection;
 	const GS::Array<API_Guid>* filter = nullptr;
 	if (selectionCheck.IsChecked ()) {
-		ModelReader::GetSelectedElements (selection);
+		const GSErrCode selErr = ModelReader::GetSelectedElements (selection);
+		if (selErr != NoError) {
+			statusText.SetText (FR ("Impossible de lire la sélection courante (code ")
+								 + GS::ToUniString (std::to_wstring (static_cast<int> (selErr)))
+								 + FR (") — décochez « Sélection uniquement »."));
+			ClearDetails ();
+			return;
+		}
 		if (selection.IsEmpty ()) {
 			isFilling = true;
 			rows.Clear ();
@@ -237,9 +275,39 @@ bool CostWavesDialog::ElementMatchesFilter (const CWElementRow& element) const
 }
 
 
+void CostWavesDialog::SortRows ()
+{
+	if (sortColumn < 1 || sortColumn > 6 || rows.GetSize () < 2)
+		return;
+
+	// Trier des indices puis réassembler (les composants restent avec leur
+	// élément : on trie "rows" entières).
+	std::vector<UIndex> order;
+	order.reserve (rows.GetSize ());
+	for (UIndex i = 0; i < rows.GetSize (); ++i)
+		order.push_back (i);
+
+	const short column = sortColumn;
+	const bool ascending = sortAscending;
+	std::stable_sort (order.begin (), order.end (),
+					  [&] (UIndex a, UIndex b) {
+						  return ascending ? RowLess (rows[a], rows[b], column)
+										   : RowLess (rows[b], rows[a], column);
+					  });
+
+	GS::Array<CWElementRow> sorted;
+	for (UIndex k = 0; k < order.size (); ++k)
+		sorted.Push (rows[order[k]]);
+	rows = sorted;
+}
+
+
 void CostWavesDialog::FillTable ()
 {
 	table.SetHeaderSynchronState (true);
+
+	// Tri courant avant affichage.
+	SortRows ();
 
 	while (table.GetItemCount () > 0)
 		table.DeleteItem (1);
@@ -301,6 +369,12 @@ void CostWavesDialog::FillTable ()
 
 	if (table.GetItemCount () > 0)
 		table.SelectItem (1);
+
+	// Flèche de tri sur la colonne active.
+	for (short c = 1; c <= 6; ++c)
+		table.SetHeaderItemArrowType (c, DG::ListBox::NoArrow);
+	if (sortColumn >= 1 && sortColumn <= 6)
+		table.SetHeaderItemArrowType (sortColumn, sortAscending ? DG::ListBox::Up : DG::ListBox::Down);
 }
 
 
@@ -473,9 +547,11 @@ void CostWavesDialog::CreateClassification ()
 		return;
 	}
 
-	// Recharger les systèmes et sélectionner « CostWaves ».
+	// Recharger les systèmes et sélectionner « CostWaves » (sans déclencher
+	// la relecture : on l'appelle nous-mêmes juste après).
 	LoadSystems ();
 
+	isFilling = true;
 	const GS::UniString costWavesName (ArticleManager::CostWavesSystemName (), CC_UTF8);
 	for (UIndex i = 0; i < systems.GetSize (); ++i) {
 		if (systems[i].name == costWavesName) {
@@ -484,6 +560,7 @@ void CostWavesDialog::CreateClassification ()
 			break;
 		}
 	}
+	isFilling = false;
 
 	// Si les articles venaient de la classification, relire depuis le système
 	// « CostWaves » fraîchement créé.
@@ -511,25 +588,42 @@ void CostWavesDialog::AssignCurrentArticle ()
 	}
 	const CWArticle& article = articles[static_cast<UIndex> (articleIndex) - 1];
 
-	// 2) Ligne du tableau : doit être un élément (pas un composant).
-	const short listItem = table.GetSelectedItem ();
-	if (listItem < 1 || static_cast<UIndex> (listItem) > displayRows.GetSize ()) {
-		DG::WarningAlert (FR ("Aucune ligne sélectionnée."),
-						  FR ("Sélectionnez un élément dans le tableau."),
-						  FR ("OK"));
-		return;
-	}
-	const DisplayRow& displayRow = displayRows[static_cast<UIndex> (listItem) - 1];
-	if (displayRow.elementIndex >= rows.GetSize ())
-		return;
+	// 2) Lignes sélectionnées : on garde les lignes d'éléments (les lignes
+	//    composants sont ignorées — l'affectation se fait sur l'élément).
+	GS::Array<API_Guid>	elemGuids;
+	USize				skippedComponents = 0;
 
-	if (displayRow.kind != RowKind::Element) {
-		DG::WarningAlert (FR ("L'affectation se fait sur un élément."),
-						  FR ("Sélectionnez une ligne d'élément (les composants suivent leur élément)."),
-						  FR ("OK"));
+	const GS::Array<short> selectedItems = table.GetSelectedItems ();
+	for (UIndex i = 0; i < selectedItems.GetSize (); ++i) {
+		const short listItem = selectedItems[i];
+		if (listItem < 1 || static_cast<UIndex> (listItem) > displayRows.GetSize ())
+			continue;
+
+		const DisplayRow& displayRow = displayRows[static_cast<UIndex> (listItem) - 1];
+		if (displayRow.elementIndex >= rows.GetSize ())
+			continue;
+
+		if (displayRow.kind != RowKind::Element) {
+			++skippedComponents;
+			continue;
+		}
+
+		elemGuids.Push (rows[displayRow.elementIndex].guid);
+	}
+
+	if (elemGuids.IsEmpty ()) {
+		if (skippedComponents > 0) {
+			DG::WarningAlert (FR ("L'affectation se fait sur des éléments."),
+							  GS::ToUniString (std::to_wstring (static_cast<int> (skippedComponents)))
+								  + FR (" ligne(s) composant ignorée(s) — sélectionnez des lignes d'élément."),
+							  FR ("OK"));
+		} else {
+			DG::WarningAlert (FR ("Aucune ligne sélectionnée."),
+							  FR ("Sélectionnez un ou plusieurs éléments dans le tableau (Ctrl+clic)."),
+							  FR ("OK"));
+		}
 		return;
 	}
-	CWElementRow& element = rows[displayRow.elementIndex];
 
 	// 3) Item de classification correspondant : système « CostWaves » en
 	//    priorité, sinon le système courant.
@@ -559,15 +653,17 @@ void CostWavesDialog::AssignCurrentArticle ()
 		return;
 	}
 
-	// 4) Affectation (annulable) + propriété CW_Article_ID (créée si absente).
+	// 4) Affectation (annulable, une seule commande pour tous les éléments)
+	//    + propriété CW_Article_ID (créée si absente).
 	GS::UniString propError;
 	const API_Guid articleIdPropGuid = ArticleManager::EnsureArticleIdProperty (propError);
 
-	bool changed = false;
+	USize changedCount = 0;
+	USize failedCount = 0;
 	GS::UniString error;
-	const GSErrCode err = ArticleManager::AssignArticleToElement (element.guid, targetSystem, itemGuid,
-																   article.id, articleIdPropGuid, changed,
-																   error);
+	const GSErrCode err = ArticleManager::AssignArticleToElements (elemGuids, targetSystem, itemGuid,
+																   article.id, articleIdPropGuid,
+																   changedCount, failedCount, error);
 	if (err != NoError) {
 		DG::ErrorAlert (FR ("Échec de l'affectation."), error, FR ("OK"));
 		return;
@@ -575,19 +671,29 @@ void CostWavesDialog::AssignCurrentArticle ()
 
 	RefreshData ();
 
-	if (!error.IsEmpty ()) {
-		// Affectation réussie mais propriété non écrite.
-		DG::WarningAlert (FR ("Article affecté (avec réserve)."), error, FR ("OK"));
-	} else if (!changed) {
-		DG::InformationAlert (FR ("Aucun changement."), FR ("Cet élément porte déjà cet article."), FR ("OK"));
+	// Message de résultat.
+	GS::UniString summary = GS::ToUniString (std::to_wstring (static_cast<int> (changedCount)))
+							 + FR (" élément(s) mis à jour");
+	if (failedCount > 0)
+		summary += FR (" · ") + GS::ToUniString (std::to_wstring (static_cast<int> (failedCount)))
+				 + FR (" échec(s)");
+	if (skippedComponents > 0)
+		summary += FR (" · ") + GS::ToUniString (std::to_wstring (static_cast<int> (skippedComponents)))
+				 + FR (" ligne(s) composant ignorée(s)");
+	if (articleIdPropGuid == APINULLGuid)
+		summary += FR (" · propriété CW_Article_ID non disponible");
+	summary += ".";
+
+	if (failedCount > 0) {
+		DG::WarningAlert (FR ("Affectation terminée (avec échecs)."), summary, FR ("OK"));
+	} else if (changedCount == 0) {
+		DG::InformationAlert (FR ("Aucun changement."), FR ("Ces éléments portent déjà cet article."), FR ("OK"));
 	} else if (targetSystem != selectedSystem) {
-		DG::InformationAlert (FR ("Article affecté."),
-							  FR ("Affecté dans le système « CostWaves » — basculez le système en haut pour le voir dans la colonne Classe."),
+		DG::InformationAlert (FR ("Articles affectés."),
+							  summary + FR ("\nAffectés dans le système « CostWaves » — basculez le système en haut pour le voir dans la colonne Classe."),
 							  FR ("OK"));
 	} else {
-		DG::InformationAlert (FR ("Article affecté."),
-							  FR ("Classe mise à jour et propriété CW_Article_ID écrite sur l'élément."),
-							  FR ("OK"));
+		DG::InformationAlert (FR ("Articles affectés."), summary, FR ("OK"));
 	}
 }
 
@@ -612,9 +718,11 @@ void CostWavesDialog::CreateMaterials ()
 		return;
 	}
 
-	// Le système « CostWaves » a pu être créé : recharger et resélectionner.
+	// Le système « CostWaves » a pu être créé : recharger et resélectionner
+	// (sans déclencher la relecture via PopUpChanged).
 	LoadSystems ();
 
+	isFilling = true;
 	const GS::UniString costWavesName (ArticleManager::CostWavesSystemName (), CC_UTF8);
 	for (UIndex i = 0; i < systems.GetSize (); ++i) {
 		if (systems[i].name == costWavesName) {
@@ -623,6 +731,7 @@ void CostWavesDialog::CreateMaterials ()
 			break;
 		}
 	}
+	isFilling = false;
 
 	ReloadArticlesFromSystem ();
 	RefreshData ();
@@ -876,6 +985,32 @@ void CostWavesDialog::ListBoxSelectionChanged (const DG::ListBoxSelectionEvent& 
 
 	if (ev.GetSource () == &table)
 		UpdateDetails (table.GetSelectedItem ());
+}
+
+
+void CostWavesDialog::ListBoxHeaderItemClicked (const DG::ListBoxHeaderItemClickEvent& ev)
+{
+	if (ev.GetSource () != &table)
+		return;
+
+	const short column = ev.GetHeaderItem ();
+	if (column < 1 || column > 6)
+		return;
+
+	// Colonne identique : inverser le sens ; nouvelle colonne : croissant.
+	if (sortColumn == column)
+		sortAscending = !sortAscending;
+	else {
+		sortColumn = column;
+		sortAscending = true;
+	}
+
+	// Réafficher trié, sans relire le modèle.
+	isFilling = true;
+	FillTable ();
+	isFilling = false;
+
+	UpdateDetails (table.GetItemCount () > 0 ? 1 : 0);
 }
 
 

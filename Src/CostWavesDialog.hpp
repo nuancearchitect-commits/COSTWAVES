@@ -68,6 +68,7 @@ private:
 
 	// DG::ListBoxObserver
 	virtual void	ListBoxSelectionChanged (const DG::ListBoxSelectionEvent& ev) override;
+	virtual void	ListBoxHeaderItemClicked (const DG::ListBoxHeaderItemClickEvent& ev) override;
 
 	// DG::SearchEditObserver
 	virtual void	SearchTextChanged (const DG::SearchEditChangeEvent& ev) override;
@@ -87,11 +88,15 @@ private:
 	void	LoadArticlesPopup ();			// (re)remplit le popup des articles
 	void	ImportArticles ();				// import JSON (boîte de dialogue fichier)
 	void	CreateClassification ();		// crée/maj le système "CostWaves" (annulable)
-	void	AssignCurrentArticle ();		// affecte l'article choisi à l'élément sélectionné
+	void	AssignCurrentArticle ();		// affecte l'article aux éléments sélectionnés
 	void	CreateMaterials ();				// matériaux + items + affectation item->matériau
 
 	// L'élément correspond-il au filtre de recherche courant ?
 	bool	ElementMatchesFilter (const CWElementRow& element) const;
+
+	// Tri du tableau par colonne (les composants restent rattachés à leur
+	// élément). Applique le tri courant à "rows".
+	void	SortRows ();
 
 	// Ligne d'affichage : référence vers un élément ou un de ses composants.
 	struct DisplayRow {
@@ -137,6 +142,9 @@ private:
 	GS::Array<DisplayRow>	displayRows;
 
 	GS::UniString			searchFilter;		// filtre de recherche courant
+
+	short					sortColumn = 0;		// colonne de tri (0 = aucun, sinon 1..6)
+	bool					sortAscending = true;
 
 	bool					isFilling = false;
 };

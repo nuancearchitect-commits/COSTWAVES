@@ -105,11 +105,12 @@ Fichiers écrits **à côté du .PLN** (ou dans *Documents* si projet non enregi
 |---|---|
 | **Source des articles** | Au choix : (a) **import d'un fichier JSON** `[{"id":"CW-MUR","name":"Mur extérieur","unit":"m2"}, …]` (ou `{"articles":[…]}`) via « Importer des articles… » ; (b) à défaut, **les items du système de classification choisi** servent d'articles (id de l'item = id d'article). L'import JSON a priorité. |
 | **Créer la classification** | Bouton « Créer la classification » : crée (si absente) un système de classification **« CostWaves »** avec **un item par article** (item.id = article.id, item.name = article.name), puis complète les items manquants. Opération **annulable** (Ctrl+Z). |
-| **Affecter un article** | Sélectionner une ligne **élément** dans le tableau, choisir l'article dans le popup, cliquer « Affecter l'article » : l'élément reçoit l'item de classification correspondant (sa classe précédente dans le système est remplacée). Annulable. |
+| **Affecter un article** | Sélectionnez une ou plusieurs lignes **élément** (Ctrl+clic) dans le tableau, choisissez l'article, cliquez « Affecter l'article » : chaque élément reçoit l'item de classification correspondant (sa classe précédente dans le système est remplacée). **Une seule commande annulable** (un seul Ctrl+Z) pour toute la sélection ; les échecs individuels sont comptés sans tout arrêter. |
 | **Lecture de la sélection** | Case « Sélection uniquement » : la lecture (Actualiser / changement de système) n'analyse que les éléments sélectionnés dans Archicad — pratique sur les gros projets. |
 | **Créer les matériaux** | Pour **chaque article** : crée le matériau de construction `id — nom` (idempotent : un matériau de ce nom n'est pas recréé), crée son item dans le système « CostWaves » s'il manque, et **affecte l'item au matériau** (remplace sa classe précédente dans ce système). ⚠️ La création de matériaux n'est **pas annulable** (limite API Archicad). |
 | **Propriété CW_Article_ID** | « Affecter l'article » écrit aussi l'identifiant d'article dans la propriété texte `CW_Article_ID` (groupe « CostWaves », créés automatiquement si absents) — visible dans les nomenclatures et les exports Archicad. |
 | **Recherche** | Champ de recherche au-dessus du tableau : filtre en direct (non sensible à la casse) sur type, GUID, ID élément, étage et classe. |
+| **Tri du tableau** | Clic sur un en-tête de colonne pour trier (croissant/décroissant, flèche dans l'en-tête) ; les composants restent rattachés à leur élément. |
 | **Export enrichi** | Colonne `Article` (CSV) et objet `"article"` (JSON) : remplis quand la classe de l'élément correspond à un article connu. |
 
 **Limite connue** : l'API Archicad ne permet d'écrire ni propriété ni
@@ -207,6 +208,12 @@ Options utiles : `-b Debug` (configuration) · `-p` (package zip) ·
       l'élément > Paramètres / nomenclature)
 - [ ] Recherche : taper un fragment (ex. `mur`, un étage, un ID) filtre le
       tableau en direct ; vider le champ restaure tout
+- [ ] Tri : cliquer sur « Étage » ou « Classe » trie le tableau (flèche dans
+      l'en-tête, second clic = sens inverse) ; les composants restent sous
+      leur élément
+- [ ] Affectation multiple : Ctrl+clic sur plusieurs lignes d'éléments puis
+      « Affecter l'article » → toutes les lignes sont classées, message avec
+      le décompte, **un seul Ctrl+Z** annule tout
 
 ### Exports (les deux phases)
 

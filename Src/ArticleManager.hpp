@@ -52,15 +52,20 @@ public:
 	// (APINULLGuid + outError en cas d'échec).
 	static API_Guid	EnsureArticleIdProperty (GS::UniString& outError);
 
-	// Affecte l'item à l'élément dans le système donné ; remplace la classe
-	// éventuellement déjà portée par l'élément dans ce système. Si
+	// Affecte l'item aux éléments dans le système donné ; remplace la classe
+	// éventuellement déjà portée par chaque élément dans ce système. Si
 	// articleIdPropGuid est valide, écrit aussi articleId dans la propriété
-	// CW_Article_ID de l'élément. Opération annulable.
-	// outChanged = true si l'élément a été modifié.
-	static GSErrCode	AssignArticleToElement (const API_Guid& elemGuid, const API_Guid& systemGuid,
-												const API_Guid& itemGuid, const GS::UniString& articleId,
-												const API_Guid& articleIdPropGuid, bool& outChanged,
-												GS::UniString& outError);
+	// CW_Article_ID de chaque élément. Tout est regroupé dans UNE seule
+	// commande annulable. Les échecs individuels sont comptés (best effort) ;
+	// outError n'est rempli que si tout a échoué.
+	static GSErrCode	AssignArticleToElements (const GS::Array<API_Guid>&	elemGuids,
+												const API_Guid&				systemGuid,
+												const API_Guid&				itemGuid,
+												const GS::UniString&		articleId,
+												const API_Guid&				articleIdPropGuid,
+												USize&						outChangedCount,
+												USize&						outFailedCount,
+												GS::UniString&				outError);
 
 	// Bouton « Créer les matériaux » : pour chaque article —
 	//  1) matériau de construction "id — nom" (créé s'il n'existe pas déjà :
