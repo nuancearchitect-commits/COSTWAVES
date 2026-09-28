@@ -440,29 +440,6 @@ void CostWavesDialog::RefreshData ()
 }
 
 
-bool CostWavesDialog::ElementMatchesFilter (const CWElementRow& element) const
-{
-	if (searchFilter.IsEmpty ())
-		return true;
-
-	const GS::UniString needle = searchFilter.ToUpperCase ();
-
-	const GS::UniString haystacks[] = {
-		element.typeName,
-		APIGuidToString (element.guid),
-		element.elementId,
-		element.storyName,
-		element.classItemId,
-		element.classItemName
-	};
-
-	for (UIndex i = 0; i < sizeof (haystacks) / sizeof (haystacks[0]); ++i) {
-		if (haystacks[i].ToUpperCase ().Contains (needle))
-			return true;
-	}
-
-	return false;
-}
 
 
 void CostWavesDialog::SortRows ()
@@ -500,13 +477,26 @@ void CostWavesDialog::FillTable ()
 {
 	table.SetHeaderSynchronState (true);
 
-	// --- Colonnes dynamiques : une colonne par type de quantité -------------
-	// (Surface, Volume, Longueur 3D, Épaisseur… présentes dans les lignes.)
+	// --- Règles d'affichage ---------------------------------------------------
+	// Seules les lignes PORTANT UNE CLASSE sont affichées :
+	//  - un élément sans classe n'est pas affiché (seuls ses skins classés
+	//    le sont) ;
+	//  - un skin est affiché s'il a une classe (celle de son matériau) ;
+	//  - les composants « properties » (sans quantités) ne sont pas affichés.
+
+	// --- Colonnes : une par type de quantité, sur les lignes affichées ------
 	quantityColumnLabels.Clear ();
 	for (UIndex e = 0; e < rows.GetSize (); ++e) {
-		CollectQuantityLabels (rows[e].quantities, quantityColumnLabels);
-		for (UIndex c = 0; c < rows[e].components.GetSize (); ++c)
-			CollectQuantityLabels (rows[e].components[c].quantities, quantityColumnLabels);
+		const CWElementRow& element = rows[e];
+		if (element.consumed)
+			continue;
+		if (!element.classItemId.IsEmpty ())
+			CollectQuantityLabels (element.quantities, quantityColumnLabels);
+		for (UIndex c = 0; c < element.components.GetSize (); ++c) {
+			const CWComponentRow& component = element.components[c];
+			if (component.kind == RowKind::Skin && !component.classItemId.IsEmpty ())
+				CollectQuantityLabels (component.quantities, quantityColumnLabels);
+		}
 	}
 	SortQuantityLabels (quantityColumnLabels);
 
@@ -528,42 +518,66 @@ void CostWavesDialog::FillTable ()
 	for (UIndex q = 0; q < quantityColumnLabels.GetSize (); ++q)
 		table.SetHeaderItemText (static_cast<short> (baseColumnCount + 1 + q), quantityColumnLabels[q]);
 
-	// Largeurs : base fixe, colonnes de quantités à parts égales.
-	const short tableWidth = table.GetWidth ();
-	const short baseProportions[baseColumnCount] = { 10, 12, 12, 24, 12 };
-	short baseTotal = 0;
-	for (short i = 0; i < baseColumnCount; ++i)
-		baseTotal = static_cast<short> (baseTotal + baseProportions[i]);
-	const short remaining = static_cast<short> (100 - baseTotal);
-	const USize quantityCount = quantityColumnLabels.GetSize ();
-	const short quantityShare = (quantityCount > 0)
-		? static_cast<short> (remaining / static_cast<short> (quantityCount))
-		: 0;
-
-	short position = 0;
-	for (short i = 1; i <= columnCount; ++i) {
-		const short proportion = (i <= baseColumnCount) ? baseProportions[i - 1] : quantityShare;
-		const short width = static_cast<short> ((tableWidth * proportion) / 100);
-		table.SetHeaderItemSize (i, width);
-		table.SetHeaderItemSizeableFlag (i, true);
-		table.SetTabFieldProperties (i, position, static_cast<short> (position + width),
-								 DG::ListBox::Left, DG::ListBox::MiddleTruncate, i > 1);
-		position = static_cast<short> (position + width);
-	}
-
 	while (table.GetItemCount () > 0)
 		table.DeleteItem (1);
 
 	displayRows.Clear ();
 
-	// Remplit les cellules « quantité » d'une ligne du tableau (une colonne
-	// par type : la valeur si présente, vide sinon).
+	// Filtre de recherche : testé sur les colonnes de chaque ligne affichée.
+	const GS::UniString needle = searchFilter.ToUpperCase ();
+	auto lineMatches = [&] (const GS::UniString& typeText, const GS::UniString& idText,
+							const GS::UniString& floorText, const GS::UniString& classText) -> bool {
+		if (searchFilter.IsEmpty ())
+			return true;
+		return typeText.ToUpperCase ().Contains (needle)
+			|| idText.ToUpperCase ().Contains (needle)
+			|| floorText.ToUpperCase ().Contains (needle)
+			|| classText.ToUpperCase ().Contains (needle);
+	};
+
+	// Largeur automatique : maximum des contenus de chaque colonne.
+	std::vector<short> columnMax(static_cast<size_t> (columnCount) + 1, 0);
+	auto trackWidth = [&] (short column, const GS::UniString& text) {
+		const short estimated = static_cast<short> (text.GetLength () * 7 + 18);
+		if (column >= 1 && column <= columnCount && estimated > columnMax[column])
+			columnMax[column] = estimated;
+	};
+
+	// Remplit les cellules « quantité » d'une ligne (une colonne par type :
+	// la valeur si présente, vide sinon).
 	auto fillQuantityCells = [&] (short itemIndex, const GS::Array<CWQuantity>& quantities) {
 		for (UIndex q = 0; q < quantityColumnLabels.GetSize (); ++q) {
 			const short column = static_cast<short> (baseColumnCount + 1 + q);
-			table.SetTabItemText (itemIndex, column,
-				QuantitiesSummaryHas (quantities, quantityColumnLabels[q]));
+			const GS::UniString cellText = QuantitiesSummaryHas (quantities, quantityColumnLabels[q]);
+			table.SetTabItemText (itemIndex, column, cellText);
+			trackWidth (column, cellText);
 		}
+	};
+
+	auto appendRow = [&] (const GS::UniString& typeText, const GS::UniString& idText,
+						  const GS::UniString& floorText, const GS::UniString& classText,
+						  const GS::UniString& billedText, const GS::Array<CWQuantity>& quantities,
+						  RowKind displayKind, UIndex elementIndex, UIndex componentIndex, UIndex memberIndex) {
+		table.AppendItem ();
+		const short itemIndex = table.GetItemCount ();
+		table.SetTabItemText (itemIndex, 1, typeText);
+		table.SetTabItemText (itemIndex, 2, idText);
+		table.SetTabItemText (itemIndex, 3, floorText);
+		table.SetTabItemText (itemIndex, 4, classText);
+		table.SetTabItemText (itemIndex, 5, billedText);
+		trackWidth (1, typeText);
+		trackWidth (2, idText);
+		trackWidth (3, floorText);
+		trackWidth (4, classText);
+		trackWidth (5, billedText);
+		fillQuantityCells (itemIndex, quantities);
+
+		DisplayRow displayRow;
+		displayRow.kind = displayKind;
+		displayRow.elementIndex = elementIndex;
+		displayRow.componentIndex = componentIndex;
+		displayRow.memberRowIndex = memberIndex;
+		displayRows.Push (displayRow);
 	};
 
 	for (UIndex e = 0; e < rows.GetSize (); ++e) {
@@ -574,110 +588,104 @@ void CostWavesDialog::FillTable ()
 		if (element.consumed)
 			continue;
 
-		// Filtre de recherche : l'élément et ses composants sont masqués
-		// si aucune de ses colonnes ne correspond.
-		if (!ElementMatchesFilter (element))
-			continue;
+		const bool elementHasClass = !element.classItemId.IsEmpty ();
 
 		const GS::UniString floorText = element.storyName.IsEmpty ()
 			? GS::ToUniString (std::to_wstring (static_cast<int> (element.floorInd)))
 			: GS::ToUniString (std::to_wstring (static_cast<int> (element.floorInd))) + " - " + element.storyName;
-
 		const GS::UniString classText = element.classItemId.IsEmpty ()
 			? element.classItemName
 			: element.classItemId + " - " + element.classItemName;
 
-		table.AppendItem ();
-		const short itemIndex = table.GetItemCount ();
-		table.SetTabItemText (itemIndex, 1,
-			element.isGroupRow
+		// Ligne de l'élément (seulement s'il porte une classe).
+		if (elementHasClass) {
+			const GS::UniString typeText = element.isGroupRow
 				? (element.isNumberedGroup
 					? FR ("Groupe n° ") + GS::ToUniString (std::to_wstring (element.groupNumber))
 					: FR ("Ensemble"))
-				: FR ("Élément"));
-		table.SetTabItemText (itemIndex, 2, element.elementId);
-		table.SetTabItemText (itemIndex, 3, floorText);
-		table.SetTabItemText (itemIndex, 4, classText);
-		table.SetTabItemText (itemIndex, 5, BilledText (element));
-		fillQuantityCells (itemIndex, element.quantities);
+				: FR ("Élément");
 
-		DisplayRow elementRow;
-		elementRow.kind = element.isGroupRow ? RowKind::Group : RowKind::Element;
-		elementRow.elementIndex = e;
-		displayRows.Push (elementRow);
+			if (lineMatches (typeText, element.elementId, floorText, classText)) {
+				appendRow (typeText, element.elementId, floorText, classText,
+						   BilledText (element), element.quantities,
+						   element.isGroupRow ? RowKind::Group : RowKind::Element, e, 0, 0);
 
-		// Membres de l'ensemble (sous-lignes « consommées »).
-		for (UIndex m = 0; m < element.groupMembers.GetSize (); ++m) {
-			const CWElementRow* memberRow = nullptr;
-			UIndex memberIndex = 0;
-			for (UIndex r = 0; r < rows.GetSize (); ++r) {
-				if (rows[r].guid == element.groupMembers[m]) {
-					memberRow = &rows[r];
-					memberIndex = r;
-					break;
+				// Membres de l'ensemble/groupe (sous-lignes « consommées »).
+				for (UIndex m = 0; m < element.groupMembers.GetSize (); ++m) {
+					const CWElementRow* memberRow = nullptr;
+					UIndex memberIndex = 0;
+					for (UIndex r = 0; r < rows.GetSize (); ++r) {
+						if (rows[r].guid == element.groupMembers[m]) {
+							memberRow = &rows[r];
+							memberIndex = r;
+							break;
+						}
+					}
+					if (memberRow == nullptr || memberRow->isGroupRow)
+						continue;
+
+					const GS::UniString memberFloor = memberRow->storyName.IsEmpty ()
+						? GS::ToUniString (std::to_wstring (static_cast<int> (memberRow->floorInd)))
+						: GS::ToUniString (std::to_wstring (static_cast<int> (memberRow->floorInd))) + " - " + memberRow->storyName;
+					const GS::UniString memberClass = memberRow->classItemId.IsEmpty ()
+						? GS::UniString ()
+						: memberRow->classItemId + " - " + memberRow->classItemName;
+					const GS::UniString memberType = FR ("Membre (consommé)");
+
+					if (lineMatches (memberType, memberRow->elementId, memberFloor, memberClass))
+						appendRow (memberType, memberRow->elementId, memberFloor, memberClass,
+								   FR ("—"), memberRow->quantities,
+								   RowKind::GroupMember, e, 0, memberIndex);
 				}
 			}
-			if (memberRow == nullptr || memberRow->isGroupRow)
-				continue;
-
-			const GS::UniString memberFloor = memberRow->storyName.IsEmpty ()
-				? GS::ToUniString (std::to_wstring (static_cast<int> (memberRow->floorInd)))
-				: GS::ToUniString (std::to_wstring (static_cast<int> (memberRow->floorInd))) + " - " + memberRow->storyName;
-
-			const GS::UniString memberClass = memberRow->classItemId.IsEmpty ()
-				? classText
-				: memberRow->classItemId + " - " + memberRow->classItemName;
-
-			table.AppendItem ();
-			const short memberItemIndex = table.GetItemCount ();
-			table.SetTabItemText (memberItemIndex, 1, FR ("Membre (consommé)"));
-			table.SetTabItemText (memberItemIndex, 2, memberRow->elementId);
-			table.SetTabItemText (memberItemIndex, 3, memberFloor);
-			table.SetTabItemText (memberItemIndex, 4, memberClass);
-			table.SetTabItemText (memberItemIndex, 5, FR ("—"));
-			fillQuantityCells (memberItemIndex, memberRow->quantities);
-
-			DisplayRow memberDisplay;
-			memberDisplay.kind = RowKind::GroupMember;
-			memberDisplay.elementIndex = e;
-			memberDisplay.memberRowIndex = memberIndex;
-			displayRows.Push (memberDisplay);
 		}
 
+		// Skins classés : affichés avec la classe de leur MATÉRIAU, même si
+		// l'élément parent n'a pas de classe (mur sans classe à couches
+		// classées → seules les couches classées apparaissent).
 		for (UIndex c = 0; c < element.components.GetSize (); ++c) {
 			const CWComponentRow& component = element.components[c];
+			if (component.kind != RowKind::Skin || component.classItemId.IsEmpty ())
+				continue;
 
-			table.AppendItem ();
-			const short compItemIndex = table.GetItemCount ();
-			if (component.kind == RowKind::Skin) {
-				GS::UniString skinText = FR ("Skin — ") + component.label;
-				if (component.coreSkin)
-					skinText += FR (" (cœur)");
-				table.SetTabItemText (compItemIndex, 1, skinText);
-			} else {
-				table.SetTabItemText (compItemIndex, 1, FR ("Composant"));
-			}
-			table.SetTabItemText (compItemIndex, 2, element.elementId);
-			table.SetTabItemText (compItemIndex, 3, floorText);
+			GS::UniString skinType = FR ("Skin — ") + component.label;
+			if (component.coreSkin)
+				skinType += FR (" (cœur)");
+			const GS::UniString skinClass = component.classItemId + " - " + component.classItemName;
 
-			// Le skin porte la classe de son MATÉRIAU (phase 5) : un mur sans
-			// classe dont les couches sont classées apparaît via ses skins.
-			if (component.kind == RowKind::Skin && !component.classItemId.IsEmpty ()) {
-				table.SetTabItemText (compItemIndex, 4,
-					component.classItemId + " - " + component.classItemName);
-				table.SetTabItemText (compItemIndex, 5, SkinBilledText (component));
-			} else {
-				table.SetTabItemText (compItemIndex, 4, classText);
-				table.SetTabItemText (compItemIndex, 5, GS::UniString ());
-			}
-			fillQuantityCells (compItemIndex, component.quantities);
-
-			DisplayRow componentRow;
-			componentRow.kind = component.kind;
-			componentRow.elementIndex = e;
-			componentRow.componentIndex = c;
-			displayRows.Push (componentRow);
+			if (lineMatches (skinType, element.elementId, floorText, skinClass))
+				appendRow (skinType, element.elementId, floorText, skinClass,
+						   SkinBilledText (component), component.quantities,
+						   RowKind::Skin, e, c, 0);
 		}
+	}
+
+	// --- Largeurs automatiques + scroll horizontal ---------------------------
+	// Largeur estimée par colonne : maximum des contenus ET des en-têtes
+	// (en unités de dialogue) ; le total peut dépasser la largeur du
+	// contrôle → le GRC active le scroll horizontal (HVScroll).
+	trackWidth (1, FR ("Type"));
+	trackWidth (2, FR ("ID élément"));
+	trackWidth (3, FR ("Étage"));
+	trackWidth (4, FR ("Classe"));
+	trackWidth (5, FR ("Facturé"));
+	for (UIndex q = 0; q < quantityColumnLabels.GetSize (); ++q)
+		trackWidth (static_cast<short> (baseColumnCount + 1 + q), quantityColumnLabels[q]);
+	for (short i = 1; i <= columnCount; ++i) {
+		if (columnMax[i] < 55)
+			columnMax[i] = 55;
+		if (columnMax[i] > 340)
+			columnMax[i] = 340;
+	}
+
+	short position = 0;
+	for (short i = 1; i <= columnCount; ++i) {
+		const short width = columnMax[i];
+		table.SetHeaderItemSize (i, width);
+		table.SetHeaderItemSizeableFlag (i, true);
+		table.SetTabFieldProperties (i, position, static_cast<short> (position + width),
+								 DG::ListBox::Left, DG::ListBox::MiddleTruncate, i > 1);
+		position = static_cast<short> (position + width);
 	}
 
 	if (table.GetItemCount () > 0)
@@ -1034,10 +1042,24 @@ void CostWavesDialog::AssignCurrentArticle ()
 	API_Guid itemGuid = APINULLGuid;
 
 	if (!ResolveArticleTarget (article.id, targetSystem, itemGuid)) {
-		DG::WarningAlert (FR ("Article introuvable dans les classifications."),
-						  FR ("Cliquez d'abord sur « Créer la classification » pour générer le système CostWaves."),
-						  FR ("OK"));
-		return;
+		// L'article n'existe dans aucune classification (articles importés
+		// en JSON, par ex.) : créer le système « CostWaves » et l'item de
+		// cet article, puis re-résoudre.
+		GS::Array<CWArticle> singleArticle;
+		singleArticle.Push (article);
+		API_Guid ensuredSystem = APINULLGuid;
+		USize createdItems = 0;
+		GS::UniString ensureError;
+		if (ArticleManager::EnsureCostWavesClassification (singleArticle, ensuredSystem, createdItems, ensureError) != NoError
+			|| !ResolveArticleTarget (article.id, targetSystem, itemGuid)) {
+			DG::WarningAlert (FR ("Article introuvable dans les classifications."),
+							  ensureError.IsEmpty ()
+								  ? FR ("Cliquez d'abord sur « Créer la classification » pour générer le système CostWaves.")
+								  : ensureError,
+							  FR ("OK"));
+			return;
+		}
+		LoadSystems ();
 	}
 
 	// 4) Affectation (annulable, une seule commande pour tous les éléments)
@@ -1378,6 +1400,24 @@ bool CostWavesDialog::ResolveArticleTarget (const GS::UniString& articleId,
 			outSystemGuid = selectedSystem;
 			outItemGuid = guid;
 			return true;
+		}
+	}
+
+	// Recherche dans TOUS les systèmes du projet (l'article peut venir d'un
+	// système autre que « CostWaves » et que le système courant).
+	{
+		GS::Array<API_ClassificationSystem> allSystems;
+		if (ACAPI_Classification_GetClassificationSystems (allSystems) == NoError) {
+			for (UIndex i = 0; i < allSystems.GetSize (); ++i) {
+				if (allSystems[i].guid == costWavesSystem || allSystems[i].guid == selectedSystem)
+					continue;
+				const API_Guid guid = ArticleManager::FindItemGuid (allSystems[i].guid, articleId);
+				if (guid != APINULLGuid) {
+					outSystemGuid = allSystems[i].guid;
+					outItemGuid = guid;
+					return true;
+				}
+			}
 		}
 	}
 

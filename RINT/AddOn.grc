@@ -14,7 +14,7 @@
 /* [  2] */ PopupControl                185   11  350   22 80 3
 /* [  3] */ Button                       10   42  100   23 LargePlain "Actualiser"
 /* [  4] */ LeftText                    285   46  325   18 LargePlain vTop | noTrunc Default ""
-/* [  5] */ MultiSelList                 10   98  600  210 SmallPlain PartialItems VScroll 21 HasHeader 21 HasFrame
+/* [  5] */ MultiSelList                 10   98  600  210 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
 /* [  6] */ GroupBox                     10  380  600  110 LargePlain Primary "Détails de la ligne sélectionnée"
 /* [  7] */ LeftText                     20  398  580   18 SmallPlain vTop | noTrunc Default ""
 /* [  8] */ LeftText                     20  416  580   18 SmallPlain vTop | noTrunc Default ""
@@ -87,33 +87,33 @@
 5    ""        Button_1
 }
 
-'GDLG' ID_ADDON_DLG_MATERIAL Modal |noGrow   60   60  640 470  "CostWaves — Créer le matériau" {
-/* [  1] */ LeftText                    10   14  180   18 LargePlain vTop | noTrunc Default "Nom du matériau :"
-/* [  2] */ TextEdit                   195   11  630   22 LargePlain frame | update | absolute | editable 128
-/* [  3] */ CheckBox                    10   42  480   20 LargePlain "Créer une nouvelle classe pour ce matériau"
-/* [  4] */ LeftText                    30   70  160   18 LargePlain vTop | noTrunc Default "Système de classification :"
-/* [  5] */ PopupControl               195   67  630   22 80 3
-/* [  6] */ LeftText                    30   98  160   18 LargePlain vTop | noTrunc Default "Classe parente :"
-/* [  7] */ PopupControl               195   95  630   22 80 3
-/* [  8] */ LeftText                    30  126  160   18 LargePlain vTop | noTrunc Default "ID de la classe :"
-/* [  9] */ TextEdit                   195  123  310   22 LargePlain frame | update | absolute | editable 60
-/* [10] */ LeftText                    330  126  120   18 LargePlain vTop | noTrunc Default "Nom de la classe :"
-/* [11] */ TextEdit                   455  123  630   22 LargePlain frame | update | absolute | editable 128
-/* [12] */ LeftText                    30  154  160   18 LargePlain vTop | noTrunc Default "Classe existante :"
-/* [13] */ PopupControl               195  151  630   22 80 3
-/* [14] */ LeftText                    10  182  180   18 LargePlain vTop | noTrunc Default "Hachure (coupe) :"
-/* [15] */ PopupControl               195  179  630   22 80 3
-/* [16] */ LeftText                    10  210  180   18 LargePlain vTop | noTrunc Default "Surface de coupe :"
-/* [17] */ PopupControl               195  207  630   22 80 3
-/* [18] */ LeftText                    10  238  180   18 LargePlain vTop | noTrunc Default "Stylo avant-plan :"
-/* [19] */ PopupControl               195  235  410   22 80 3
-/* [20] */ LeftText                    420  238  120   18 LargePlain vTop | noTrunc Default "Stylo arrière-plan :"
-/* [21] */ PopupControl               545  235  630   22 80 3
-/* [22] */ LeftText                    10  266  250   18 LargePlain vTop | noTrunc Default "Puissance (priorité de connexion 1-1000) :"
-/* [23] */ IntEdit                     265  263  345   22 LargePlain frame | update | absolute | editable "1" "1000"
-/* [24] */ LeftText                    10  295  630   80 LargePlain vTop | noTrunc Default "La classe sert d'article dans le métré ; le matériau est lié à cette classe."
-/* [25] */ Button                     420  435  100   23 LargePlain "Créer"
-/* [26] */ Button                     530  435  100   23 LargePlain "Annuler"
+'GDLG' ID_ADDON_DLG_MATERIAL Modal |noGrow   60   60  660 435  "CostWaves — Créer le matériau" {
+/* [  1] */ LeftText                    10   14  170   18 LargePlain vTop | noTrunc Default "Nom du matériau :"
+/* [  2] */ TextEdit                   185   11  640   22 LargePlain frame | update | absolute | editable 128
+/* [  3] */ CheckBox                    10   42  420   20 LargePlain "Créer une nouvelle classe pour ce matériau"
+/* [  4] */ LeftText                    30   70  150   18 LargePlain vTop | noTrunc Default "Système :"
+/* [  5] */ PopupControl               185   67  640   22 80 3
+/* [  6] */ LeftText                    30   98  150   18 LargePlain vTop | noTrunc Default "Classe parente :"
+/* [  7] */ PopupControl               185   95  640   22 80 3
+/* [  8] */ LeftText                    30  126  150   18 LargePlain vTop | noTrunc Default "ID de la classe :"
+/* [  9] */ TextEdit                   185  123  640   22 LargePlain frame | update | absolute | editable 60
+/* [10] */ LeftText                    30  154  150   18 LargePlain vTop | noTrunc Default "Nom de la classe :"
+/* [11] */ TextEdit                   185  151  640   22 LargePlain frame | update | absolute | editable 128
+/* [12] */ LeftText                    10  182  170   18 LargePlain vTop | noTrunc Default "Classe existante :"
+/* [13] */ PopupControl               185  179  640   22 80 3
+/* [14] */ LeftText                    10  210  170   18 LargePlain vTop | noTrunc Default "Hachure (coupe) :"
+/* [15] */ PopupControl               185  207  640   22 80 3
+/* [16] */ LeftText                    10  238  170   18 LargePlain vTop | noTrunc Default "Surface de coupe :"
+/* [17] */ PopupControl               185  235  640   22 80 3
+/* [18] */ LeftText                    10  266  170   18 LargePlain vTop | noTrunc Default "Stylo avant-plan :"
+/* [19] */ PopupControl               185  263  400   22 80 3
+/* [20] */ LeftText                    410  266  130   18 LargePlain vTop | noTrunc Default "Stylo arrière-plan :"
+/* [21] */ PopupControl               545  263  640   22 80 3
+/* [22] */ LeftText                    10  294  240   18 LargePlain vTop | noTrunc Default "Puissance (priorité 1-1000) :"
+/* [23] */ IntEdit                     255  291  640   22 LargePlain frame | update | absolute | editable "1" "1000"
+/* [24] */ LeftText                    10  322  630   70 LargePlain vTop | noTrunc Default ""
+/* [25] */ Button                     420  400  105   23 LargePlain "Créer"
+/* [26] */ Button                     530  400  105   23 LargePlain "Annuler"
 }
 
 'DLGH' ID_ADDON_DLG_MATERIAL DLG_Material {
@@ -146,7 +146,7 @@
 }
 
 'GDLG' ID_ADDON_DLG_SUMMARY Modal |noGrow   60   60  620 380  "CostWaves — Récapitulatif par article" {
-/* [  1] */ MultiSelList               10   10  600  310 SmallPlain PartialItems VScroll 21 HasHeader 21 HasFrame
+/* [  1] */ MultiSelList               10   10  600  310 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
 /* [  2] */ Button                     500  325  100   23 LargePlain "Fermer"
 }
 

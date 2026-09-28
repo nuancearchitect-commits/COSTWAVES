@@ -33,7 +33,7 @@ private:
 	// DG::ButtonItemObserver
 	virtual void	ButtonClicked (const DG::ButtonClickEvent& ev) override;
 
-	void	InitTable ();
+	void	InitTable (const GS::Array<CWArticleSummary>& summary);
 	void	Fill (const GS::Array<CWArticleSummary>& summary);
 
 	DG::MultiSelListBox	table;

@@ -43,13 +43,14 @@ La palette :
 
 1. **Sélecteur de système de classification** — liste tous les systèmes du projet
    (Archicad, CostWaves, Uniclass, etc.) ; changer de système relance la lecture.
-2. **Tableau** (en-têtes, colonnes redimensionnables) — **une colonne par type
-   de quantité** (Surface, Volume, Longueur 3D, Épaisseur… selon les lignes
-   lues) plus une colonne **Facturé** (quantité facturée au sens du métré).
-   Sont « appelés » : les éléments portant une classe du système choisi, **et
-   les skins dont le matériau porte une classe** — un mur sans classe dont les
-   couches ont des matériaux classés est appelé via ses skins (chacun porte la
-   classe de son matériau) :
+2. **Tableau** (en-têtes, **largeurs automatiques**, scroll horizontal,
+   colonnes redimensionnables) — **une colonne par type de quantité**
+   (Surface, Volume, Longueur 3D, Épaisseur, Surface projetée… selon les
+   lignes lues) plus une colonne **Facturé** (quantité facturée au sens du
+   métré). **Règle d'affichage : seules les lignes portant une classe
+   apparaissent** — un élément sans classe n'est pas affiché (seuls ses
+   skins classés le sont, avec les surfaces projetées des skins), et les
+   composants « properties » sans quantités ne sont pas affichés :
 
    | Type | ID élément | Étage | Classe | Facturé | Surface | Volume | … |
    |---|---|---|---|---|---|---|---|
@@ -62,8 +63,8 @@ La palette :
      groupant des membres) / `Membre (consommé)` (élément d'un ensemble ou
      groupe, non facturé seul) / `Skin — <matériau>` (couche d'une structure
      composite, avec marqueur `(cœur)` si la couche fait partie du noyau —
-     la colonne Classe porte alors **la classe du matériau**) / `Composant`
-     (composants « properties » Archicad 25+)
+     la colonne Classe porte alors **la classe du matériau**, et la colonne
+     Surface projetée la surface du skin)
    - **Détails d'un skin (phase 3)** : nom du **composite**, numéro de couche
      (`couche 2/5`), épaisseur de la couche, marqueurs **cœur / finition**
    - **GUID** : GUID stable de l'élément ou du composant — affiché dans le
@@ -151,8 +152,10 @@ résolu sans création pour ne rien écrire lors des lectures).
 | **Créer un groupe** | Même flux que l'ensemble, mais chaque groupe reçoit un **numéro** (`CW-N-1`, `CW-N-2`, …). **La quantité réelle du métré est le nombre de groupes** de l'article : 3 groupes créés = quantité 3 (les membres sont consommés, comme pour les ensembles). |
 | **Dissoudre ensemble / groupe** | Fonctionne sur les lignes `Ensemble` et `Groupe n° …` (ou leurs membres) : retire `CW_Group_ID`, une commande annulable. |
 | **Récapitulatif enrichi** | Colonnes `Éléments` · `Ensembles` · `Groupes` · `Skins` · `Quantité totale` ; les exports JSON/CSV portent `groupType` (`ensemble`/`numbered`), `groupNumber`, `numberedGroups`, `numberedGroupCount` et `skinCount`. |
-| **Skins classés (révision)** | Un élément sans classe dont au moins une couche a un **matériau classé** est appelé ; chaque skin porte la classe de son matériau (colonne Classe), est facturé sur l'article de ce matériau (colonne Facturé, récapitulatif `Skins`) et l'export JSON/CSV porte sa classification. |
-| **Fenêtres en ressources GRC** | Les fenêtres « Créer le matériau… », choix d'article et récapitulatif sont définies en GRC (elles s'ouvraient vides en création programmatique). |
+| **Skins classés (révision)** | Un élément sans classe dont au moins une couche a un **matériau classé** est appelé ; chaque skin porte la classe de son matériau (colonne Classe), est facturé sur l'article de ce matériau (colonne Facturé, récapitulatif `Skins`) et l'export JSON/CSV porte sa classification. Seules les lignes classées sont affichées. |
+| **Fenêtres en ressources GRC** | Les fenêtres « Créer le matériau… » (réorganisée : une ligne par contrôle, plus de cases masquées), choix d'article et récapitulatif sont définies en GRC (elles s'ouvraient vides en création programmatique). |
+| **Tableau (révision)** | Largeurs de colonnes **automatiques** (contenus + en-têtes) et **scroll horizontal** (HVScroll) ; surfaces projetées des skins dans leur colonne ; composants « properties » retirés de l'affichage. |
+| **Ensemble/groupe (correctif)** | Création corrigée : valeur par défaut explicite lors de la création des propriétés `CW_Article_ID`/`CW_Group_ID` (le variant laissé « indéfini » faisait échouer la création), résolution de l'article dans **tous** les systèmes de classification, et création automatique du système/item « CostWaves » si l'article importé (JSON) n'existe dans aucune classification. |
 
 
 Fichiers écrits **à côté du .PLN** (ou dans *Documents* si projet non enregistré) :

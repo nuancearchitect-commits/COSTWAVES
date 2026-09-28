@@ -135,7 +135,6 @@ private:
 								  API_Guid& outSystemGuid, API_Guid& outItemGuid);
 
 	// L'élément correspond-il au filtre de recherche courant ?
-	bool	ElementMatchesFilter (const CWElementRow& element) const;
 
 	// Tri du tableau par colonne (les composants restent rattachés à leur
 	// élément). Applique le tri courant à "rows".

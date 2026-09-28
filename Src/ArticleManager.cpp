@@ -645,6 +645,15 @@ API_Guid ArticleManager::EnsureTextProperty (const char* nameUtf8, const GS::Uni
 	definition.collectionType = API_PropertySingleCollectionType;
 	definition.measureType = API_PropertyDefaultMeasureType;
 
+	// Valeur par défaut EXPLICITE (chaîne vide) : sans cela le variant par
+	// défaut reste de type « indéfini », ce qui peut faire échouer la
+	// création — l'exemple Property_Test du DevKit définit toujours la
+	// valeur par défaut en cohérence avec le type de la propriété.
+	definition.defaultValue.hasExpression = false;
+	definition.defaultValue.basicValue.variantStatus = API_VariantStatusNormal;
+	definition.defaultValue.basicValue.singleVariant.variant.type = API_PropertyStringValueType;
+	definition.defaultValue.basicValue.singleVariant.variant.uniStringValue = GS::UniString ();
+
 	const GSErrCode err = ACAPI_Property_CreatePropertyDefinition (definition);
 	if (err == NoError)
 		return definition.guid;

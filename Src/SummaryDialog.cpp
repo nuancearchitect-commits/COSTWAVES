@@ -41,12 +41,12 @@ SummaryDialog::SummaryDialog (const GS::Array<CWArticleSummary>& summary)
 {
 	closeButton.Attach (*this);
 
-	InitTable ();
+	InitTable (summary);
 	Fill (summary);
 }
 
 
-void SummaryDialog::InitTable ()
+void SummaryDialog::InitTable (const GS::Array<CWArticleSummary>& summary)
 {
 	const short columnCount = 8;
 
@@ -64,16 +64,41 @@ void SummaryDialog::InitTable ()
 	// (sans cela, seule la première colonne s'affiche).
 	table.SetTabFieldCount (columnCount);
 
-	const short tableWidth = table.GetWidth ();
-	const short proportions[columnCount] = { 13, 27, 8, 10, 10, 10, 8, 14 };
+	// Largeurs automatiques (contenus + en-têtes) ; le total peut dépasser
+	// la largeur du contrôle → scroll horizontal (HVScroll dans le GRC).
+	std::vector<short> columnMax (static_cast<size_t> (columnCount) + 1, 0);
+	auto trackWidth = [&columnMax, columnCount] (short column, const GS::UniString& text) {
+		const short estimated = static_cast<short> (text.GetLength () * 7 + 18);
+		if (column >= 1 && column <= columnCount && estimated > columnMax[column])
+			columnMax[column] = estimated;
+	};
 
-	const short totalProportion = 100;
+	// Parcours des lignes pour mesurer les contenus.
+	for (UIndex i = 0; i < summary.GetSize (); ++i) {
+		const CWArticleSummary& entry = summary[i];
+		trackWidth (1, entry.articleId);
+		trackWidth (2, entry.articleName);
+		trackWidth (3, entry.unit);
+		trackWidth (4, GS::ToUniString (std::to_wstring (static_cast<int> (entry.elementCount))));
+		trackWidth (5, GS::ToUniString (std::to_wstring (static_cast<int> (entry.groupCount))));
+		trackWidth (6, GS::ToUniString (std::to_wstring (static_cast<int> (entry.numberedGroupCount))));
+		trackWidth (7, GS::ToUniString (std::to_wstring (static_cast<int> (entry.skinCount))));
+		trackWidth (8, FormatValue (entry.totalQuantity));
+	}
+	for (short i = 1; i <= columnCount; ++i) {
+		trackWidth (i, table.GetHeaderItemText (i));
+		if (columnMax[i] < 45)
+			columnMax[i] = 45;
+		if (columnMax[i] > 340)
+			columnMax[i] = 340;
+	}
+
 	short position = 0;
 	for (short i = 1; i <= columnCount; ++i) {
-		const short width = static_cast<short> ((tableWidth * proportions[i - 1]) / totalProportion);
+		const short width = columnMax[i];
 		table.SetHeaderItemSize (i, width);
 		table.SetHeaderItemSizeableFlag (i, true);
-		table.SetTabFieldProperties (i, position, position + width,
+		table.SetTabFieldProperties (i, position, static_cast<short> (position + width),
 								 DG::ListBox::Left, DG::ListBox::MiddleTruncate, i > 1);
 		position = static_cast<short> (position + width);
 	}
