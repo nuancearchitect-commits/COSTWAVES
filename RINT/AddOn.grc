@@ -2,7 +2,7 @@
 
 'STR#' ID_ADDON_INFO "Add-on Name and Description" {
 /* [  1] */		"CostWaves"
-/* [  2] */		"Correspondances attributs Archicad - articles CostWaves"
+/* [  2] */		"Correspondances materiaux Archicad - articles CostWaves"
 }
 
 'STR#' ID_ADDON_MENU "Add-On Menu" {
@@ -12,7 +12,7 @@
 
 'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  320 170  "CostWaves" {
 /* [  1] */ LeftText                     10   14  300   40 LargePlain vTop | noTrunc Default ""
-/* [  2] */ Button                        10   70  300   23 LargePlain "Correspondance"
+/* [  2] */ Button                        10   70  300   23 LargePlain "Correspondance matériaux"
 /* [  3] */ LeftText                     10  110  300   40 SmallPlain vTop | noTrunc Default ""
 }
 
@@ -22,28 +22,36 @@
 3    ""        LeftText_1
 }
 
-'GDLG' ID_ADDON_DLG_MAPPING Modal |noGrow   60   60  660 500  "CostWaves — Correspondances" {
+'GDLG' ID_ADDON_DLG_PICKER Modal |noGrow   60   60  500 380  "CostWaves — Choisir une classe" {
+/* [  1] */ SearchEdit                   10   12  480   22 LargePlain frame | update | absolute | editable 60
+/* [  2] */ MultiSelList                10   44  480  250 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */ Button                      290  310  100   23 LargePlain "Choisir"
+/* [  4] */ Button                     390  310  100   23 LargePlain "Annuler"
+}
+
+'DLGH' ID_ADDON_DLG_PICKER DLG_Article_Picker {
+1    ""        SearchEdit_0
+2    ""        MultiSelList_0
+3    ""        Button_0
+4    ""        Button_1
+}
+
+'GDLG' ID_ADDON_DLG_MAPPING Modal |noGrow   60   60  660 430  "CostWaves — Correspondances matériaux" {
 /* [  1] */ LeftText                    10   12  640   30 LargePlain vTop | noTrunc Default ""
-/* [  2] */ LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Type d'attribut :"
-/* [  3] */ PopupControl               125   47  150   22 80 3
-/* [  4] */ LeftText                   290   50  100   18 LargePlain vTop | noTrunc Default "Classification :"
-/* [  5] */ PopupControl               395   47  255   22 80 3
-/* [  6] */ MultiSelList                10   80  640  260 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  7] */ LeftText                    10  352  640   18 LargePlain vTop | noTrunc Default ""
-/* [  8] */ PopupControl                10  374  640   22 80 3
-/* [  9] */ Button                      10  440  130   23 LargePlain "Enregistrer"
-/* [10] */ Button                     520  440  130   23 LargePlain "Fermer"
+/* [  2] */ LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
+/* [  3] */ PopupControl               125   47  525   22 80 3
+/* [  4] */ MultiSelList                10   80  640  260 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  5] */ LeftText                    10  350  640   36 SmallPlain vTop | noTrunc Default ""
+/* [  6] */ Button                      10  390  130   23 LargePlain "Enregistrer"
+/* [  7] */ Button                     520  390  130   23 LargePlain "Fermer"
 }
 
 'DLGH' ID_ADDON_DLG_MAPPING DLG_Mapping {
 1    ""        LeftText_0
 2    ""        LeftText_1
 3    ""        PopupControl_0
-4    ""        LeftText_2
-5    ""        PopupControl_1
-6    ""        MultiSelList_0
-7    ""        LeftText_3
-8    ""        PopupControl_2
-9    ""        Button_0
-10   ""        Button_1
+4    ""        MultiSelList_0
+5    ""        LeftText_2
+6    ""        Button_0
+7    ""        Button_1
 }

@@ -3,6 +3,7 @@
 #include "MappingDialog.hpp"
 
 #include "ArticleManager.hpp"
+#include "ArticlePickerDialog.hpp"
 #include "ModelReader.hpp"
 #include "RuleLibrary.hpp"
 
@@ -17,52 +18,23 @@ GS::UniString FR (const char* utf8Text)
 	return GS::UniString (utf8Text, CC_UTF8);
 }
 
-// Types du filtre, dans l'ordre du popup.
-const CWStructureType kTypes[3] = {
-	CWStructureType::BuildingMaterial,
-	CWStructureType::Composite,
-	CWStructureType::Profile
-};
-
-// Indentation hiérarchique du sélecteur (style classification Archicad).
-GS::UniString Indent (short depth)
-{
-	GS::UniString indent;
-	for (short d = 0; d < depth; ++d)
-		indent += FR ("    ");
-	return indent;
-}
-
 } // namespace
 
 
 MappingDialog::MappingDialog ()
 	:	DG::ModalDialog (ACAPI_GetOwnResModule (), ID_ADDON_DLG_MAPPING, ACAPI_GetOwnResModule ()),
 		infoText (GetReference (), InfoTextId),
-		typeLabel (GetReference (), TypeLabelId),
-		typePopup (GetReference (), TypePopupId),
 		systemLabel (GetReference (), SystemLabelId),
 		systemPopup (GetReference (), SystemPopupId),
 		list (GetReference (), ListId),
-		selectorLabel (GetReference (), SelectorLabelId),
-		articlePopup (GetReference (), ArticlePopupId),
+		statusText (GetReference (), StatusTextId),
 		saveButton (GetReference (), SaveButtonId),
 		closeButton (GetReference (), CloseButtonId)
 {
-	infoText.SetText (FR ("Choisissez le type d'attribut et le système de classification ")
-					  + FR ("(les classes = articles), puis affectez un article ou « Ignorer » ")
-					  + FR ("à chaque attribut."));
+	infoText.SetText (FR ("Cliquez sur un matériau pour lui choisir sa classe (article). ")
+					  + FR ("Un matériau sans classe est ignoré du métré."));
 
-	// Filtre type d'attribut.
-	typePopup.AppendItem ();
-	typePopup.SetItemText (1, FR ("Matériau"));
-	typePopup.AppendItem ();
-	typePopup.SetItemText (2, FR ("Composite"));
-	typePopup.AppendItem ();
-	typePopup.SetItemText (3, FR ("Profil complexe"));
-	typePopup.SelectItem (1);
-
-	// Filtre système de classification.
+	// Filtre système de classification (les classes = articles proposés).
 	systems = ModelReader::GetClassificationSystems ();
 	if (systems.IsEmpty ()) {
 		systemPopup.AppendItem ();
@@ -75,70 +47,39 @@ MappingDialog::MappingDialog ()
 	}
 	systemPopup.SelectItem (1);
 
-	// Bibliothèque de règles existante (Documents/CostWaves-regles.json).
+	// Bibliothèque existante (Documents/CostWaves-regles.json).
 	GS::UniString rulesError;
 	RuleLibrary::LoadRules (rules, rulesError);		// absente = bibliothèque vide
 
-	RefreshArticles ();		// classes du système sélectionné -> sélecteur
-	RefreshAttributes ();	// attributs du type choisi -> liste
+	RefreshArticles ();
+	RefreshMaterials ();
 
 	saveButton.Attach (*this);
 	closeButton.Attach (*this);
-	typePopup.Attach (*this);
 	systemPopup.Attach (*this);
-	articlePopup.Attach (*this);
 	list.Attach (*this);
 }
 
 
-CWStructureType MappingDialog::CurrentType () const
-{
-	const short selection = typePopup.GetSelectedItem ();
-	if (selection >= 1 && selection <= 3)
-		return kTypes[selection - 1];
-	return CWStructureType::BuildingMaterial;
-}
-
-
-void MappingDialog::RefreshAttributes ()
+void MappingDialog::RefreshMaterials ()
 {
 	isFilling = true;
-	attributes.Clear ();
-	RuleLibrary::CollectAvailableStructures (CurrentType (), attributes);
+	materials.Clear ();
+	RuleLibrary::CollectAvailableStructures (CWStructureType::BuildingMaterial, materials);
+	selectedMaterial = 0;
 	isFilling = false;
 
-	selectedAttribute = 0;
 	FillList ();
 }
 
 
 void MappingDialog::RefreshArticles ()
 {
-	isFilling = true;
-
 	articles.Clear ();
 	const short systemSelection = systemPopup.GetSelectedItem ();
 	if (systemSelection >= 1 && static_cast<UIndex> (systemSelection) <= systems.GetSize ())
 		ArticleManager::CollectFromClassification (systems[static_cast<UIndex> (systemSelection) - 1].guid,
 												   articles);
-
-	// Sélecteur d'article (style sélecteur d'attributs Archicad) :
-	// « — », « Ignorer », puis les classes indentées par profondeur.
-	while (articlePopup.GetItemCount () > 0)
-		articlePopup.DeleteItem (1);
-
-	articlePopup.AppendItem ();
-	articlePopup.SetItemText (1, FR ("— (aucun)"));
-	articlePopup.AppendItem ();
-	articlePopup.SetItemText (2, FR ("Ignorer"));
-	for (UIndex a = 0; a < articles.GetSize (); ++a) {
-		articlePopup.AppendItem ();
-		articlePopup.SetItemText (articlePopup.GetItemCount (),
-								  Indent (articles[a].depth) + articles[a].id + FR (" — ") + articles[a].name);
-	}
-	articlePopup.SelectItem (1);
-
-	isFilling = false;
 }
 
 
@@ -149,8 +90,8 @@ void MappingDialog::FillList ()
 	const short columnCount = 2;
 	list.SetHeaderItemCount (columnCount);
 	list.SetTabFieldCount (columnCount);
-	list.SetHeaderItemText (1, FR ("Attribut"));
-	list.SetHeaderItemText (2, FR ("Article (classe)"));
+	list.SetHeaderItemText (1, FR ("Matériau"));
+	list.SetHeaderItemText (2, FR ("Classe (article)"));
 
 	const short widths[2] = { 280, 360 };
 	short position = 0;
@@ -165,15 +106,15 @@ void MappingDialog::FillList ()
 	while (list.GetItemCount () > 0)
 		list.DeleteItem (1);
 
-	for (UIndex a = 0; a < attributes.GetSize (); ++a) {
+	USize withArticle = 0;
+	for (UIndex m = 0; m < materials.GetSize (); ++m) {
 		list.AppendItem ();
 		const short item = list.GetItemCount ();
-		list.SetTabItemText (item, 1, attributes[a]);
+		list.SetTabItemText (item, 1, materials[m]);
 
-		const CWMapRule* rule = RuleLibrary::FindRule (rules, CurrentType (), attributes[a]);
-		if (rule != nullptr && rule->ignored) {
-			list.SetTabItemText (item, 2, FR ("Ignorer"));
-		} else if (rule != nullptr && !rule->articleId.IsEmpty ()) {
+		const CWMapRule* rule = RuleLibrary::FindRule (rules, CWStructureType::BuildingMaterial, materials[m]);
+		if (rule != nullptr && !rule->articleId.IsEmpty ()) {
+			++withArticle;
 			const CWArticle* article = ArticleManager::FindArticle (articles, rule->articleId);
 			list.SetTabItemText (item, 2, article != nullptr
 				? rule->articleId + FR (" — ") + article->name
@@ -183,98 +124,55 @@ void MappingDialog::FillList ()
 		}
 	}
 
-	if (list.GetItemCount () > 0) {
-		if (selectedAttribute < 1 || selectedAttribute > list.GetItemCount ())
-			selectedAttribute = 1;
-		list.SelectItem (selectedAttribute);
-	} else {
-		selectedAttribute = 0;
-	}
-
 	isFilling = false;
 
-	RefreshSelectorForSelection ();
+	SetStatus (GS::ToUniString (std::to_wstring (static_cast<int> (materials.GetSize ())))
+			   + FR (" matériau(x) · ")
+			   + GS::ToUniString (std::to_wstring (static_cast<int> (withArticle)))
+			   + FR (" avec classe"));
 }
 
 
-void MappingDialog::RefreshSelectorForSelection ()
+void MappingDialog::OpenPickerForSelection ()
 {
-	if (selectedAttribute < 1 || static_cast<UIndex> (selectedAttribute) > attributes.GetSize ()) {
-		selectorLabel.SetText (FR ("Sélectionnez un attribut dans la liste."));
-		if (articlePopup.GetItemCount () > 0)
-			articlePopup.SelectItem (1);
+	if (selectedMaterial < 1 || static_cast<UIndex> (selectedMaterial) > materials.GetSize ())
+		return;
+
+	if (articles.IsEmpty ()) {
+		SetStatus (FR ("Aucune classe — choisissez un système de classification."));
 		return;
 	}
 
-	const GS::UniString& attributeName = attributes[static_cast<UIndex> (selectedAttribute) - 1];
-	selectorLabel.SetText (FR ("Article de « ") + attributeName + FR (" » :"));
-
-	// Positionner le sélecteur sur la règle courante de cet attribut.
-	const CWMapRule* rule = RuleLibrary::FindRule (rules, CurrentType (), attributeName);
-	short item = 1;		// « — (aucun) »
-	if (rule != nullptr) {
-		if (rule->ignored) {
-			item = 2;	// « Ignorer »
-		} else if (!rule->articleId.IsEmpty ()) {
-			for (UIndex a = 0; a < articles.GetSize (); ++a) {
-				if (articles[a].id == rule->articleId) {
-					item = static_cast<short> (a + 3);
-					break;
-				}
-			}
-		}
-	}
-	if (item > articlePopup.GetItemCount ())
-		item = 1;
-	articlePopup.SelectItem (item);
-}
-
-
-void MappingDialog::ApplyArticleSelection ()
-{
-	if (selectedAttribute < 1 || static_cast<UIndex> (selectedAttribute) > attributes.GetSize ())
+	const GS::UniString materialName = materials[static_cast<UIndex> (selectedMaterial) - 1];
+	ArticlePickerDialog picker (articles);
+	picker.Invoke ();
+	if (!picker.IsAccepted ())
 		return;
 
-	const GS::UniString attributeName = attributes[static_cast<UIndex> (selectedAttribute) - 1];
-	const CWStructureType structureType = CurrentType ();
-	const short selection = articlePopup.GetSelectedItem ();
-
-	if (selection == 1) {
-		// « — (aucun) » : retirer la règle.
+	const short articleIndex = picker.GetSelectedArticleIndex ();
+	if (articleIndex == 0) {
+		// « (aucune) » : retirer la correspondance (matériau ignoré du métré).
 		for (UIndex r = 0; r < rules.GetSize (); ++r) {
-			if (rules[r].structureType == structureType && rules[r].structureName == attributeName) {
+			if (rules[r].structureType == CWStructureType::BuildingMaterial
+				&& rules[r].structureName == materialName) {
 				rules.Delete (r);
 				break;
 			}
 		}
-		SetStatus (FR ("« ") + attributeName + FR (" » : sans correspondance."));
-	} else if (selection == 2) {
-		// « Ignorer ».
+		SetStatus (FR ("« ") + materialName + FR (" » : sans classe (ignoré du métré)."));
+	} else if (articleIndex >= 1 && static_cast<UIndex> (articleIndex) <= articles.GetSize ()) {
+		const CWArticle& article = articles[static_cast<UIndex> (articleIndex) - 1];
+
 		CWMapRule rule;
-		rule.structureType = structureType;
-		rule.structureName = attributeName;
-		rule.ignored = true;
-		bool replaced = false;
-		for (UIndex r = 0; r < rules.GetSize (); ++r) {
-			if (rules[r].structureType == structureType && rules[r].structureName == attributeName) {
-				rules[r] = rule;
-				replaced = true;
-				break;
-			}
-		}
-		if (!replaced)
-			rules.Push (rule);
-		SetStatus (FR ("« ") + attributeName + FR (" » : ignoré."));
-	} else if (selection >= 3 && static_cast<UIndex> (selection - 2) <= articles.GetSize ()) {
-		const CWArticle& article = articles[static_cast<UIndex> (selection - 3)];
-		CWMapRule rule;
-		rule.structureType = structureType;
-		rule.structureName = attributeName;
+		rule.structureType = CWStructureType::BuildingMaterial;
+		rule.structureName = materialName;
 		rule.articleId = article.id;
 		rule.mode = CWQuantMode::Element;
+
 		bool replaced = false;
 		for (UIndex r = 0; r < rules.GetSize (); ++r) {
-			if (rules[r].structureType == structureType && rules[r].structureName == attributeName) {
+			if (rules[r].structureType == CWStructureType::BuildingMaterial
+				&& rules[r].structureName == materialName) {
 				rules[r] = rule;
 				replaced = true;
 				break;
@@ -282,16 +180,25 @@ void MappingDialog::ApplyArticleSelection ()
 		}
 		if (!replaced)
 			rules.Push (rule);
-		SetStatus (FR ("« ") + attributeName + FR (" » → ") + article.id + FR (" — ") + article.name);
+
+		SetStatus (FR ("« ") + materialName + FR (" » → ") + article.id + FR (" — ") + article.name);
 	}
 
 	FillList ();
+
+	// Re-sélectionner le matériau traité (sans rouvrir le picker : le
+	// renvoi d'événement est neutralisé par isFilling pendant FillList,
+	// mais la sélection programmatique ne génère pas d'événement utilisateur).
+	isFilling = true;
+	if (selectedMaterial >= 1 && selectedMaterial <= list.GetItemCount ())
+		list.SelectItem (selectedMaterial);
+	isFilling = false;
 }
 
 
 void MappingDialog::SetStatus (const GS::UniString& message)
 {
-	infoText.SetText (message);
+	statusText.SetText (message);
 }
 
 
@@ -300,24 +207,22 @@ void MappingDialog::ListBoxSelectionChanged (const DG::ListBoxSelectionEvent& ev
 	if (ev.GetSource () != &list || isFilling)
 		return;
 
-	selectedAttribute = list.GetSelectedItem ();
-	RefreshSelectorForSelection ();
+	const short newSelection = list.GetSelectedItem ();
+	if (newSelection < 1 || static_cast<UIndex> (newSelection) > materials.GetSize ())
+		return;
+
+	selectedMaterial = newSelection;
+	OpenPickerForSelection ();
 }
 
 
 void MappingDialog::PopUpChanged (const DG::PopUpChangeEvent& ev)
 {
-	if (isFilling)
+	if (ev.GetSource () != &systemPopup || isFilling)
 		return;
 
-	if (ev.GetSource () == &typePopup) {
-		RefreshAttributes ();
-	} else if (ev.GetSource () == &systemPopup) {
-		RefreshArticles ();
-		FillList ();
-	} else if (ev.GetSource () == &articlePopup) {
-		ApplyArticleSelection ();
-	}
+	RefreshArticles ();
+	FillList ();
 }
 
 
@@ -326,12 +231,17 @@ void MappingDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 	if (ev.GetSource () == &saveButton) {
 		GS::UniString error;
 		if (RuleLibrary::SaveRules (rules, error)) {
-			SetStatus (FR ("Correspondances enregistrées (Documents/CostWaves-regles.json)."));
+			DG::InformationAlert (FR ("Correspondances enregistrées."),
+								  GS::ToUniString (std::to_wstring (static_cast<int> (rules.GetSize ())))
+								  + FR (" règle(s) matériaux écrites dans :")
+								  + FR ("\n") + RuleLibrary::RulesFilePath (),
+								  FR ("OK"));
+			SetStatus (FR ("Enregistré."));
 		} else {
 			DG::ErrorAlert (FR ("Échec de l'enregistrement."), error, FR ("OK"));
 		}
 	} else if (ev.GetSource () == &closeButton) {
-		// Fermer enregistre la bibliothèque (silencieux, best effort).
+		// Fermer enregistre la bibliothèque (best effort).
 		GS::UniString error;
 		RuleLibrary::SaveRules (rules, error);
 		PostCloseRequest (DG::ModalDialog::Accept);

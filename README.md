@@ -326,26 +326,24 @@ pas un choix.
    (`CostWaves-calcul.json`, section `formulas`) et partent dans le payload
    API (`calcFormula`).
 
-### Étape courante — menu NUANCE BIM > COSTWAVES (palette + correspondances)
+### Étape courante — NUANCE BIM > COSTWAVES > Correspondances matériaux
 
-Une seule commande : menu **NUANCE BIM > COSTWAVES…** ouvre la palette
-CostWaves. La palette contient un bouton **« Correspondance »** qui ouvre la
-fenêtre de correspondances :
+Menu **NUANCE BIM** (barre de menus) → **COSTWAVES…** ouvre la palette.
+Bouton **« Correspondance matériaux »** :
 
-- **Filtre type d'attribut** : Matériau / Composite / Profil complexe —
-  affiche la liste des attributs Archicad du projet pour le type choisi ;
-- **Filtre classification** : système de classification à utiliser — ses
-  classes sont les articles proposés ;
-- **Sélecteur d'article devant chaque attribut** (style sélecteur
-  d'attributs Archicad : popup avec liste hiérarchique indentée) :
-  sélectionnez la classe/article, ou **« Ignorer »** ;
-- **Enregistrer** : écrit la bibliothèque dans
-  `<Documents>/CostWaves-regles.json` (réutilisable entre projets) ;
+- **Filtre Classification** : système dont les classes sont les articles ;
+- **Tableau des matériaux** du projet (Matériau | Classe) ;
+- **clic sur un matériau** → ouvre la liste des classes **« ID — Nom »**
+  avec **barre de recherche** en haut (style sélecteur d'attributs Archicad,
+  liste indentée comme la classification) — double-clic ou « Choisir »
+  valide ; **« — (aucune) »** retire la correspondance (un matériau sans
+  classe est déjà ignoré du métré — pas d'option Ignorer) ;
+- **Enregistrer** : confirmation avec le chemin
+  (`<Documents>/CostWaves-regles.json`, réutilisable entre projets) ;
   Fermer enregistre aussi.
 
-Format des règles :
-`{"rules": [{"type": "material|composite|profile", "name": "BETON_25",
-"article": "CW-030", "mode": "element", "ignored": false}]}`.
+Format : `{"rules": [{"type": "material", "name": "BETON_25",
+"article": "CW-030", "mode": "element"}]}`.
 
 ## 3. Build (Windows)
 

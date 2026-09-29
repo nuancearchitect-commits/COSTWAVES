@@ -9,14 +9,13 @@
 
 namespace CostWaves {
 
-// Fenêtre « Correspondances » (étape courante) :
-//  - filtre par type d'attribut Archicad : Matériau / Composite / Profil
-//    complexe — la liste des attributs du projet s'affiche ;
-//  - filtre par système de classification : les classes du système choisi
-//    sont les articles proposés par le sélecteur ;
-//  - devant chaque attribut, un sélecteur (style sélecteur d'attributs
-//    Archicad : popup avec liste hiérarchique indentée) pour choisir
-//    l'article (classe) ou « Ignorer » ;
+// Fenêtre « Correspondances matériaux » :
+//  - filtre classification : le système choisi fournit les classes (articles) ;
+//  - liste des matériaux de construction du projet ;
+//  - la sélection se fait DANS le tableau : cliquer un matériau ouvre la
+//    liste des classes « ID — Nom » avec barre de recherche (style sélecteur
+//    d'attributs Archicad) ; « (aucune) » = pas de correspondance (un
+//    matériau sans classe est déjà ignoré du métré) — pas d'option Ignorer ;
 //  - « Enregistrer » écrit la bibliothèque dans
 //    <Documents>/CostWaves-regles.json (réutilisable entre projets).
 class MappingDialog final :	public DG::ModalDialog,
@@ -27,15 +26,12 @@ class MappingDialog final :	public DG::ModalDialog,
 public:
 	enum ItemIds {
 		InfoTextId		= 1,
-		TypeLabelId		= 2,
-		TypePopupId		= 3,
-		SystemLabelId	= 4,
-		SystemPopupId	= 5,
-		ListId			= 6,
-		SelectorLabelId	= 7,
-		ArticlePopupId	= 8,
-		SaveButtonId	= 9,
-		CloseButtonId	= 10
+		SystemLabelId	= 2,
+		SystemPopupId	= 3,
+		ListId			= 4,
+		StatusTextId	= 5,
+		SaveButtonId	= 6,
+		CloseButtonId	= 7
 	};
 
 	MappingDialog ();
@@ -50,32 +46,26 @@ private:
 	// DG::PopUpObserver
 	virtual void	PopUpChanged (const DG::PopUpChangeEvent& ev) override;
 
-	CWStructureType	CurrentType () const;
-
-	void	RefreshAttributes ();		// attributs du type choisi -> liste
-	void	RefreshArticles ();		// classes du système choisi -> sélecteur
-	void	FillList ();				// attribut + article courant
-	void	RefreshSelectorForSelection ();
-	void	ApplyArticleSelection ();	// sélecteur -> règle de l'attribut sélectionné
+	void	RefreshMaterials ();		// matériaux du projet -> liste
+	void	RefreshArticles ();		// classes du système choisi
+	void	FillList ();
+	void	OpenPickerForSelection ();	// clic sur un matériau -> liste des classes
 	void	SetStatus (const GS::UniString& message);
 
 	DG::LeftText		infoText;
-	DG::LeftText		typeLabel;
-	DG::PopUp			typePopup;
 	DG::LeftText		systemLabel;
 	DG::PopUp			systemPopup;
 	DG::MultiSelListBox	list;
-	DG::LeftText		selectorLabel;
-	DG::PopUp			articlePopup;
+	DG::LeftText		statusText;
 	DG::Button			saveButton;
 	DG::Button			closeButton;
 
 	GS::Array<CWSystemInfo>		systems;		// systèmes de classification du projet
 	GS::Array<CWArticle>		articles;		// classes du système sélectionné
-	GS::Array<GS::UniString>	attributes;		// attributs du type choisi
+	GS::Array<GS::UniString>	materials;		// matériaux de construction du projet
 	GS::Array<CWMapRule>		rules;			// bibliothèque de travail
 
-	short	selectedAttribute = 0;		// 1-based (0 = aucune)
+	short	selectedMaterial = 0;		// 1-based (0 = aucune)
 	bool	isFilling = false;
 };
 
