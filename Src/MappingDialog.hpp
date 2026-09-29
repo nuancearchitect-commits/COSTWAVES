@@ -60,6 +60,7 @@ private:
 	void	RefreshArticles ();		// classes du système choisi
 	void	FillList ();
 	void	OpenPickerForSelection ();	// clic sur un matériau -> liste des classes
+	void	OpenKeyPickerForSelection ();	// clic « Valeur clé » -> catalogue de clés
 	void	SetStatus (const GS::UniString& message);
 
 	DG::LeftText		infoText;
