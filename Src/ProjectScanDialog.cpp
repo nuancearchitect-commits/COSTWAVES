@@ -1,5 +1,7 @@
 #include "CostWavesPrecompiledHeader.hpp"
 
+#include "UniStringWStringConversion.hpp"
+
 #include "ProjectScanDialog.hpp"
 
 #include "ArticleEditDialog.hpp"

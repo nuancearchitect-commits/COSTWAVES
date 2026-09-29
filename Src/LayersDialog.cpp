@@ -1,5 +1,7 @@
 #include "CostWavesPrecompiledHeader.hpp"
 
+#include "UniStringWStringConversion.hpp"
+
 #include "LayersDialog.hpp"
 
 #include "ArticleManager.hpp"

@@ -432,7 +432,8 @@ bool ModelReader::GetElementStructure (const API_Guid& elemGuid, API_ElemTypeID 
 		case API_BeamID: {
 			API_ElementMemo memo;
 			BNZeroMemory (&memo, sizeof (memo));
-			const UInt32 memoMask = (typeID == API_ColumnID) ? APIMemoMask_ColumnSegment : APIMemoMask_BeamSegment;
+			const UInt32 memoMask = static_cast<UInt32> (typeID == API_ColumnID ? APIMemoMask_ColumnSegment
+																	   : APIMemoMask_BeamSegment);
 			if (ACAPI_Element_GetMemo (elemGuid, &memo, memoMask) != NoError)
 				return false;
 
