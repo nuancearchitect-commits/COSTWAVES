@@ -161,10 +161,28 @@ struct CWMapRule {
 	GS::UniString	structureName;			// ex. "MUR_EXT_30", "BETON_25", "LUM_LED_01"
 	GS::UniString	articleId;				// identifiant unique CostWaves (ex. "CW-001")
 	CWQuantMode		mode = CWQuantMode::Element;	// élément ou composant (spec §11)
-	GS::UniString	quantity;				// quantité à adopter ("Surface nette"…), vide = automatique
-	bool			ignored = false;		// structure exclue du métré
+	GS::UniString	quantity;		// quantité à adopter ("Surface nette"…), vide = automatique
+
+	// « Valeur clé » : paramètre dont la valeur différencie les articles
+	// d'une même classe (ex. épaisseur — le même matériau donne BETON 15 cm
+	// et BETON 25 cm). Vide = l'article ne diffère pas par un paramètre.
+	GS::UniString	keyId;			// "element.thickness", "skin.thickness"… ou "property:<guid>"
+	GS::UniString	keyName;		// libellé d'affichage de la clé (ex. "Épaisseur de la couche")
+	bool		ignored = false;		// structure exclue du métré
 
 	CWMapRule () = default;
+};
+
+// --- « Valeur clé » disponible (entrée de catalogue) ------------------------------
+
+// Une clé du catalogue proposé dans la colonne « Valeur clé » : clés calculées
+// par COSTWAVES (géométrie) ou propriété Archicad du projet.
+struct CWKeyEntry {
+	GS::UniString	id;		// "element.thickness", "skin.thickness", … ou "property:<guid>"
+	GS::UniString	group;	// groupe d'affichage (ex. "Couche", "Général")
+	GS::UniString	name;	// libellé (ex. "Épaisseur de la couche du matériau")
+
+	CWKeyEntry () = default;
 };
 
 struct CWArticle {

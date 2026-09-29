@@ -340,6 +340,14 @@ Bouton **« Correspondance matériaux »** :
   décochée = « quantifié par matériau décomposé » (italique) : la structure
   n'est pas comptée comme un tout, le métré passe par les matériaux de ses
   couches ;
+- **Valeur clé** (dernière colonne de chaque ligne) : le clic ouvre le choix
+  d'un paramètre différenciant, pour créer des articles qui varient par
+  épaisseur, dimension… — clés calculées par COSTWAVES (épaisseur de
+  l'élément, de la couche du matériau, position de la couche, nombre de
+  couches, épaisseur totale du composite) ou **propriété Archicad** du
+  projet (intégrées et personnalisées, identifiées par GUID) ; « — (aucune) »
+  retire la clé. La valeur de la clé sera exploitée au métré (différenciation
+  des articles — étape suivante) ;
 - **Tableau des matériaux** du projet (Matériau | Classe) ;
 - **clic sur un matériau** → ouvre la fenêtre de choix de la classe :
   liste **« ID — Nom »** avec **barre de recherche en haut** (style

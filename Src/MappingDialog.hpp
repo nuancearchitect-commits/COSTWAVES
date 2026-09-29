@@ -16,6 +16,10 @@ namespace CostWaves {
 //    liste des classes « ID — Nom » avec barre de recherche (style sélecteur
 //    d'attributs Archicad) ; « (aucune) » = pas de correspondance (un
 //    matériau sans classe est déjà ignoré du métré) — pas d'option Ignorer ;
+//  - colonne « Valeur clé » : cliquer la cellule ouvre le choix d'un
+//    paramètre différenciant (ex. épaisseur) — clés calculées par COSTWAVES
+//    ou propriété Archicad — pour créer des articles qui varient par
+//    épaisseur, dimension… ;
 //  - « Enregistrer » écrit la bibliothèque dans
 //    <Documents>/CostWaves-regles.json (réutilisable entre projets).
 class MappingDialog final :	public DG::ModalDialog,

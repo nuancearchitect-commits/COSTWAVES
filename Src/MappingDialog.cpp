@@ -4,6 +4,8 @@
 
 #include "ArticleManager.hpp"
 #include "ArticlePickerDialog.hpp"
+#include "KeyCatalog.hpp"
+#include "KeyPickerDialog.hpp"
 #include "ModelReader.hpp"
 #include "RuleLibrary.hpp"
 
@@ -130,7 +132,9 @@ void MappingDialog::FillList ()
 
 	const bool materialMode = IsMaterialMode ();
 	const CWStructureType structureType = CurrentType ();
-	const short columnCount = materialMode ? 2 : 3;
+	// Matériau : Matériau | Classe | Valeur clé.
+	// Composite/profil : Composite | case à cocher | Article | Valeur clé.
+	const short columnCount = materialMode ? 3 : 4;
 
 	list.SetHeaderItemCount (columnCount);
 	list.SetTabFieldCount (columnCount);
@@ -143,9 +147,10 @@ void MappingDialog::FillList ()
 		list.SetHeaderItemText (2, FR (""));
 		list.SetHeaderItemText (3, FR ("Article"));
 	}
+	list.SetHeaderItemText (columnCount, FR ("Valeur clé"));
 
-	const short widthsMaterial[2] = { 280, 360 };
-	const short widthsStructure[3] = { 300, 60, 300 };
+	const short widthsMaterial[3] = { 200, 210, 250 };
+	const short widthsStructure[4] = { 170, 50, 200, 240 };
 	short position = 0;
 	for (short i = 1; i <= columnCount; ++i) {
 		const short width = materialMode ? widthsMaterial[i - 1] : widthsStructure[i - 1];
@@ -160,6 +165,7 @@ void MappingDialog::FillList ()
 		list.DeleteItem (1);
 
 	USize withArticle = 0;
+	USize withKey = 0;
 	for (UIndex m = 0; m < materials.GetSize (); ++m) {
 		list.AppendItem ();
 		const short item = list.GetItemCount ();
@@ -198,6 +204,16 @@ void MappingDialog::FillList ()
 				list.SetTabItemFontStyle (item, 3, DG::Font::Italic);
 			}
 		}
+
+		// Dernière colonne : « Valeur clé » — paramètre différenciant les
+		// articles d'une même classe (ex. épaisseur). « — » = aucun.
+		const short keyColumn = materialMode ? 3 : 4;
+		if (rule != nullptr && !rule->keyName.IsEmpty ()) {
+			++withKey;
+			list.SetTabItemText (item, keyColumn, rule->keyName);
+		} else {
+			list.SetTabItemText (item, keyColumn, FR ("—"));
+		}
 	}
 
 	isFilling = false;
@@ -206,12 +222,16 @@ void MappingDialog::FillList ()
 		SetStatus (GS::ToUniString (std::to_wstring (static_cast<int> (materials.GetSize ())))
 				   + FR (" matériau(x) · ")
 				   + GS::ToUniString (std::to_wstring (static_cast<int> (withArticle)))
-				   + FR (" avec classe"));
+				   + FR (" avec classe · ")
+				   + GS::ToUniString (std::to_wstring (static_cast<int> (withKey)))
+				   + FR (" avec valeur clé"));
 	} else {
 		SetStatus (GS::ToUniString (std::to_wstring (static_cast<int> (materials.GetSize ())))
 				   + (structureType == CWStructureType::Composite ? FR (" composite(s) · ") : FR (" profil(s) · "))
 				   + GS::ToUniString (std::to_wstring (static_cast<int> (withArticle)))
-				   + FR (" avec article — les autres quantifiés par leurs matériaux"));
+				   + FR (" avec article — les autres quantifiés par leurs matériaux · ")
+				   + GS::ToUniString (std::to_wstring (static_cast<int> (withKey)))
+				   + FR (" avec valeur clé"));
 	}
 }
 
@@ -284,6 +304,59 @@ void MappingDialog::OpenPickerForSelection ()
 }
 
 
+void MappingDialog::OpenKeyPickerForSelection ()
+{
+	if (selectedMaterial < 1 || static_cast<UIndex> (selectedMaterial) > materials.GetSize ())
+		return;
+
+	const CWStructureType structureType = CurrentType ();
+	const GS::UniString materialName = materials[static_cast<UIndex> (selectedMaterial) - 1];
+
+	// La valeur clé différencie les ARTICLES d'une même classe : elle n'a
+	// de sens que pour une structure qui a déjà sa classe (article).
+	const CWMapRule* rule = RuleLibrary::FindRule (rules, structureType, materialName);
+	if (rule == nullptr || rule->articleId.IsEmpty ()) {
+		SetStatus (FR ("« ") + materialName
+				   + FR (" » : choisissez d'abord sa classe — la valeur clé différencie ses articles."));
+		return;
+	}
+
+	GS::Array<CWKeyEntry> keys;
+	KeyCatalog::CollectAvailableKeys (keys);
+
+	KeyPickerDialog picker (keys, rule->keyId);
+	picker.Invoke ();
+	if (!picker.IsAccepted ())
+		return;
+
+	const short keyIndex = picker.GetSelectedKeyIndex ();
+	for (UIndex r = 0; r < rules.GetSize (); ++r) {
+		if (rules[r].structureType != structureType || rules[r].structureName != materialName)
+			continue;
+
+		if (keyIndex == 0) {
+			// « (aucune) » : retirer la valeur clé.
+			rules[r].keyId.Clear ();
+			rules[r].keyName.Clear ();
+			SetStatus (FR ("« ") + materialName + FR (" » : valeur clé retirée."));
+		} else if (keyIndex >= 1 && static_cast<UIndex> (keyIndex) <= keys.GetSize ()) {
+			const CWKeyEntry& key = keys[static_cast<UIndex> (keyIndex) - 1];
+			rules[r].keyId = key.id;
+			rules[r].keyName = key.name;
+			SetStatus (FR ("« ") + materialName + FR (" » — valeur clé : ") + key.name);
+		}
+		break;
+	}
+
+	FillList ();
+
+	isFilling = true;
+	if (selectedMaterial >= 1 && selectedMaterial <= list.GetItemCount ())
+		list.SelectItem (selectedMaterial);
+	isFilling = false;
+}
+
+
 void MappingDialog::SetStatus (const GS::UniString& message)
 {
 	statusText.SetText (message);
@@ -295,17 +368,12 @@ void MappingDialog::ListBoxSelectionChanged (const DG::ListBoxSelectionEvent& ev
 	if (ev.GetSource () != &list || isFilling)
 		return;
 
-	// Mode matériau : la sélection ouvre le choix de la classe. Les composites
-	// et profils passent par ListBoxClicked (case à cocher).
-	if (!IsMaterialMode ())
-		return;
-
+	// Le choix s'ouvre au CLIC (ListBoxClicked), qui connaît la COLONNE
+	// cliquée : « Classe »/« Article » -> classe ; « Valeur clé » ->
+	// paramètre différenciant. Ici, on ne fait que mémoriser la sélection.
 	const short newSelection = list.GetSelectedItem ();
-	if (newSelection < 1 || static_cast<UIndex> (newSelection) > materials.GetSize ())
-		return;
-
-	selectedMaterial = newSelection;
-	OpenPickerForSelection ();
+	if (newSelection >= 1 && static_cast<UIndex> (newSelection) <= materials.GetSize ())
+		selectedMaterial = newSelection;
 }
 
 
@@ -314,18 +382,21 @@ void MappingDialog::ListBoxClicked (const DG::ListBoxClickEvent& ev)
 	if (ev.GetSource () != &list || isFilling)
 		return;
 
-	// Mode composite / profil : le clic (sur la ligne ou sa case à cocher)
-	// ouvre le choix de la classe. « (aucune) » décoche -> quantifié par
-	// matériau décomposé.
-	if (IsMaterialMode ())
-		return;
-
-	const short clicked = list.GetSelectedItem ();
+	const short clicked = ev.GetListItem ();
 	if (clicked < 1 || static_cast<UIndex> (clicked) > materials.GetSize ())
 		return;
 
 	selectedMaterial = clicked;
-	OpenPickerForSelection ();
+
+	// Colonne « Valeur clé » -> catalogue des paramètres différenciants
+	// (clés calculées + propriétés Archicad) ; le reste de la ligne ->
+	// classe (article). Matériau, composite et profil suivent le même
+	// schéma.
+	const short keyColumn = IsMaterialMode () ? 3 : 4;
+	if (ev.GetTabFieldIndex () == keyColumn)
+		OpenKeyPickerForSelection ();
+	else
+		OpenPickerForSelection ();
 }
 
 
