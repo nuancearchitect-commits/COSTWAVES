@@ -11,31 +11,6 @@ GS::UniString FR (const char* utf8Text)
 	return GS::UniString (utf8Text, CC_UTF8);
 }
 
-// Mots-clés de PARAMÈTRES DE DIMENSION / POSITION : le catalogue ne
-// propose que les propriétés Archicad dont le nom parle d'épaisseur,
-// hauteur, profondeur, largeur, longueur, dimension ou position — de
-// tous les types et groupes (la liste complète serait trop grande).
-// Les variantes sans accent attrapent les noms mal pliés en majuscules.
-bool MatchesDimensionKeyword (const GS::UniString& name)
-{
-	static const char* kKeywords[] = {
-		"ÉPAISSEUR", "EPAISSEUR", "THICKNESS",
-		"HAUTEUR", "HEIGHT",
-		"PROFONDEUR", "DEPTH",
-		"LARGEUR", "WIDTH",
-		"LONGUEUR", "LENGTH",
-		"DIMENSION",
-		"POSITION"
-	};
-
-	const GS::UniString upper = name.ToUpperCase ();
-	for (const char* keyword : kKeywords) {
-		if (upper.Contains (GS::UniString (keyword, CC_UTF8)))
-			return true;
-	}
-	return false;
-}
-
 } // namespace
 
 
@@ -43,71 +18,35 @@ void KeyCatalog::CollectAvailableKeys (GS::Array<CWKeyEntry>& outKeys)
 {
 	outKeys.Clear ();
 
-	// --- Clés calculées par COSTWAVES (géométrie) --------------------------------
-	// Mesurées sur la maquette au moment du métré : elles ne dépendent
-	// d'aucune propriété projetée. « skin.* » s'applique au matériau de la
-	// couche (mode Matériau) ; les autres à la structure porteuse.
-	{
-		CWKeyEntry key;
+	CWKeyEntry key;
 
-		key.id = FR ("element.thickness");
-		key.group = FR ("Élément");
-		key.name = FR ("Épaisseur de l'élément");
-		outKeys.Push (key);
+	// --- Groupe « Composant » : la structure porteuse ------------------------------
+	// Géométrie de l'élément / du composite, mesurée sur la maquette au
+	// moment du métré.
+	key.group = FR ("Composant");
 
-		key.id = FR ("skin.thickness");
-		key.group = FR ("Couche");
-		key.name = FR ("Épaisseur de la couche du matériau");
-		outKeys.Push (key);
+	key.id = FR ("element.thickness");
+	key.name = FR ("Épaisseur de l'élément");
+	outKeys.Push (key);
 
-		key.id = FR ("skin.index");
-		key.group = FR ("Couche");
-		key.name = FR ("Position de la couche (1, 2, 3…)");
-		outKeys.Push (key);
+	key.id = FR ("structure.totalThickness");
+	key.name = FR ("Épaisseur totale du composite");
+	outKeys.Push (key);
 
-		key.id = FR ("skin.count");
-		key.group = FR ("Couche");
-		key.name = FR ("Nombre de couches de l'élément");
-		outKeys.Push (key);
+	// --- Groupe « Couche » : la couche (skin) du matériau ---------------------------
+	key.group = FR ("Couche");
 
-		key.id = FR ("structure.totalThickness");
-		key.group = FR ("Composite / profil");
-		key.name = FR ("Épaisseur totale du composite");
-		outKeys.Push (key);
-	}
+	key.id = FR ("skin.thickness");
+	key.name = FR ("Épaisseur de la couche du matériau");
+	outKeys.Push (key);
 
-	// --- Propriétés Archicad du projet (intégrées + personnalisées) ---------------
-	// Les définitions sont identifiées par leur GUID : un changement de
-	// libellé dans le gestionnaire de propriétés ne casse pas la règle.
-	GS::Array<API_PropertyGroup> groups;
-	if (ACAPI_Property_GetPropertyGroups (groups) != NoError)
-		return;
+	key.id = FR ("skin.index");
+	key.name = FR ("Position de la couche (1, 2, 3…)");
+	outKeys.Push (key);
 
-	for (UIndex g = 0; g < groups.GetSize (); ++g) {
-		// Les groupes intégrés peuvent avoir un nom vide (localisé par
-		// Archicad) : libellé de repli.
-		const GS::UniString groupName = groups[g].name.IsEmpty () ? FR ("Archicad") : groups[g].name;
-
-		GS::Array<API_PropertyDefinition> definitions;
-		if (ACAPI_Property_GetPropertyDefinitions (groups[g].guid, definitions) != NoError)
-			continue;
-
-		for (UIndex d = 0; d < definitions.GetSize (); ++d) {
-			if (definitions[d].name.IsEmpty ())
-				continue;
-
-			// Réduction du catalogue : seuls les paramètres de dimension /
-			// position sont proposés (épaisseur, hauteur, profondeur…).
-			if (!MatchesDimensionKeyword (definitions[d].name))
-				continue;
-
-			CWKeyEntry key;
-			key.id = FR ("property:") + APIGuidToString (definitions[d].guid);
-			key.group = groupName;
-			key.name = definitions[d].name;
-			outKeys.Push (key);
-		}
-	}
+	key.id = FR ("skin.count");
+	key.name = FR ("Nombre de couches de l'élément");
+	outKeys.Push (key);
 }
 
 } // namespace CostWaves

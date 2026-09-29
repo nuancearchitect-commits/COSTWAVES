@@ -37,7 +37,8 @@ public:
 		ListId			= 6,
 		StatusTextId	= 7,
 		SaveButtonId	= 8,
-		CloseButtonId	= 9
+		CloseButtonId	= 9,
+		GdlButtonId		= 10
 	};
 
 	MappingDialog ();
@@ -67,11 +68,12 @@ private:
 	DG::LeftText		typeLabel;
 	DG::PopUp		typePopup;
 	DG::LeftText		systemLabel;
-	DG::PopUp			systemPopup;
+	DG::PopUp		systemPopup;
 	DG::MultiSelListBox	list;
 	DG::LeftText		statusText;
-	DG::Button			saveButton;
-	DG::Button			closeButton;
+	DG::Button		saveButton;
+	DG::Button		closeButton;
+	DG::Button		gdlButton;		// « Objets GDL… » : correspondances objets GDL
 
 	GS::Array<CWSystemInfo>		systems;		// systèmes de classification du projet
 	GS::Array<CWArticle>		articles;		// classes du système sélectionné

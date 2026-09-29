@@ -11,11 +11,9 @@ namespace CostWaves {
 
 // Sélecteur de « valeur clé » (paramètre différenciant les articles d'une
 // même classe, ex. épaisseur). Pour garder la liste courte :
-//  - un FILTRE PAR GROUPE (popup) : clés calculées COSTWAVES (Élément,
-//    Couche, Composite/profil) puis groupes de propriétés Archicad ;
-//  - une barre de recherche ;
-//  - le catalogue ne propose que des paramètres de DIMENSION/POSITION
-//    (épaisseur, hauteur, profondeur, largeur, longueur, position).
+//  - un FILTRE PAR GROUPE (popup) : « Composant » (structure porteuse) et
+//    « Couche » (skin du matériau) — clés calculées par COSTWAVES ;
+//  - une barre de recherche.
 // La première entrée « — (aucune) » retire la clé. Double-clic ou
 // « Choisir » valide.
 class KeyPickerDialog final :	public DG::ModalDialog,

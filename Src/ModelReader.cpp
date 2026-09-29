@@ -125,6 +125,75 @@ GS::UniString ModelReader::GetTypeName (const API_ElemType& type)
 }
 
 
+bool ModelReader::GetLibraryPartParameters (const GS::UniString& libPartName,
+											GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams)
+{
+	outParams.Clear ();
+	if (libPartName.IsEmpty ())
+		return false;
+
+	// Retrouver l'index de l'objet de bibliothèque par son nom.
+	Int32 partCount = 0;
+	if (ACAPI_LibraryPart_GetNum (&partCount) != NoError || partCount <= 0)
+		return false;
+
+	Int32 foundIndex = 0;
+	for (Int32 i = 1; i <= partCount && foundIndex == 0; ++i) {
+		API_LibPart libPart;
+		BNZeroMemory (&libPart, sizeof (libPart));
+		libPart.index = i;
+		if (ACAPI_LibraryPart_Get (&libPart) == NoError) {
+			if (GS::UniString (libPart.docu_UName) == libPartName)
+				foundIndex = i;
+		}
+		// ACAPI_LibraryPart_Get alloue libPart.location : le libérer.
+		delete libPart.location;
+		libPart.location = nullptr;
+	}
+	if (foundIndex == 0)
+		return false;
+
+	// Paramètres par défaut de l'objet (pattern DevKit LibPart_Test) :
+	// OpenParameters -> GetActParameters -> CloseParameters.
+	API_ParamOwnerType paramOwner;
+	BNZeroMemory (&paramOwner, sizeof (paramOwner));
+	paramOwner.libInd = foundIndex;
+	if (ACAPI_LibraryPart_OpenParameters (&paramOwner) != NoError)
+		return false;
+
+	bool result = false;
+	API_GetParamsType getParams;
+	BNZeroMemory (&getParams, sizeof (getParams));
+	if (ACAPI_LibraryPart_GetActParameters (&getParams) == NoError) {
+		result = true;
+		if (getParams.params != nullptr && *getParams.params != nullptr) {
+			const GSSize nParams = BMGetHandleSize (reinterpret_cast<GSHandle> (getParams.params))
+				/ static_cast<GSSize> (sizeof (API_AddParType));
+			for (GSIndex p = 0; p < nParams; ++p) {
+				const API_AddParType& par = (*getParams.params)[p];
+				// Titres et séparateurs : lignes de présentation, pas des
+				// paramètres ; paramètres cachés : pas dans les réglages.
+				if (par.typeID == APIParT_Title || par.typeID == APIParT_Separator)
+					continue;
+				if ((par.flags & API_ParFlg_Hidden) != 0 || (par.flags & API_ParFlg_SHidden) != 0)
+					continue;
+
+				const GS::UniString name (par.name);
+				if (name.IsEmpty ())
+					continue;
+				const GS::UniString description (par.uDescname);
+				outParams.Push (GS::Pair<GS::UniString, GS::UniString> (
+					description.IsEmpty () ? name : description, name));
+			}
+		}
+		ACAPI_DisposeAddParHdl (&getParams.params);
+	}
+	ACAPI_LibraryPart_CloseParameters ();
+
+	return result;
+}
+
+
 GS::UniString ModelReader::GetBuildingMaterialName (API_AttributeIndex index)
 {
 	// Phase 3 : un seul ACAPI_Attribute_Get par matériau distinct.

@@ -341,17 +341,18 @@ Bouton **« Correspondance matériaux »** :
   n'est pas comptée comme un tout, le métré passe par les matériaux de ses
   couches ;
 - **Valeur clé** (dernière colonne de chaque ligne) : le clic ouvre le choix
-  d'un paramètre différenciant, pour créer des articles qui varient par
-  épaisseur, dimension… — le sélecteur se réduit par **filtre de groupe**
-  (popup « Groupe : » : clés calculées COSTWAVES, puis groupes de propriétés
-  Archicad) et par recherche ; le catalogue ne propose que des paramètres
-  de **dimension/position** (épaisseur, hauteur, profondeur, largeur,
-  longueur, position) : clés calculées par COSTWAVES (épaisseur de
-  l'élément, de la couche du matériau, position de la couche, nombre de
-  couches, épaisseur totale du composite) ou **propriété Archicad** du
-  projet (identifiée par GUID) ; « — (aucune) »
-  retire la clé. La valeur de la clé sera exploitée au métré (différenciation
-  des articles — étape suivante) ;
+  d'un paramètre différenciant (recherche + filtre de groupe) — deux groupes
+  de clés calculées par COSTWAVES : **Composant** (épaisseur de l'élément,
+  épaisseur totale du composite) et **Couche** (épaisseur de la couche du
+  matériau, position de la couche, nombre de couches) ; « — (aucune) »
+  retire la clé. La valeur de la clé sera exploitée au métré
+  (différenciation des articles — étape suivante) ;
+- **Objets GDL** (bouton « Objets GDL… ») : fenêtre dédiée aux objets de
+  bibliothèque — « Ajouter… » enchaîne : choix de l'objet (.gsm posables
+  chargés, recherche), sa classe (article), puis sa valeur clé parmi les
+  **paramètres GDL de l'objet** (libellé + nom GDL) ; la classe
+  « (aucune) » retire la correspondance. Règles enregistrées dans la même
+  bibliothèque (type « object ») ;
 - **Tableau des matériaux** du projet (Matériau | Classe) ;
 - **clic sur un matériau** → ouvre la fenêtre de choix de la classe :
   liste **« ID — Nom »** avec **barre de recherche en haut** (style

@@ -116,6 +116,14 @@ public:
 	// Nom d'un matériau de construction par index (avec cache).
 	static GS::UniString	GetBuildingMaterialName (API_AttributeIndex index);
 
+	// Paramètres GDL d'un objet de bibliothèque, par nom d'attribut
+	// (valeurs clés de la correspondance objets GDL). Paires
+	// (libellé lisible, nom GDL stable) ; titres, séparateurs et
+	// paramètres cachés exclus. Retourne false si l'objet est
+	// introuvable ou sans paramètres lisibles.
+	static bool	GetLibraryPartParameters (const GS::UniString& libPartName,
+										 GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams);
+
 private:
 	// Caches de lecture (phase 3 : un seul appel API par attribut distinct),
 	// purgés au début de chaque Scan.

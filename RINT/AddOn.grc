@@ -46,7 +46,8 @@
 /* [  7] */ LeftText                    10  472  680   36 SmallPlain vTop | noTrunc Default ""
 /* [  8] */ Button                      10  580  130   23 LargePlain "Enregistrer"
 /* [  9] */ Button                     560  580  130   23 LargePlain "Fermer"
-}
+/* [ 10] */ Button                     150  580  160   23 LargePlain "Objets GDL…"
+
 
 'DLGH' ID_ADDON_DLG_MAPPING DLG_Mapping {
 1    ""        LeftText_0
@@ -58,6 +59,7 @@
 7    ""        LeftText_3
 8    ""        Button_0
 9    ""        Button_1
+10   ""        Button_2
 }
 
 'GDLG' ID_ADDON_DLG_KEYPICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir la valeur clé" {
@@ -76,4 +78,48 @@
 4    ""        MultiSelList_0
 5    ""        Button_0
 6    ""        Button_1
+}
+
+'GDLG' ID_ADDON_DLG_GDL Modal |noGrow   60   60  560 470  "CostWaves — Correspondances objets GDL" {
+/* [  1] */	LeftText                    10   12  540   30 LargePlain vTop | noTrunc Default ""
+/* [  2] */	MultiSelList                10   48  540  330 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	LeftText                    10  384  540   28 SmallPlain vTop | noTrunc Default ""
+/* [  4] */	Button                      10  432  130   23 LargePlain "Ajouter…"
+/* [  5] */	Button                     450  432  100   23 LargePlain "Fermer"
+}
+
+'DLGH' ID_ADDON_DLG_GDL DLG_Gdl_Mapping {
+1    ""        LeftText_0
+2    ""        MultiSelList_0
+3    ""        LeftText_1
+4    ""        Button_0
+5    ""        Button_1
+}
+
+'GDLG' ID_ADDON_DLG_OBJPICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir l'objet" {
+/* [  1] */	SearchEdit                   10   12  540   22 LargePlain frame | update | absolute | editable 60
+/* [  2] */	MultiSelList                10   44  540  330 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	Button                      350  390  100   23 LargePlain "Choisir"
+/* [  4] */	Button                     450  390  100   23 LargePlain "Annuler"
+}
+
+'DLGH' ID_ADDON_DLG_OBJPICKER DLG_Object_Picker {
+1    ""        SearchEdit_0
+2    ""        MultiSelList_0
+3    ""        Button_0
+4    ""        Button_1
+}
+
+'GDLG' ID_ADDON_DLG_PARAMPICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir le paramètre GDL" {
+/* [  1] */	SearchEdit                   10   12  540   22 LargePlain frame | update | absolute | editable 60
+/* [  2] */	MultiSelList                10   44  540  330 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	Button                      350  390  100   23 LargePlain "Choisir"
+/* [  4] */	Button                     450  390  100   23 LargePlain "Annuler"
+}
+
+'DLGH' ID_ADDON_DLG_PARAMPICKER DLG_Param_Picker {
+1    ""        SearchEdit_0
+2    ""        MultiSelList_0
+3    ""        Button_0
+4    ""        Button_1
 }
