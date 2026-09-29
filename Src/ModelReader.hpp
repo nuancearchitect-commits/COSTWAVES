@@ -120,8 +120,9 @@ public:
 	// (valeurs clés de la correspondance objets GDL). Seules les
 	// variables de TYPE LONGUEUR sont retournées (épaisseur, hauteur,
 	// dimensions…), hors tableaux et paramètres cachés. Paires
-	// (libellé lisible, nom GDL stable). outNote explique un échec ou
-	// une liste vide (diagnostic affiché à l'utilisateur).
+	// (libellé lisible, nom GDL stable). En cas de succès, outNote
+	// contient le COMPTAGE (paramètres lus, de type longueur, source :
+	// bibliothèque ou élément posé) ; en cas d'échec, la cause.
 	static bool	GetLibraryPartParameters (const GS::UniString& libPartName,
 										 GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
 										 GS::UniString& outNote);

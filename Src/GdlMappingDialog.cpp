@@ -164,8 +164,9 @@ void GdlMappingDialog::AddRule ()
 
 	// 3) La valeur clé : une variable GDL de TYPE LONGUEUR de l'objet
 	//    (épaisseur, hauteur, dimensions…), facultative. Annuler le choix
-	//    = pas de clé (l'article choisi reste enregistré). Un échec de
-	//    lecture est EXPLIQUÉ dans la ligne d'état (jamais silencieux).
+	//    = pas de clé (l'article choisi reste enregistré). Le comptage
+	//    (paramètres lus / de type longueur / source) est TOUJOURS
+	//    affiché dans la ligne d'état.
 	GS::UniString keyId;
 	GS::UniString keyName;
 	GS::UniString paramNote;
@@ -173,8 +174,6 @@ void GdlMappingDialog::AddRule ()
 		GS::Array<GS::Pair<GS::UniString, GS::UniString>> params;
 		if (ModelReader::GetLibraryPartParameters (objectName, params, paramNote)
 			&& !params.IsEmpty ()) {
-			paramNote.Clear ();		// la liste va s'afficher : plus de note
-
 			GdlItemPickerDialog paramPicker (ID_ADDON_DLG_PARAMPICKER, FR ("Paramètre"), FR ("Nom GDL"),
 											 params, true);
 			paramPicker.Invoke ();
@@ -222,9 +221,8 @@ void GdlMappingDialog::AddRule ()
 			rules.Push (rule);
 
 		SetStatus (FR ("« ") + objectName + FR (" » → ") + article.id + FR (" — ") + article.name
-				   + (keyName.IsEmpty ()
-					   ? (paramNote.IsEmpty () ? GS::UniString () : FR (" · sans clé (") + paramNote + FR (")"))
-					   : FR (" · clé : ") + keyName));
+				   + (keyName.IsEmpty () ? GS::UniString () : FR (" · clé : ") + keyName)
+				   + (paramNote.IsEmpty () ? GS::UniString () : FR (" · ") + paramNote));
 	}
 
 	FillList ();
