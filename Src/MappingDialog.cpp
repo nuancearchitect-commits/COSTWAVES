@@ -185,7 +185,7 @@ void MappingDialog::FillList ()
 			// matériaux de ses couches.
 			const bool hasArticle = (rule != nullptr && !rule->articleId.IsEmpty ());
 			list.SetTabItemIcon (item, 2, DG::Icon (SysResModule,
-				hasArticle ? DG::ListBox::CheckedIcon : DG::ListBox::UncheckedIcon));
+				static_cast<short> (hasArticle ? DG::ListBox::CheckedIcon : DG::ListBox::UncheckedIcon)));
 			if (hasArticle) {
 				++withArticle;
 				const CWArticle* article = ArticleManager::FindArticle (articles, rule->articleId);
