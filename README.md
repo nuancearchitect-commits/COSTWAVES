@@ -331,7 +331,15 @@ pas un choix.
 Menu **NUANCE BIM** (barre de menus) → **COSTWAVES…** ouvre la palette.
 Bouton **« Correspondance matériaux »** :
 
+- **Filtre Type** : Matériau / Composite / Profil complexe ;
 - **Filtre Classification** : système dont les classes sont les articles ;
+- **Matériaux** : clic sur la ligne → choix de la classe (fenêtre avec
+  recherche) ; sans classe = ignoré du métré ;
+- **Composites et profils** : case à cocher en bout de ligne — le clic ouvre
+  le choix de la classe ; cochée = la colonne suivante affiche l'article ;
+  décochée = « quantifié par matériau décomposé » (italique) : la structure
+  n'est pas comptée comme un tout, le métré passe par les matériaux de ses
+  couches ;
 - **Tableau des matériaux** du projet (Matériau | Classe) ;
 - **clic sur un matériau** → ouvre la fenêtre de choix de la classe :
   liste **« ID — Nom »** avec **barre de recherche en haut** (style

@@ -38,20 +38,24 @@
 
 'GDLG' ID_ADDON_DLG_MAPPING Modal |noGrow   60   60  700 620  "CostWaves — Correspondances matériaux" {
 /* [  1] */ LeftText                    10   12  680   30 LargePlain vTop | noTrunc Default ""
-/* [  2] */ LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
-/* [  3] */ PopupControl               125   47  565   22 80 3
-/* [  4] */ MultiSelList                10   80  680  380 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  5] */ LeftText                    10  472  680   36 SmallPlain vTop | noTrunc Default ""
-/* [  6] */ Button                      10  580  130   23 LargePlain "Enregistrer"
-/* [  7] */ Button                     560  580  130   23 LargePlain "Fermer"
+/* [  2] */ LeftText                    10   50   50   18 LargePlain vTop | noTrunc Default "Type :"
+/* [  3] */ PopupControl                65   47  150   22 80 3
+/* [  4] */ LeftText                   230   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
+/* [  5] */ PopupControl               345   47  345   22 80 3
+/* [  6] */ MultiSelList                10   80  680  380 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  7] */ LeftText                    10  472  680   36 SmallPlain vTop | noTrunc Default ""
+/* [  8] */ Button                      10  580  130   23 LargePlain "Enregistrer"
+/* [  9] */ Button                     560  580  130   23 LargePlain "Fermer"
 }
 
 'DLGH' ID_ADDON_DLG_MAPPING DLG_Mapping {
 1    ""        LeftText_0
 2    ""        LeftText_1
 3    ""        PopupControl_0
-4    ""        MultiSelList_0
-5    ""        LeftText_2
-6    ""        Button_0
-7    ""        Button_1
+4    ""        LeftText_2
+5    ""        PopupControl_1
+6    ""        MultiSelList_0
+7    ""        LeftText_3
+8    ""        Button_0
+9    ""        Button_1
 }

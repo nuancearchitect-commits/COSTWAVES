@@ -26,12 +26,14 @@ class MappingDialog final :	public DG::ModalDialog,
 public:
 	enum ItemIds {
 		InfoTextId		= 1,
-		SystemLabelId	= 2,
-		SystemPopupId	= 3,
-		ListId			= 4,
-		StatusTextId	= 5,
-		SaveButtonId	= 6,
-		CloseButtonId	= 7
+		TypeLabelId		= 2,
+		TypePopupId		= 3,
+		SystemLabelId	= 4,
+		SystemPopupId	= 5,
+		ListId			= 6,
+		StatusTextId	= 7,
+		SaveButtonId	= 8,
+		CloseButtonId	= 9
 	};
 
 	MappingDialog ();
@@ -42,10 +44,14 @@ private:
 
 	// DG::ListBoxObserver
 	virtual void	ListBoxSelectionChanged (const DG::ListBoxSelectionEvent& ev) override;
+	virtual void	ListBoxClicked (const DG::ListBoxClickEvent& ev) override;
 
 	// DG::PopUpObserver
 	virtual void	PopUpChanged (const DG::PopUpChangeEvent& ev) override;
 
+	// Type affiché : Matériau (1), Composite (2), Profil (3).
+	bool			IsMaterialMode () const;
+	CWStructureType	CurrentType () const;
 	void	RefreshMaterials ();		// matériaux du projet -> liste
 	void	RefreshArticles ();		// classes du système choisi
 	void	FillList ();
@@ -53,6 +59,8 @@ private:
 	void	SetStatus (const GS::UniString& message);
 
 	DG::LeftText		infoText;
+	DG::LeftText		typeLabel;
+	DG::PopUp		typePopup;
 	DG::LeftText		systemLabel;
 	DG::PopUp			systemPopup;
 	DG::MultiSelListBox	list;
