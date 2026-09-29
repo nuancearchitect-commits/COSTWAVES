@@ -166,22 +166,29 @@ void GdlMappingDialog::AddRule ()
 	//    (épaisseur, hauteur, dimensions…), facultative. Annuler le choix
 	//    = pas de clé (l'article choisi reste enregistré). Le comptage
 	//    (paramètres lus / de type longueur / source) est TOUJOURS
-	//    affiché dans la ligne d'état.
+	//    affiché dans la ligne d'état ; une ALERTE explique toute liste
+	//    vide ou réduite aux paramètres fixes (répartition des types) —
+	//    le diagnostic complet va dans Documents/CostWaves-diagnostic.txt.
 	GS::UniString keyId;
 	GS::UniString keyName;
 	GS::UniString paramNote;
+	GS::UniString paramAlert;
 	if (articleIndex != 0) {
 		GS::Array<GS::Pair<GS::UniString, GS::UniString>> params;
-		if (ModelReader::GetLibraryPartParameters (objectName, params, paramNote)
-			&& !params.IsEmpty ()) {
-			GdlItemPickerDialog paramPicker (ID_ADDON_DLG_PARAMPICKER, FR ("Paramètre"), FR ("Nom GDL"),
-											 params, true);
-			paramPicker.Invoke ();
-			if (paramPicker.IsAccepted ()) {
-				const short paramIndex = paramPicker.GetSelectedItemIndex ();
-				if (paramIndex >= 1 && static_cast<UIndex> (paramIndex) <= params.GetSize ()) {
-					keyId = params[static_cast<UIndex> (paramIndex) - 1].second;		// nom GDL stable
-					keyName = params[static_cast<UIndex> (paramIndex) - 1].first;	// libellé lisible
+		if (ModelReader::GetLibraryPartParameters (objectName, params, paramNote, paramAlert)) {
+			if (!paramAlert.IsEmpty ())
+				DG::WarningAlert (FR ("Valeurs clés limitées pour « ") + objectName + FR (" »"),
+								  paramAlert, FR ("OK"));
+			if (!params.IsEmpty ()) {
+				GdlItemPickerDialog paramPicker (ID_ADDON_DLG_PARAMPICKER, FR ("Paramètre"), FR ("Nom GDL"),
+												 params, true);
+				paramPicker.Invoke ();
+				if (paramPicker.IsAccepted ()) {
+					const short paramIndex = paramPicker.GetSelectedItemIndex ();
+					if (paramIndex >= 1 && static_cast<UIndex> (paramIndex) <= params.GetSize ()) {
+						keyId = params[static_cast<UIndex> (paramIndex) - 1].second;		// nom GDL stable
+						keyName = params[static_cast<UIndex> (paramIndex) - 1].first;	// libellé lisible
+					}
 				}
 			}
 		}

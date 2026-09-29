@@ -5,6 +5,7 @@
 #include "ModelReader.hpp"
 
 #include "ArticleManager.hpp"
+#include "Exporter.hpp"
 #include "RuleLibrary.hpp"
 #include "UniStringWStringConversion.hpp"
 
@@ -127,27 +128,70 @@ GS::UniString ModelReader::GetTypeName (const API_ElemType& type)
 
 namespace {
 
-// Collecte les paramètres de TYPE LONGUEUR (simples, non cachés) d'une
-// liste de paramètres ouverte ; compte aussi le total hors titres et
-// séparateurs (diagnostic). Paires (libellé lisible, nom GDL stable).
-void CollectLengthParams (const API_GetParamsType& getParams,
-						  GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
-						  USize& outTotalCount, USize& outLengthCount)
+// Libellé court d'un type de paramètre GDL (diagnostic).
+const char* GdlParamTypeLabel (API_AddParID typeID)
 {
-	outParams.Clear ();
-	outTotalCount = 0;
-	outLengthCount = 0;
+	switch (typeID) {
+		case APIParT_Integer:	return "entier";
+		case APIParT_Length:	return "longueur";
+		case APIParT_Angle:		return "angle";
+		case APIParT_RealNum:	return "réel";
+		case APIParT_CString:	return "texte";
+		case APIParT_Boolean:	return "bool";
+		case APIParT_Title:		return "titre";
+		case APIParT_Separator:	return "séparateur";
+		default:				return "autre";
+	}
+}
+
+// Résultat de lecture d'une liste de paramètres GDL.
+struct GdlParamsResult {
+	GS::Array<GS::Pair<GS::UniString, GS::UniString>>	lengthParams;	// (libellé, nom GDL) de type longueur
+	USize		totalCount = 0;		// paramètres hors titres/séparateurs
+	USize		lengthCount = 0;	// de type longueur (simples, non cachés)
+	GS::UniString	dump;			// liste complète « nom [type] — libellé »
+	GS::UniString	shortList;		// 30 premières lignes « nom (type) »
+	GS::UniString	typeSummary;	// « longueur : 3, réel : 20… »
+	bool		opened = false;		// lecture réussie
+};
+
+// Collecte les longueurs + diagnostic complet d'une liste ouverte.
+void CollectLengthParams (const API_GetParamsType& getParams, GdlParamsResult& outResult)
+{
 	if (getParams.params == nullptr || *getParams.params == nullptr)
 		return;
 
+	Int32 typeCounts[APIParT_MAX_TYPE_INDEX + 1];
+	for (int t = 0; t <= APIParT_MAX_TYPE_INDEX; ++t)
+		typeCounts[t] = 0;
+
+	int shortCount = 0;
 	const GSSize nParams = BMGetHandleSize (reinterpret_cast<GSHandle> (getParams.params))
 		/ static_cast<GSSize> (sizeof (API_AddParType));
 	for (GSIndex p = 0; p < nParams; ++p) {
 		const API_AddParType& par = (*getParams.params)[p];
+		const GS::UniString name (par.name);
+		const GS::UniString description (par.uDescname);
+		const char* typeLabel = GdlParamTypeLabel (par.typeID);
+
+		const int typeIndex = static_cast<int> (par.typeID);
+		if (typeIndex >= 0 && typeIndex <= APIParT_MAX_TYPE_INDEX)
+			++typeCounts[typeIndex];
+
+		// Diagnostic : liste complète (tous types).
+		outResult.dump += name + FR (" [") + FR (typeLabel) + FR ("]")
+						  + (description.IsEmpty () ? GS::UniString () : FR (" — ") + description)
+						  + FR ("\n");
+		if (shortCount < 30) {
+			outResult.shortList += name + FR (" (") + FR (typeLabel) + FR (")\n");
+			++shortCount;
+		}
+
 		// Titres et séparateurs : lignes de présentation.
 		if (par.typeID == APIParT_Title || par.typeID == APIParT_Separator)
 			continue;
-		++outTotalCount;
+		++outResult.totalCount;
+
 		// Seules les variables GDL de TYPE LONGUEUR sont proposées comme
 		// valeurs clés (épaisseur, hauteur, dimensions…).
 		if (par.typeID != APIParT_Length)
@@ -159,34 +203,40 @@ void CollectLengthParams (const API_GetParamsType& getParams,
 		if ((par.flags & API_ParFlg_Hidden) != 0 || (par.flags & API_ParFlg_SHidden) != 0)
 			continue;
 
-		const GS::UniString name (par.name);
 		if (name.IsEmpty ())
 			continue;
-		const GS::UniString description (par.uDescname);
-		outParams.Push (GS::Pair<GS::UniString, GS::UniString> (
+		outResult.lengthParams.Push (GS::Pair<GS::UniString, GS::UniString> (
 			description.IsEmpty () ? name : description, name));
-		++outLengthCount;
+		++outResult.lengthCount;
+	}
+
+	bool firstType = true;
+	for (int t = 0; t <= APIParT_MAX_TYPE_INDEX; ++t) {
+		if (typeCounts[t] == 0)
+			continue;
+		if (!firstType)
+			outResult.typeSummary += FR (", ");
+		firstType = false;
+		outResult.typeSummary += FR (GdlParamTypeLabel (static_cast<API_AddParID> (t)))
+								  + FR (" : ") + GS::ToUniString (std::to_wstring (static_cast<int> (typeCounts[t])));
 	}
 }
 
-// Ouvre une liste de paramètres, collecte les longueurs, referme.
-bool OpenAndCollectLengthParams (API_ParamOwnerType& owner,
-								 GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
-								 USize& outTotalCount, USize& outLengthCount)
+// Ouvre une liste de paramètres, collecte, referme.
+bool OpenAndCollectLengthParams (API_ParamOwnerType& owner, GdlParamsResult& outResult)
 {
 	if (ACAPI_LibraryPart_OpenParameters (&owner) != NoError)
 		return false;
 
-	bool collected = false;
 	API_GetParamsType getParams;
 	BNZeroMemory (&getParams, sizeof (getParams));
 	if (ACAPI_LibraryPart_GetActParameters (&getParams) == NoError) {
-		CollectLengthParams (getParams, outParams, outTotalCount, outLengthCount);
-		collected = true;
+		CollectLengthParams (getParams, outResult);
+		outResult.opened = true;
 		ACAPI_DisposeAddParHdl (&getParams.params);
 	}
 	ACAPI_LibraryPart_CloseParameters ();
-	return collected;
+	return outResult.opened;
 }
 
 // Premier élément posé utilisant l'objet de bibliothèque d'index libInd
@@ -234,15 +284,29 @@ bool FindPlacedElementUsingLibPart (API_LibTypeID libTypeID, Int32 libInd,
 	return false;
 }
 
+// Fichier de diagnostic : <Documents>/CostWaves-diagnostic.txt.
+GS::UniString GdlDiagnosticFilePath ()
+{
+	API_SpecFolderID specFolder = API_UserDocumentsFolderID;
+	IO::Location documentsLocation;
+	if (ACAPI_ProjectSettings_GetSpecFolder (&specFolder, &documentsLocation) != NoError)
+		return GS::UniString ();
+	GS::UniString documentsPath;
+	if (documentsLocation.ToPath (&documentsPath) != NoError || documentsPath.IsEmpty ())
+		return GS::UniString ();
+	return documentsPath + "/CostWaves-diagnostic.txt";
+}
+
 } // namespace
 
 
 bool ModelReader::GetLibraryPartParameters (const GS::UniString& libPartName,
 											GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
-											GS::UniString& outNote)
+											GS::UniString& outNote, GS::UniString& outAlert)
 {
 	outParams.Clear ();
 	outNote.Clear ();
+	outAlert.Clear ();
 	if (libPartName.IsEmpty ())
 		return false;
 
@@ -282,60 +346,85 @@ bool ModelReader::GetLibraryPartParameters (const GS::UniString& libPartName,
 
 	// Passe 1 : paramètres par DÉFAUT de l'objet (pattern DevKit
 	// LibPart_Test) : OpenParameters -> GetActParameters -> CloseParameters.
-	API_ParamOwnerType owner;
-	BNZeroMemory (&owner, sizeof (owner));
-	owner.libInd = foundIndex;
-	USize totalCount = 0;
-	USize lengthCount = 0;
-	if (!OpenAndCollectLengthParams (owner, outParams, totalCount, lengthCount)) {
-		// Repli : certains builds exigent aussi le type d'élément cible.
+	GdlParamsResult def;
+	{
+		API_ParamOwnerType owner;
 		BNZeroMemory (&owner, sizeof (owner));
 		owner.libInd = foundIndex;
-		owner.type.typeID = API_ObjectID;
-		if (!OpenAndCollectLengthParams (owner, outParams, totalCount, lengthCount)) {
-			outNote = FR ("ouverture des paramètres GDL impossible");
-			return false;
+		if (!OpenAndCollectLengthParams (owner, def)) {
+			// Repli : certains builds exigent aussi le type d'élément cible.
+			BNZeroMemory (&owner, sizeof (owner));
+			owner.libInd = foundIndex;
+			owner.type.typeID = API_ObjectID;
+			OpenAndCollectLengthParams (owner, def);
 		}
 	}
 
-	bool fromElement = false;
-
-	// Passe 2 : si seuls les paramètres FIXES (A, B, ZZYZX) ressortent de
-	// la bibliothèque, lire les paramètres d'une INSTANCE POSÉE de l'objet
-	// — la liste y est complète, valeurs effectives comprises.
-	if (lengthCount <= 3) {
+	// Passe 2 : TOUJOURS tenter une INSTANCE POSÉE de l'objet — la liste
+	// y est complète, valeurs effectives comprises. La source la plus
+	// riche en variables longueur gagne.
+	GdlParamsResult elem;
+	bool hasElement = false;
+	{
 		API_Guid elemGuid;
 		API_ElemType elemType;
 		if (FindPlacedElementUsingLibPart (foundType, foundIndex, elemGuid, elemType)) {
 			API_ParamOwnerType elemOwner;
 			BNZeroMemory (&elemOwner, sizeof (elemOwner));
 			elemOwner.guid = elemGuid;
-#ifdef ServerMainVers_2600
 			elemOwner.type = elemType;
-#else
-			elemOwner.typeID = elemType.typeID;
-#endif
-			GS::Array<GS::Pair<GS::UniString, GS::UniString>> elemParams;
-			USize elemTotal = 0;
-			USize elemLength = 0;
-			if (OpenAndCollectLengthParams (elemOwner, elemParams, elemTotal, elemLength)
-				&& elemLength > lengthCount) {
-				outParams = elemParams;
-				totalCount = elemTotal;
-				lengthCount = elemLength;
-				fromElement = true;
-			}
+			if (OpenAndCollectLengthParams (elemOwner, elem))
+				hasElement = true;
 		}
 	}
 
-	// Note de diagnostic TOUJOURS renseignée : elle distingue « l'objet
-	// n'a pas de variable de type longueur » (total élevé, longueur = 3)
-	// de « la lecture a échoué ».
-	outNote = GS::ToUniString (std::to_wstring (static_cast<int> (totalCount)))
+	if (!def.opened && !hasElement) {
+		outNote = FR ("ouverture des paramètres GDL impossible");
+		return false;
+	}
+
+	const bool fromElement = hasElement && (!def.opened || elem.lengthCount > def.lengthCount);
+	const GdlParamsResult& best = fromElement ? elem : def;
+	outParams = best.lengthParams;
+
+	// Note de comptage (toujours affichée dans la ligne d'état).
+	outNote = GS::ToUniString (std::to_wstring (static_cast<int> (best.totalCount)))
 			  + FR (" paramètre(s) GDL lu(s), ")
-			  + GS::ToUniString (std::to_wstring (static_cast<int> (lengthCount)))
+			  + GS::ToUniString (std::to_wstring (static_cast<int> (best.lengthCount)))
 			  + FR (" de type longueur — source : ")
 			  + (fromElement ? FR ("élément posé") : FR ("bibliothèque"));
+
+	// Diagnostic complet dans <Documents>/CostWaves-diagnostic.txt
+	// (répartition par type + liste intégrale, toutes sources).
+	GS::UniString diagPath;
+	{
+		GS::UniString content;
+		content += FR ("Objet : ") + libPartName + FR ("\n\n");
+		content += FR ("=== Paramètres de la bibliothèque (défauts) ===\n");
+		content += FR ("Types : ") + (def.typeSummary.IsEmpty () ? FR ("lecture échouée") : def.typeSummary) + FR ("\n");
+		content += def.dump + FR ("\n");
+		if (hasElement) {
+			content += FR ("=== Paramètres de l'élément posé ===\n");
+			content += FR ("Types : ") + elem.typeSummary + FR ("\n");
+			content += elem.dump + FR ("\n");
+		} else {
+			content += FR ("=== Aucun élément posé de cet objet trouvé ===\n\n");
+		}
+		diagPath = GdlDiagnosticFilePath ();
+		if (!diagPath.IsEmpty ())
+			Exporter::WriteUtf8File (diagPath, content, false);
+	}
+
+	// Alerte (difficile à manquer) si la liste des longueurs est vide ou
+	// réduite aux paramètres fixes : l'utilisateur voit la répartition
+	// réelle des types — le diagnostic n'est plus jamais silencieux.
+	if (outParams.GetSize () <= 3) {
+		outAlert = FR ("Liste limitée : ") + best.typeSummary + FR ("\n\n")
+				   + FR ("Paramètres de l'objet :\n") + best.shortList
+				   + FR ("\nDétails complets : ") + diagPath
+				   + FR ("\nSi vos dimensions apparaissent avec un type autre que « longueur »,")
+				   + FR (" signalez-le : le filtre sera élargi.");
+	}
 
 	return true;
 }
