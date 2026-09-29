@@ -47,7 +47,7 @@
 /* [  8] */ Button                      10  580  130   23 LargePlain "Enregistrer"
 /* [  9] */ Button                     560  580  130   23 LargePlain "Fermer"
 /* [ 10] */ Button                     150  580  160   23 LargePlain "Objets GDL…"
-
+}
 
 'DLGH' ID_ADDON_DLG_MAPPING DLG_Mapping {
 1    ""        LeftText_0
