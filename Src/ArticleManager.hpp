@@ -217,6 +217,14 @@ public:
 	static bool		SaveLocalArticle (const CWArticle& article, GS::UniString& outError);
 	static GS::UniString	LocalArticlesFilePath ();
 
+	// Base d'articles (nouvelle architecture) : chargée automatiquement depuis
+	// <Documents>/CostWaves-base.json + articles locaux fusionnés. C'est LA
+	// source des articles proposés par le gestionnaire de correspondances et
+	// la détection projet — indépendante de toute classification Archicad.
+	static bool		LoadArticleBase (GS::Array<CWArticle>& outArticles, GS::UniString& outError);
+	static bool		SaveArticleBase (const GS::Array<CWArticle>& articles, GS::UniString& outError);
+	static GS::UniString	ArticleBaseFilePath ();
+
 	// Unité normalisée pour comparaison ("m²" -> "M2") : exposée aux fenêtres
 	// qui filtrent les quantités candidates par unité.
 	static GS::UniString	NormalizedUnit (const GS::UniString& unit);

@@ -1868,6 +1868,78 @@ GS::UniString ArticleManager::LocalArticlesFilePath ()
 }
 
 
+GS::UniString ArticleManager::ArticleBaseFilePath ()
+{
+	// Base d'articles CostWaves (fichier local pendant le dev, API plus tard).
+	API_SpecFolderID specFolder = API_UserDocumentsFolderID;
+	IO::Location documentsLocation;
+	if (ACAPI_ProjectSettings_GetSpecFolder (&specFolder, &documentsLocation) != NoError)
+		return GS::UniString ();
+
+	GS::UniString documentsPath;
+	if (documentsLocation.ToPath (&documentsPath) != NoError || documentsPath.IsEmpty ())
+		return GS::UniString ();
+
+	return documentsPath + "/" + US ("CostWaves-base.json");
+}
+
+
+bool ArticleManager::LoadArticleBase (GS::Array<CWArticle>& outArticles, GS::UniString& outError)
+{
+	outError.Clear ();
+	outArticles.Clear ();
+
+	// 1) Base persistée dans Documents (absente = base vide, première utilisation).
+	const GS::UniString base = ArticleBaseFilePath ();
+	if (!base.IsEmpty ()) {
+		GS::Array<CWArticle> fromBase;
+		GS::UniString baseError;
+		if (ImportFromJsonFile (base, fromBase, baseError))
+			outArticles = fromBase;
+	}
+
+	// 2) Articles locaux fusionnés (créés depuis l'add-on).
+	GS::UniString localError;
+	AppendLocalArticles (outArticles, localError);		// best effort
+
+	return true;
+}
+
+
+bool ArticleManager::SaveArticleBase (const GS::Array<CWArticle>& articles, GS::UniString& outError)
+{
+	outError.Clear ();
+
+	const GS::UniString path = ArticleBaseFilePath ();
+	if (path.IsEmpty ()) {
+		outError = FR ("Impossible de déterminer le dossier Documents.");
+		return false;
+	}
+
+	GS::UniString json;
+	json += US ("{\n  \"articles\": [\n");
+	for (UIndex a = 0; a < articles.GetSize (); ++a) {
+		json += US ("    { \"id\": ") + EscapeJsonText (articles[a].id)
+			+ US (", \"name\": ") + EscapeJsonText (articles[a].name)
+			+ US (", \"unit\": ") + EscapeJsonText (articles[a].unit)
+			+ US (", \"chapter\": ") + EscapeJsonText (articles[a].chapter)
+			+ US (", \"calcQuantity\": ") + EscapeJsonText (articles[a].calcQuantity)
+			+ US (", \"calcFormula\": ") + EscapeJsonText (articles[a].calcFormula)
+			+ US (" }");
+		if (a + 1 < articles.GetSize ())
+			json += US (",");
+		json += US ("\n");
+	}
+	json += US ("  ]\n}\n");
+
+	if (!Exporter::WriteUtf8File (path, json, false)) {
+		outError = FR ("Écriture de CostWaves-base.json impossible (") + path + FR (").");
+		return false;
+	}
+	return true;
+}
+
+
 bool ArticleManager::AppendLocalArticles (GS::Array<CWArticle>& ioArticles, GS::UniString& outError)
 {
 	outError.Clear ();

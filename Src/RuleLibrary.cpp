@@ -473,9 +473,18 @@ void RuleLibrary::CollectAvailableStructures (CWStructureType structureType,
 			libPart.index = i;
 			if (ACAPI_LibraryPart_Get (&libPart) != NoError)
 				continue;		// index illisible : passer au suivant
-			const GS::UniString name (libPart.docu_UName);
-			if (!name.IsEmpty ())
-				outNames.Push (name);
+			// Ne proposer que les objets .gsm POSABLES (objet, porte, fenêtre,
+			// lampe, châssis) — pas les macros, images, étiquettes…
+			const bool isPlaceable = (libPart.typeID == APILib_ObjectID
+								  || libPart.typeID == APILib_DoorID
+								  || libPart.typeID == APILib_WindowID
+								  || libPart.typeID == APILib_LampID
+								  || libPart.typeID == APILib_SkylightID);
+			if (isPlaceable) {
+				const GS::UniString name (libPart.docu_UName);
+				if (!name.IsEmpty () && !outNames.Contains (name))
+					outNames.Push (name);
+			}
 			// ACAPI_LibraryPart_Get alloue libPart.location : le libérer.
 			delete libPart.location;
 			libPart.location = nullptr;

@@ -308,6 +308,246 @@ GS::UniString ModelReader::GetLibraryPartName (Int32 libInd)
 
 namespace {
 
+// Nom d'un attribut profil par index (cache local à la session : la détection
+// peut interroger le même profil pour chaque poteau/poutre posé).
+GS::UniString ProfileNameByIndex (API_AttributeIndex index)
+{
+	if (!index.IsPositive ())
+		return GS::UniString ();
+
+	static std::unordered_map<UInt32, GS::UniString> cache;
+	const UInt32 key = static_cast<UInt32> (index.GenerateHashValue ());
+	const auto it = cache.find (key);
+	if (it != cache.end ())
+		return it->second;
+
+	GS::UniString name;
+	API_Attribute attribute;
+	BNZeroMemory (&attribute, sizeof (attribute));
+	attribute.header.typeID = API_ProfileID;
+	attribute.header.index = index;
+	if (ACAPI_Attribute_Get (&attribute) == NoError && attribute.header.name[0] != '\0')
+		name = GS::UniString (attribute.header.name, CC_UTF8);
+
+	cache.emplace (key, name);
+	return name;
+}
+
+} // namespace
+
+
+bool ModelReader::GetElementStructure (const API_Guid& elemGuid, API_ElemTypeID typeID,
+									   CWStructureType& outType, GS::UniString& outName)
+{
+	outType = CWStructureType::Composite;
+	outName.Clear ();
+
+	API_Element elem;
+	BNZeroMemory (&elem, sizeof (elem));
+	elem.header.guid = elemGuid;
+
+	switch (typeID) {
+		// Objets de bibliothèque : objet, lampe, porte, fenêtre.
+		case API_ObjectID:
+		case API_LampID:
+		case API_DoorID:
+		case API_WindowID: {
+			if (ACAPI_Element_Get (&elem) != NoError)
+				return false;
+			Int32 libInd = -1;
+			if (typeID == API_ObjectID || typeID == API_LampID)
+				libInd = elem.object.libInd;
+			else
+				libInd = elem.window.openingBase.libInd;
+			outType = CWStructureType::LibraryPart;
+			outName = GetLibraryPartName (libInd);
+			return !outName.IsEmpty ();
+		}
+
+		// Murs, dalles, toitures, coquilles : composite / profil / matériau.
+		case API_WallID:
+		case API_SlabID:
+		case API_RoofID:
+		case API_ShellID: {
+			if (ACAPI_Element_Get (&elem) != NoError)
+				return false;
+
+			API_ModelElemStructureType structureType = API_BasicStructure;
+			API_AttributeIndex compositeIndex = APIInvalidAttributeIndex;
+			API_AttributeIndex materialIndex = APIInvalidAttributeIndex;
+			API_AttributeIndex profileIndex = APIInvalidAttributeIndex;
+			switch (typeID) {
+				case API_WallID:
+					structureType = elem.wall.modelElemStructureType;
+					compositeIndex = elem.wall.composite;
+					materialIndex = elem.wall.buildingMaterial;
+					profileIndex = elem.wall.profileAttr;
+					break;
+				case API_SlabID:
+					structureType = elem.slab.modelElemStructureType;
+					compositeIndex = elem.slab.composite;
+					materialIndex = elem.slab.buildingMaterial;
+					break;
+				case API_RoofID:
+					structureType = elem.roof.shellBase.modelElemStructureType;
+					compositeIndex = elem.roof.shellBase.composite;
+					materialIndex = elem.roof.shellBase.buildingMaterial;
+					break;
+				case API_ShellID:
+					structureType = elem.shell.shellBase.modelElemStructureType;
+					compositeIndex = elem.shell.shellBase.composite;
+					materialIndex = elem.shell.shellBase.buildingMaterial;
+					break;
+				default:
+					break;
+			}
+
+			switch (structureType) {
+				case API_CompositeStructure: {
+					outType = CWStructureType::Composite;
+					CWSkinInfo info;
+					if (compositeIndex.IsPositive () && GetCompositeInfo (compositeIndex, info))
+						outName = info.name;
+					break;
+				}
+				case API_ProfileStructure: {
+					outType = CWStructureType::Profile;
+					outName = ProfileNameByIndex (profileIndex);
+					break;
+				}
+				default: {
+					// Structure « basic » : le matériau de construction EST la
+					// structure (règles de type matériau).
+					outType = CWStructureType::BuildingMaterial;
+					outName = GetBuildingMaterialName (materialIndex);
+					break;
+				}
+			}
+			return !outName.IsEmpty ();
+		}
+
+		// Poteaux et poutres : la structure (matériau/profil) est portée par
+		// les segments de l'élément (memo).
+		case API_ColumnID:
+		case API_BeamID: {
+			API_ElementMemo memo;
+			BNZeroMemory (&memo, sizeof (memo));
+			const UInt32 memoMask = (typeID == API_ColumnID) ? APIMemoMask_ColumnSegment : APIMemoMask_BeamSegment;
+			if (ACAPI_Element_GetMemo (elemGuid, &memo, memoMask) != NoError)
+				return false;
+
+			GSSize segmentCount = 0;
+			if (typeID == API_ColumnID && memo.columnSegments != nullptr) {
+				segmentCount = BMGetPtrSize (reinterpret_cast<GSPtr> (memo.columnSegments)) / static_cast<GSSize> (sizeof (API_ColumnSegmentType));
+			} else if (typeID == API_BeamID && memo.beamSegments != nullptr) {
+				segmentCount = BMGetPtrSize (reinterpret_cast<GSPtr> (memo.beamSegments)) / static_cast<GSSize> (sizeof (API_BeamSegmentType));
+			}
+
+			for (GSSize i = 0; i < segmentCount; ++i) {
+				const API_AssemblySegmentData& segment =
+					(typeID == API_ColumnID) ? memo.columnSegments[i].assemblySegmentData
+											 : memo.beamSegments[i].assemblySegmentData;
+				if (segment.modelElemStructureType == API_ProfileStructure && segment.profileAttr.IsPositive ()) {
+					outType = CWStructureType::Profile;
+					outName = ProfileNameByIndex (segment.profileAttr);
+				} else if (segment.buildingMaterial.IsPositive ()) {
+					outType = CWStructureType::BuildingMaterial;
+					outName = GetBuildingMaterialName (segment.buildingMaterial);
+				}
+				if (!outName.IsEmpty ())
+					break;
+			}
+
+			if (typeID == API_ColumnID)
+				BMKillHandle (reinterpret_cast<GSHandle*> (&memo.columnSegments));
+			else
+				BMKillHandle (reinterpret_cast<GSHandle*> (&memo.beamSegments));
+			return !outName.IsEmpty ();
+		}
+
+		default:
+			return false;
+	}
+}
+
+
+bool ModelReader::GetStructureLayerMaterialNames (const GS::UniString& compositeName,
+												  GS::Array<GS::UniString>& outNames)
+{
+	outNames.Clear ();
+	if (compositeName.IsEmpty ())
+		return false;
+
+	// Index du composite par nom.
+	GS::Array<API_Attribute> attributes;
+	if (ACAPI_Attribute_GetAttributesByType (API_CompWallID, attributes) != NoError)
+		return false;
+
+	API_AttributeIndex compositeIndex = APIInvalidAttributeIndex;
+	for (UIndex i = 0; i < attributes.GetSize (); ++i) {
+		if (!attributes[i].header.index.IsPositive ())
+			continue;
+		if (GS::UniString (attributes[i].header.name, CC_UTF8) == compositeName) {
+			compositeIndex = attributes[i].header.index;
+			break;
+		}
+	}
+	if (!compositeIndex.IsPositive ())
+		return false;
+
+	CWSkinInfo info;
+	if (!GetCompositeInfo (compositeIndex, info))
+		return false;
+
+	for (size_t l = 0; l < info.layers.size (); ++l) {
+		const GS::UniString materialName = GetBuildingMaterialName (info.layers[l].buildingMaterial);
+		if (!materialName.IsEmpty () && !outNames.Contains (materialName))
+			outNames.Push (materialName);
+	}
+	return true;
+}
+
+
+void ModelReader::CollectSkinMaterialNames (const GS::Array<API_Guid>& elemGuids,
+											GS::Array<GS::UniString>& outNames)
+{
+	outNames.Clear ();
+
+	for (UIndex i = 0; i < elemGuids.GetSize (); ++i) {
+		API_ElementQuantity elementQuantity;
+		GS::Array<API_CompositeQuantity> compositeQuantities;
+		GS::Array<API_ElemPartQuantity> elemPartQuantities;
+		GS::Array<API_ElemPartCompositeQuantity> elemPartComposites;
+		BNZeroMemory (&elementQuantity, sizeof (elementQuantity));
+
+		API_Quantities quantities;
+		BNZeroMemory (&quantities, sizeof (quantities));
+		quantities.elements = &elementQuantity;
+		quantities.composites = &compositeQuantities;
+		quantities.elemPartQuantities = &elemPartQuantities;
+		quantities.elemPartComposites = &elemPartComposites;
+
+		API_QuantityPar params;
+		BNZeroMemory (&params, sizeof (params));
+
+		API_QuantitiesMask mask;
+		BNZeroMemory (&mask, sizeof (mask));
+		ACAPI_ELEMENT_QUANTITIES_MASK_SETFULL (mask);
+
+		if (ACAPI_Element_GetQuantities (elemGuids[i], &params, &quantities, &mask) != NoError)
+			continue;
+
+		for (UIndex c = 0; c < compositeQuantities.GetSize (); ++c) {
+			const GS::UniString materialName = GetBuildingMaterialName (compositeQuantities[c].buildMatIndices);
+			if (!materialName.IsEmpty () && !outNames.Contains (materialName))
+				outNames.Push (materialName);
+		}
+	}
+}
+
+
+namespace {
+
 const double kPi = 3.14159265358979323846;
 
 // Longueur d'un arc de cercle defined par sa corde et son angle :

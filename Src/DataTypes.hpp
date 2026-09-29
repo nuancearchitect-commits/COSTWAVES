@@ -146,11 +146,15 @@ struct CWSystemInfo {
 // --- Article CostWaves (phase 2) -------------------------------------------------
 
 // --- Règles de correspondance (nouvelle architecture) ----------------------------
-// Une règle relie une structure native Archicad (matériau, composite, profil,
-// favori, objet de bibliothèque) à un article CostWaves, avec son niveau de
-// métré (élément ou composant) et la quantité à adopter. Elle ne contient
-// JAMAIS la quantité réelle : celle-ci est toujours calculée depuis la
-// maquette. Bibliothèque JSON indépendante des projets (spec §4–§6).
+// Une règle relie une structure native Archicad à un article CostWaves :
+//  - COMPOSITE ou PROFIL : mode Element = « lui-même » (1 article, quantités
+//    de l'élément) ; mode Component = « ses couches » (article vide — le métré
+//    se fait sur les quantités des MATÉRIAUX, qui ont chacun leur règle) ;
+//  - OBJET de bibliothèque (.gsm posable) : article, mode Element ;
+//  - MATÉRIAU : article d'une couche (mode Component).
+// « ignored » exclut la structure du métré. La règle ne contient JAMAIS la
+// quantité réelle : elle est toujours calculée depuis la maquette.
+// Bibliothèque JSON indépendante des projets (<Documents>/CostWaves-regles.json).
 
 struct CWMapRule {
 	CWStructureType	structureType = CWStructureType::Composite;

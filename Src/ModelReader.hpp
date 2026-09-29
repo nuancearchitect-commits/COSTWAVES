@@ -92,6 +92,30 @@ public:
 	// Propriétés d'un composant (lecture à la demande, pour le panneau de détails).
 	static GS::Array<CWPropertyEntry>	GetComponentProperties (const API_ElemComponentID& component);
 
+	// --- Nouvelle architecture : détection des structures ------------------------
+
+	// Structure native d'un élément placé : composite / profil / objet de
+	// bibliothèque / matériau de base (mur ou dalle sans composite, poteau ou
+	// poutre sans profil). Retourne false si la structure est illisible.
+	static bool	GetElementStructure (const API_Guid& elemGuid, API_ElemTypeID typeID,
+									  CWStructureType& outType, GS::UniString& outName);
+
+	// Matériaux des couches d'un composite, par nom d'attribut (mode
+	// « ses couches » du gestionnaire de correspondances). Retourne false si
+	// le composite est introuvable. Les matériaux d'un PROFIL ne sont pas
+	// lisibles dans l'attribut : ils se découvrent depuis les éléments posés
+	// (CollectSkinMaterialNames).
+	static bool	GetStructureLayerMaterialNames (const GS::UniString& compositeName,
+												 GS::Array<GS::UniString>& outNames);
+
+	// Noms des matériaux des couches d'éléments donnés (lecture des quantités
+	// composants) : matériaux réellement posés — sert notamment aux profils.
+	static void	CollectSkinMaterialNames (const GS::Array<API_Guid>& elemGuids,
+										   GS::Array<GS::UniString>& outNames);
+
+	// Nom d'un matériau de construction par index (avec cache).
+	static GS::UniString	GetBuildingMaterialName (API_AttributeIndex index);
+
 private:
 	// Caches de lecture (phase 3 : un seul appel API par attribut distinct),
 	// purgés au début de chaque Scan.
@@ -107,7 +131,6 @@ private:
 	static void				ClearCaches ();
 
 	static GS::UniString	GetTypeName (const API_ElemType& type);
-	static GS::UniString	GetBuildingMaterialName (API_AttributeIndex index);
 	static GS::UniString	GetStoryName (const API_StoryInfo& storyInfo, short floorInd);
 	static GS::UniString	GetElementIdValue (const API_Guid& elemGuid, const API_Guid& propGuid);
 
