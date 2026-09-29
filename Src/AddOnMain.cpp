@@ -3,8 +3,7 @@
 #include "ResourceIds.hpp"
 #include "RS.hpp"
 
-#include "ProjectScanDialog.hpp"
-#include "RulesManagerDialog.hpp"
+#include "CostWavesPalette.hpp"
 
 namespace {
 
@@ -13,30 +12,22 @@ const Int32		AddOnNameID			= 1;
 const Int32		AddOnDescriptionID	= 2;
 
 const short		AddOnMenuID			= ID_ADDON_MENU;
-const Int32		ManagerCommandID	= 1;	// Gestionnaire de correspondances
-const Int32		ScanCommandID		= 2;	// Éléments du projet
+const Int32		CostWavesCommandID	= 1;	// COSTWAVES (palette)
 
 GSErrCode MenuCommandHandler (const API_MenuParams* menuParams)
 {
 	switch (menuParams->menuItemRef.menuResID) {
 		case AddOnMenuID:
 			switch (menuParams->menuItemRef.itemIndex) {
-				case ManagerCommandID:
+				case CostWavesCommandID:
 					{
-						// Préparation (sans maquette ouverte) : composites et
-						// profils (eux-mêmes ou leurs couches), objets .gsm,
-						// matériaux -> articles CostWaves.
-						CostWaves::RulesManagerDialog dialog;
-						dialog.Invoke ();
-					}
-					break;
-
-				case ScanCommandID:
-					{
-						// Projet : détection des éléments placés, ⚠ sur les
-						// structures sans article -> assigner ou ignorer.
-						CostWaves::ProjectScanDialog dialog;
-						dialog.Invoke ();
+						// Palette CostWaves (modeless) : bascule afficher/masquer.
+						if (CostWaves::CostWavesPalette::HasInstance ()
+							&& CostWaves::CostWavesPalette::Instance ().IsVisible ()) {
+							CostWaves::CostWavesPalette::Instance ().HidePalette ();
+						} else {
+							CostWaves::CostWavesPalette::Instance ().ShowPalette ();
+						}
 					}
 					break;
 			}
@@ -67,10 +58,16 @@ GSErrCode RegisterInterface (void)
 GSErrCode Initialize (void)
 {
 #ifdef ServerMainVers_2700
-	return ACAPI_MenuItem_InstallMenuHandler (AddOnMenuID, MenuCommandHandler);
+	GSErrCode err = ACAPI_MenuItem_InstallMenuHandler (AddOnMenuID, MenuCommandHandler);
 #else
-	return ACAPI_Install_MenuHandler (AddOnMenuID, MenuCommandHandler);
+	GSErrCode err = ACAPI_Install_MenuHandler (AddOnMenuID, MenuCommandHandler);
 #endif
+
+	// Palette flottante enregistrée auprès d'Archicad (mémorisation de la
+	// position dans l'environnement de travail).
+	err |= CostWaves::CostWavesPalette::RegisterPalette ();
+
+	return err;
 }
 
 GSErrCode FreeData (void)

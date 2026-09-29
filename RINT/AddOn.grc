@@ -2,156 +2,48 @@
 
 'STR#' ID_ADDON_INFO "Add-on Name and Description" {
 /* [  1] */		"CostWaves"
-/* [  2] */		"Correspondances structures Archicad - articles CostWaves"
+/* [  2] */		"Correspondances attributs Archicad - articles CostWaves"
 }
 
-'STR#' ID_ADDON_MENU "Strings for the Menu" {
-/* [  1] */		"Gestionnaire de correspondances... ^E3 ^ES ^EE ^EI ^ED ^ET ^10001"
-/* [  2] */		"Éléments du projet... ^E3 ^ES ^EE ^EI ^ED ^ET ^10002"
+'STR#' ID_ADDON_MENU "Add-On Menu" {
+/* [   ] */		"NUANCE BIM"
+/* [  1] */		"COSTWAVES... ^E3 ^ES ^EE ^EI ^ED ^ET ^10001"
 }
 
-'GDLG' ID_ADDON_DLG_PICKER Modal |noGrow   60   60  440 200  "CostWaves — Choisir une structure" {
-/* [  1] */ LeftText                    10   12  420   40 LargePlain vTop | noTrunc Default ""
-/* [  2] */ LeftText                    10   58  420   18 LargePlain vTop | noTrunc Default "Structure :"
-/* [  3] */ PopupControl                10   80  420   22 80 3
-/* [  4] */ Button                     220  165  110   23 LargePlain "Choisir"
-/* [  5] */ Button                     340  165   90   23 LargePlain "Annuler"
+'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  320 170  "CostWaves" {
+/* [  1] */ LeftText                     10   14  300   40 LargePlain vTop | noTrunc Default ""
+/* [  2] */ Button                        10   70  300   23 LargePlain "Correspondance"
+/* [  3] */ LeftText                     10  110  300   40 SmallPlain vTop | noTrunc Default ""
 }
 
-'DLGH' ID_ADDON_DLG_PICKER DLG_Structure_Picker {
+'DLGH' ID_ADDON_DLG DLG_CostWaves_Palette {
 1    ""        LeftText_0
-2    ""        LeftText_1
-3    ""        PopupControl_0
-4    ""        Button_0
-5    ""        Button_1
-}
-
-'GDLG' ID_ADDON_DLG_ASSIGN Modal |noGrow   60   60  460 200  "CostWaves — Assigner un article" {
-/* [  1] */ LeftText                    10   12  440   40 LargePlain vTop | noTrunc Default ""
-/* [  2] */ LeftText                    10   58  440   18 LargePlain vTop | noTrunc Default "Article :"
-/* [  3] */ PopupControl                10   80  440   22 80 3
-/* [  4] */ Button                     230  165  100   23 LargePlain "Assigner"
-/* [  5] */ Button                     340  165   90   23 LargePlain "Annuler"
-/* [  6] */ Button                      10  165  200   23 LargePlain "Créer un article…"
-}
-
-'DLGH' ID_ADDON_DLG_ASSIGN DLG_Article_Assign {
-1    ""        LeftText_0
-2    ""        LeftText_1
-3    ""        PopupControl_0
-4    ""        Button_0
-5    ""        Button_1
-6    ""        Button_2
-}
-
-'GDLG' ID_ADDON_DLG_ARTICLE Modal |noGrow   60   60  500 300  "CostWaves — Créer un article" {
-/* [  1] */ LeftText                    10   14  130   18 LargePlain vTop | noTrunc Default "Chapitre :"
-/* [  2] */ TextEdit                   145   11  345   22 LargePlain frame | update | absolute | editable 128
-/* [  3] */ LeftText                    10   42  130   18 LargePlain vTop | noTrunc Default "ID article :"
-/* [  4] */ TextEdit                   145   39  345   22 LargePlain frame | update | absolute | editable 60
-/* [  5] */ LeftText                    10   70  130   18 LargePlain vTop | noTrunc Default "Désignation :"
-/* [  6] */ TextEdit                   145   67  345   22 LargePlain frame | update | absolute | editable 128
-/* [  7] */ LeftText                    10   98  130   18 LargePlain vTop | noTrunc Default "Unité :"
-/* [  8] */ PopupControl               145   95  120   22 80 3
-/* [  9] */ Button                     280  240  100   23 LargePlain "Créer"
-/* [10] */ Button                     390  240  100   23 LargePlain "Annuler"
-}
-
-'DLGH' ID_ADDON_DLG_ARTICLE DLG_Article_Edit {
-1    ""        LeftText_0
-2    ""        TextEdit_0
+2    ""        Button_0
 3    ""        LeftText_1
-4    ""        TextEdit_1
-5    ""        LeftText_2
-6    ""        TextEdit_2
+}
+
+'GDLG' ID_ADDON_DLG_MAPPING Modal |noGrow   60   60  660 500  "CostWaves — Correspondances" {
+/* [  1] */ LeftText                    10   12  640   30 LargePlain vTop | noTrunc Default ""
+/* [  2] */ LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Type d'attribut :"
+/* [  3] */ PopupControl               125   47  150   22 80 3
+/* [  4] */ LeftText                   290   50  100   18 LargePlain vTop | noTrunc Default "Classification :"
+/* [  5] */ PopupControl               395   47  255   22 80 3
+/* [  6] */ MultiSelList                10   80  640  260 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  7] */ LeftText                    10  352  640   18 LargePlain vTop | noTrunc Default ""
+/* [  8] */ PopupControl                10  374  640   22 80 3
+/* [  9] */ Button                      10  440  130   23 LargePlain "Enregistrer"
+/* [10] */ Button                     520  440  130   23 LargePlain "Fermer"
+}
+
+'DLGH' ID_ADDON_DLG_MAPPING DLG_Mapping {
+1    ""        LeftText_0
+2    ""        LeftText_1
+3    ""        PopupControl_0
+4    ""        LeftText_2
+5    ""        PopupControl_1
+6    ""        MultiSelList_0
 7    ""        LeftText_3
-8    ""        PopupControl_0
+8    ""        PopupControl_2
 9    ""        Button_0
 10   ""        Button_1
-}
-
-'GDLG' ID_ADDON_DLG_MANAGER Modal |noGrow   60   60  700 520  "CostWaves — Gestionnaire de correspondances" {
-/* [  1] */ LeftText                    10   12  680   30 LargePlain vTop | noTrunc Default ""
-/* [  2] */ MultiSelList                10   48  680  240 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  3] */ LeftText                    10  300   60   18 LargePlain vTop | noTrunc Default "Type :"
-/* [  4] */ PopupControl                75  297  180   22 80 3
-/* [  5] */ LeftText                   265  300   70   18 LargePlain vTop | noTrunc Default "Structure :"
-/* [  6] */ TextEdit                   340  297  180   22 LargePlain frame | update | absolute | editable 128
-/* [  7] */ Button                     525  295  165   23 LargePlain "Parcourir…"
-/* [  8] */ LeftText                    10  332   60   18 LargePlain vTop | noTrunc Default "Article :"
-/* [  9] */ PopupControl                75  329  250   22 80 3
-/* [10] */ Button                     330  327  150   23 LargePlain "Créer un article…"
-/* [11] */ LeftText                    10  364   60   18 LargePlain vTop | noTrunc Default "Métré :"
-/* [12] */ PopupControl                75  361  200   22 80 3
-/* [13] */ CheckBox                    290  366  120   20 LargePlain "Ignorer"
-/* [14] */ Button                      10  395  170   23 LargePlain "Ajouter / Mettre à jour"
-/* [15] */ Button                     188  395  100   23 LargePlain "Supprimer"
-/* [16] */ LeftText                    10  428  680   36 SmallPlain vTop | noTrunc Default ""
-/* [17] */ Button                      10  470  160   23 LargePlain "Importer la base…"
-/* [18] */ Button                     180  470  110   23 LargePlain "Enregistrer"
-/* [19] */ Button                     608  470   82   23 LargePlain "Fermer"
-}
-
-'DLGH' ID_ADDON_DLG_MANAGER DLG_Rules_Manager {
-1    ""        LeftText_0
-2    ""        MultiSelList_0
-3    ""        LeftText_1
-4    ""        PopupControl_0
-5    ""        LeftText_2
-6    ""        TextEdit_0
-7    ""        Button_0
-8    ""        LeftText_3
-9    ""        PopupControl_1
-10   ""        Button_1
-11   ""        LeftText_4
-12   ""        PopupControl_2
-13   ""        CheckBox_0
-14   ""        Button_2
-15   ""        Button_3
-16   ""        LeftText_5
-17   ""        Button_4
-18   ""        Button_5
-19   ""        Button_6
-}
-
-'GDLG' ID_ADDON_DLG_SCAN Modal |noGrow   60   60  720 470  "CostWaves — Éléments du projet" {
-/* [  1] */ LeftText                    10   12  700   30 LargePlain vTop | noTrunc Default ""
-/* [  2] */ MultiSelList                10   48  700  290 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  3] */ Button                      10  348  110   23 LargePlain "Actualiser"
-/* [  4] */ Button                     130  348  110   23 LargePlain "Assigner…"
-/* [  5] */ Button                     250  348  110   23 LargePlain "Ignorer"
-/* [  6] */ Button                     370  348  150   23 LargePlain "Créer un article…"
-/* [  7] */ LeftText                    10  382  700   36 SmallPlain vTop | noTrunc Default ""
-/* [  8] */ Button                     628  435   82   23 LargePlain "Fermer"
-}
-
-'DLGH' ID_ADDON_DLG_SCAN DLG_Project_Scan {
-1    ""        LeftText_0
-2    ""        MultiSelList_0
-3    ""        Button_0
-4    ""        Button_1
-5    ""        Button_2
-6    ""        Button_3
-7    ""        LeftText_1
-8    ""        Button_4
-}
-
-'GDLG' ID_ADDON_DLG_LAYERS Modal |noGrow   60   60  560 400  "CostWaves — Couches de la structure" {
-/* [  1] */ LeftText                    10   12  540   30 LargePlain vTop | noTrunc Default ""
-/* [  2] */ MultiSelList                10   48  540  250 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  3] */ LeftText                    10  308   60   18 LargePlain vTop | noTrunc Default "Article :"
-/* [  4] */ PopupControl                75  305  300   22 80 3
-/* [  5] */ Button                     385  303  165   23 LargePlain "Assigner au matériau"
-/* [  6] */ LeftText                    10  340  540   18 SmallPlain vTop | noTrunc Default ""
-/* [  7] */ Button                     468  365   82   23 LargePlain "Fermer"
-}
-
-'DLGH' ID_ADDON_DLG_LAYERS DLG_Structure_Layers {
-1    ""        LeftText_0
-2    ""        MultiSelList_0
-3    ""        LeftText_1
-4    ""        PopupControl_0
-5    ""        Button_0
-6    ""        LeftText_2
-7    ""        Button_1
 }

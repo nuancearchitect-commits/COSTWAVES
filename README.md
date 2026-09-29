@@ -326,49 +326,26 @@ pas un choix.
    (`CostWaves-calcul.json`, section `formulas`) et partent dans le payload
    API (`calcFormula`).
 
-### Nouvelle architecture — correspondances (règles) + détection projet
+### Étape courante — menu NUANCE BIM > COSTWAVES (palette + correspondances)
 
-L'add-on ne dépend PLUS d'aucune classification Archicad. Deux commandes
-uniquement (menu CostWaves) :
+Une seule commande : menu **NUANCE BIM > COSTWAVES…** ouvre la palette
+CostWaves. La palette contient un bouton **« Correspondance »** qui ouvre la
+fenêtre de correspondances :
 
-**1. Gestionnaire de correspondances…** (préparation, utilisable sans
-maquette ouverte) — `<Documents>/CostWaves-regles.json`, réutilisable entre
-projets :
-
-- **Composites et profils** : métré « Lui-même » (1 article, quantités de
-  l'élément) ou « Ses couches » (quantités des matériaux) — dans ce cas la
-  fenêtre Couches propose de donner un article à chaque matériau qui n'en a
-  pas déjà ;
-- **Objets de bibliothèque** : uniquement les objets .gsm posables (objets,
-  portes, fenêtres, lampes, châssis) — pas les macros ;
-- **Matériaux** : article d'une couche ;
-- une structure peut être **« Ignorer »** ;
-- base d'articles chargée automatiquement depuis
-  `<Documents>/CostWaves-base.json` (+ articles locaux), importable via le
-  bouton « Importer la base… » (JSON chapitres/articles) et complétable par
-  « Créer un article… » (articles locaux persistés) ;
-- « Parcourir… » liste les structures de l'environnement Archicad courant ;
-  sans maquette, le nom se saisit à la main.
-
-**2. Éléments du projet…** (détection) : scanne la maquette, regroupe les
-éléments par structure (composite, profil, objet .gsm, matériau de base) et
-affiche pour chacun son nombre d'éléments et son état :
-
-- **⚠ à définir** (triangle jaune) : la structure n'a pas d'article —
-  « Assigner… » (choix d'un article ou création) ou « Ignorer » ;
-- **⚠ matériaux à définir** : composite/profil en mode « ses couches » dont
-  des matériaux n'ont pas d'article — « Assigner… » ouvre la fenêtre Couches ;
-- **✓** : article résolu (ou toutes les couches couvertes) ;
-- **Ignoré** : exclu du métré.
-
-Chaque décision (assigner / ignorer) crée une **règle** dans la bibliothèque —
-elle vaut donc aussi pour les futurs projets.
+- **Filtre type d'attribut** : Matériau / Composite / Profil complexe —
+  affiche la liste des attributs Archicad du projet pour le type choisi ;
+- **Filtre classification** : système de classification à utiliser — ses
+  classes sont les articles proposés ;
+- **Sélecteur d'article devant chaque attribut** (style sélecteur
+  d'attributs Archicad : popup avec liste hiérarchique indentée) :
+  sélectionnez la classe/article, ou **« Ignorer »** ;
+- **Enregistrer** : écrit la bibliothèque dans
+  `<Documents>/CostWaves-regles.json` (réutilisable entre projets) ;
+  Fermer enregistre aussi.
 
 Format des règles :
-`{"rules": [{"type": "composite|profile|object|material", "name": "MUR_EXT_30",
-"article": "CW-030", "mode": "element|component", "ignored": false}]}` —
-`mode: "component"` = métré par les couches (l'article est alors porté par les
-règles matériaux, pas par la règle composite).
+`{"rules": [{"type": "material|composite|profile", "name": "BETON_25",
+"article": "CW-030", "mode": "element", "ignored": false}]}`.
 
 ## 3. Build (Windows)
 
