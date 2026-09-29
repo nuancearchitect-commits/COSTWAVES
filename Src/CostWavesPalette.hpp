@@ -9,8 +9,9 @@
 namespace CostWaves {
 
 // Palette CostWaves (menu NUANCE BIM > COSTWAVES) : point d'entrée de
-// l'add-on. Étape courante : un bouton « Correspondance » qui ouvre la
-// fenêtre de correspondance attributs Archicad -> articles (classes).
+// l'add-on. Deux boutons : « Correspondance matériaux » (fenêtre des
+// correspondances attributs Archicad -> articles) et « Correspondance
+// objets GDL » (objets de bibliothèque -> article + valeur clé GDL).
 class CostWavesPalette final :	public DG::Palette,
 								public DG::PanelObserver,
 								public DG::ButtonItemObserver
@@ -19,13 +20,14 @@ public:
 	enum ItemIds {
 		InfoTextId		= 1,
 		MappingButtonId	= 2,
-		StatusTextId	= 3
+		StatusTextId	= 3,
+		GdlButtonId		= 4
 	};
 
 	// Singleton : la palette vit aussi longtemps que l'add-on.
-	static bool				HasInstance ();
+	static bool					HasInstance ();
 	static CostWavesPalette&	Instance ();
-	static GSErrCode		RegisterPalette ();		// ACAPI_RegisterModelessWindow (Initialize)
+	static GSErrCode			RegisterPalette ();		// ACAPI_RegisterModelessWindow (Initialize)
 
 	void	ShowPalette ();
 	void	HidePalette ();
@@ -46,10 +48,11 @@ private:
 
 	DG::LeftText	infoText;
 	DG::Button		mappingButton;
+	DG::Button		gdlButton;
 	DG::LeftText	statusText;
 
 	static GS::Ref<CostWavesPalette>	instance;
-	static const GS::Guid			paletteGuid;
+	static const GS::Guid				paletteGuid;
 };
 
 } // namespace CostWaves

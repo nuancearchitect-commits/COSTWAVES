@@ -4,7 +4,6 @@
 
 #include "ArticleManager.hpp"
 #include "ArticlePickerDialog.hpp"
-#include "GdlMappingDialog.hpp"
 #include "KeyCatalog.hpp"
 #include "KeyPickerDialog.hpp"
 #include "ModelReader.hpp"
@@ -44,8 +43,7 @@ MappingDialog::MappingDialog ()
 		list (GetReference (), ListId),
 		statusText (GetReference (), StatusTextId),
 		saveButton (GetReference (), SaveButtonId),
-		closeButton (GetReference (), CloseButtonId),
-		gdlButton (GetReference (), GdlButtonId)
+		closeButton (GetReference (), CloseButtonId)
 {
 	infoText.SetText (FR ("Cliquez sur un attribut pour lui choisir sa classe (article). ")
 					  + FR ("Matériau sans classe = ignoré ; composite/profil sans classe = ")
@@ -85,7 +83,6 @@ MappingDialog::MappingDialog ()
 
 	saveButton.Attach (*this);
 	closeButton.Attach (*this);
-	gdlButton.Attach (*this);
 	typePopup.Attach (*this);
 	systemPopup.Attach (*this);
 	list.Attach (*this);
@@ -432,12 +429,6 @@ void MappingDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 		} else {
 			DG::ErrorAlert (FR ("Échec de l'enregistrement."), error, FR ("OK"));
 		}
-	} else if (ev.GetSource () == &gdlButton) {
-		// Correspondances des objets GDL : la bibliothèque de règles est
-		// PARTAGÉE (référence) — les ajouts sont visibles au retour.
-		GdlMappingDialog gdlDialog (rules, articles);
-		gdlDialog.Invoke ();
-		FillList ();
 	} else if (ev.GetSource () == &closeButton) {
 		// Fermer enregistre la bibliothèque (best effort).
 		GS::UniString error;

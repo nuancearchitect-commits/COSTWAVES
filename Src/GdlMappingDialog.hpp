@@ -9,19 +9,21 @@
 
 namespace CostWaves {
 
-// Fenêtre « Correspondances objets GDL » (ouverte par le bouton
-// « Objets GDL… » des correspondances) : liste des correspondances
-// objet de bibliothèque -> article + valeur clé (paramètre GDL).
+// Fenêtre « Correspondances objets GDL » (bouton « Correspondance objets
+// GDL » de la palette) : liste des correspondances objet de bibliothèque
+// -> article + valeur clé (paramètre GDL). Autonome : système de
+// classification choisi dans son popup, règles chargées/enregistrées
+// dans la bibliothèque partagée (Documents/CostWaves-regles.json).
 // « Ajouter… » enchaîne trois choix :
 //  1) l'objet de bibliothèque (objets .gsm posables chargés, recherche) ;
-//  2) sa classe (article, système de classification courant) ;
-//  3) sa valeur clé : un PARAMÈTRE GDL de l'objet (ex. épaisseur,
-//     hauteur — libellé + nom GDL), ou « (aucune) ».
+//  2) sa classe (article, système sélectionné) ;
+//  3) sa valeur clé : une variable GDL de TYPE LONGUEUR de l'objet
+//     (épaisseur, hauteur, dimensions…), ou « (aucune) ».
 // La classe « (aucune) » RETIRE la correspondance de l'objet.
-// Les règles sont partagées par référence avec la fenêtre des
-// correspondances ; « Fermer » enregistre la bibliothèque (best effort).
+// « Fermer » enregistre la bibliothèque (best effort).
 class GdlMappingDialog final :	public DG::ModalDialog,
-								public DG::ButtonItemObserver
+								public DG::ButtonItemObserver,
+								public DG::PopUpObserver
 {
 public:
 	enum ItemIds {
@@ -29,17 +31,23 @@ public:
 		ListId			= 2,
 		StatusTextId	= 3,
 		AddButtonId		= 4,
-		CloseButtonId	= 5
+		CloseButtonId	= 5,
+		SystemLabelId	= 6,
+		SystemPopupId	= 7
 	};
 
-	GdlMappingDialog (GS::Array<CWMapRule>& ioRules, const GS::Array<CWArticle>& inArticles);
+	GdlMappingDialog ();
 
 private:
 	// DG::ButtonItemObserver
 	virtual void	ButtonClicked (const DG::ButtonClickEvent& ev) override;
 
+	// DG::PopUpObserver
+	virtual void	PopUpChanged (const DG::PopUpChangeEvent& ev) override;
+
+	void	RefreshArticles ();		// classes du système choisi
 	void	FillList ();
-	void	AddRule ();		// objet -> article -> paramètre GDL
+	void	AddRule ();				// objet -> article -> paramètre GDL
 	void	SetStatus (const GS::UniString& message);
 
 	DG::LeftText		infoText;
@@ -47,9 +55,12 @@ private:
 	DG::LeftText		statusText;
 	DG::Button			addButton;
 	DG::Button			closeButton;
+	DG::LeftText		systemLabel;
+	DG::PopUp			systemPopup;
 
-	GS::Array<CWMapRule>&		rules;		// bibliothèque partagée (par référence)
-	const GS::Array<CWArticle>&	articles;	// classes du système sélectionné
+	GS::Array<CWSystemInfo>	systems;		// systèmes de classification du projet
+	GS::Array<CWArticle>	articles;		// classes du système sélectionné
+	GS::Array<CWMapRule>	rules;			// bibliothèque de travail
 
 	bool	isFilling = false;
 };

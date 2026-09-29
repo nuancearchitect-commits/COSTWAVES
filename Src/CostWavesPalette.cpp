@@ -2,6 +2,7 @@
 
 #include "CostWavesPalette.hpp"
 
+#include "GdlMappingDialog.hpp"
 #include "MappingDialog.hpp"
 
 namespace CostWaves {
@@ -96,10 +97,12 @@ CostWavesPalette::CostWavesPalette ()
 	:	DG::Palette (ACAPI_GetOwnResModule (), ID_ADDON_DLG, ACAPI_GetOwnResModule (), paletteGuid),
 		infoText (GetReference (), InfoTextId),
 		mappingButton (GetReference (), MappingButtonId),
+		gdlButton (GetReference (), GdlButtonId),
 		statusText (GetReference (), StatusTextId)
 {
 	Attach (*this);					// PanelObserver
 	mappingButton.Attach (*this);	// ButtonItemObserver
+	gdlButton.Attach (*this);
 
 	infoText.SetText (FR ("CostWaves — correspondances entre les attributs Archicad ")
 					  + FR ("et les articles CostWaves."));
@@ -127,6 +130,9 @@ void CostWavesPalette::ButtonClicked (const DG::ButtonClickEvent& ev)
 {
 	if (ev.GetSource () == &mappingButton) {
 		MappingDialog dialog;
+		dialog.Invoke ();
+	} else if (ev.GetSource () == &gdlButton) {
+		GdlMappingDialog dialog;
 		dialog.Invoke ();
 	}
 }

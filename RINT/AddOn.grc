@@ -11,15 +11,17 @@
 }
 
 'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  320 170  "CostWaves" {
-/* [  1] */ LeftText                     10   14  300   40 LargePlain vTop | noTrunc Default ""
-/* [  2] */ Button                        10   70  300   23 LargePlain "Correspondance matériaux"
+/* [  1] */ LeftText                     10   14  300   30 LargePlain vTop | noTrunc Default ""
+/* [  2] */ Button                        10   50  300   23 LargePlain "Correspondance matériaux"
 /* [  3] */ LeftText                     10  110  300   40 SmallPlain vTop | noTrunc Default ""
+/* [  4] */ Button                        10   78  300   23 LargePlain "Correspondance objets GDL"
 }
 
 'DLGH' ID_ADDON_DLG DLG_CostWaves_Palette {
 1    ""        LeftText_0
 2    ""        Button_0
 3    ""        LeftText_1
+4    ""        Button_1
 }
 
 'GDLG' ID_ADDON_DLG_PICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir une classe" {
@@ -46,7 +48,6 @@
 /* [  7] */ LeftText                    10  472  680   36 SmallPlain vTop | noTrunc Default ""
 /* [  8] */ Button                      10  580  130   23 LargePlain "Enregistrer"
 /* [  9] */ Button                     560  580  130   23 LargePlain "Fermer"
-/* [ 10] */ Button                     150  580  160   23 LargePlain "Objets GDL…"
 }
 
 'DLGH' ID_ADDON_DLG_MAPPING DLG_Mapping {
@@ -59,7 +60,6 @@
 7    ""        LeftText_3
 8    ""        Button_0
 9    ""        Button_1
-10   ""        Button_2
 }
 
 'GDLG' ID_ADDON_DLG_KEYPICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir la valeur clé" {
@@ -82,10 +82,12 @@
 
 'GDLG' ID_ADDON_DLG_GDL Modal |noGrow   60   60  560 470  "CostWaves — Correspondances objets GDL" {
 /* [  1] */	LeftText                    10   12  540   30 LargePlain vTop | noTrunc Default ""
-/* [  2] */	MultiSelList                10   48  540  330 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  3] */	LeftText                    10  384  540   28 SmallPlain vTop | noTrunc Default ""
-/* [  4] */	Button                      10  432  130   23 LargePlain "Ajouter…"
-/* [  5] */	Button                     450  432  100   23 LargePlain "Fermer"
+/* [  2] */	MultiSelList                10   78  540  310 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	LeftText                    10  392  540   28 SmallPlain vTop | noTrunc Default ""
+/* [  4] */	Button                      10  436  130   23 LargePlain "Ajouter…"
+/* [  5] */	Button                     450  436  100   23 LargePlain "Fermer"
+/* [  6] */	LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
+/* [  7] */	PopupControl               125   47  425   22 80 3
 }
 
 'DLGH' ID_ADDON_DLG_GDL DLG_Gdl_Mapping {
@@ -94,6 +96,8 @@
 3    ""        LeftText_1
 4    ""        Button_0
 5    ""        Button_1
+6    ""        LeftText_2
+7    ""        PopupControl_0
 }
 
 'GDLG' ID_ADDON_DLG_OBJPICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir l'objet" {

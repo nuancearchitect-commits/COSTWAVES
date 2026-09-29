@@ -22,24 +22,56 @@ GS::UniString FR (const char* utf8Text)
 } // namespace
 
 
-GdlMappingDialog::GdlMappingDialog (GS::Array<CWMapRule>& ioRules, const GS::Array<CWArticle>& inArticles)
+GdlMappingDialog::GdlMappingDialog ()
 	:	DG::ModalDialog (ACAPI_GetOwnResModule (), ID_ADDON_DLG_GDL, ACAPI_GetOwnResModule ()),
 		infoText (GetReference (), InfoTextId),
 		list (GetReference (), ListId),
 		statusText (GetReference (), StatusTextId),
 		addButton (GetReference (), AddButtonId),
 		closeButton (GetReference (), CloseButtonId),
-		rules (ioRules),
-		articles (inArticles)
+		systemLabel (GetReference (), SystemLabelId),
+		systemPopup (GetReference (), SystemPopupId)
 {
-	infoText.SetText (FR ("« Ajouter… » : choisir l'objet de bibliothèque, lui donner sa classe")
-					  + FR (" (article) et une valeur clé parmi ses paramètres GDL")
-					  + FR (" (ex. épaisseur, hauteur)."));
+	infoText.SetText (FR ("Choisissez le système de classification, puis « Ajouter… » :")
+					  + FR (" l'objet de bibliothèque, sa classe (article) et sa valeur clé")
+					  + FR (" (variable GDL de type longueur de l'objet)."));
 
+	// Système de classification (les classes = articles proposés).
+	systems = ModelReader::GetClassificationSystems ();
+	if (systems.IsEmpty ()) {
+		systemPopup.AppendItem ();
+		systemPopup.SetItemText (1, FR ("(aucun système)"));
+	} else {
+		for (UIndex s = 0; s < systems.GetSize (); ++s) {
+			systemPopup.AppendItem ();
+			systemPopup.SetItemText (systemPopup.GetItemCount (), systems[s].name);
+		}
+	}
+	systemPopup.SelectItem (1);
+
+	// Bibliothèque existante (Documents/CostWaves-regles.json). Un échec de
+	// lecture est AFFICHÉ : ne jamais perdre des règles en silence.
+	GS::UniString rulesError;
+	if (!RuleLibrary::LoadRules (rules, rulesError) && !rulesError.IsEmpty ())
+		DG::WarningAlert (FR ("La bibliothèque de correspondances n'a pas pu être lue."),
+						  rulesError, FR ("OK"));
+
+	RefreshArticles ();
 	FillList ();
 
 	addButton.Attach (*this);
 	closeButton.Attach (*this);
+	systemPopup.Attach (*this);
+}
+
+
+void GdlMappingDialog::RefreshArticles ()
+{
+	articles.Clear ();
+	const short systemSelection = systemPopup.GetSelectedItem ();
+	if (systemSelection >= 1 && static_cast<UIndex> (systemSelection) <= systems.GetSize ())
+		ArticleManager::CollectFromClassification (systems[static_cast<UIndex> (systemSelection) - 1].guid,
+												   articles);
 }
 
 
@@ -119,7 +151,7 @@ void GdlMappingDialog::AddRule ()
 
 	// 2) La classe (article) — « (aucune) » retire la correspondance.
 	if (articles.IsEmpty ()) {
-		SetStatus (FR ("Aucune classe — choisissez un système de classification dans les correspondances."));
+		SetStatus (FR ("Aucune classe — choisissez un système de classification."));
 		return;
 	}
 
@@ -130,7 +162,8 @@ void GdlMappingDialog::AddRule ()
 
 	const short articleIndex = articlePicker.GetSelectedArticleIndex ();
 
-	// 3) La valeur clé : un paramètre GDL de l'objet (facultatif).
+	// 3) La valeur clé : une variable GDL de TYPE LONGUEUR de l'objet
+	//    (épaisseur, hauteur, dimensions…), facultative.
 	GS::UniString keyId;
 	GS::UniString keyName;
 	if (articleIndex != 0) {
@@ -194,6 +227,16 @@ void GdlMappingDialog::AddRule ()
 void GdlMappingDialog::SetStatus (const GS::UniString& message)
 {
 	statusText.SetText (message);
+}
+
+
+void GdlMappingDialog::PopUpChanged (const DG::PopUpChangeEvent& ev)
+{
+	if (isFilling || ev.GetSource () != &systemPopup)
+		return;
+
+	RefreshArticles ();
+	FillList ();
 }
 
 

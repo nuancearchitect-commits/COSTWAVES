@@ -171,9 +171,13 @@ bool ModelReader::GetLibraryPartParameters (const GS::UniString& libPartName,
 				/ static_cast<GSSize> (sizeof (API_AddParType));
 			for (GSIndex p = 0; p < nParams; ++p) {
 				const API_AddParType& par = (*getParams.params)[p];
-				// Titres et séparateurs : lignes de présentation, pas des
-				// paramètres ; paramètres cachés : pas dans les réglages.
-				if (par.typeID == APIParT_Title || par.typeID == APIParT_Separator)
+				// Seules les variables GDL de TYPE LONGUEUR sont proposées
+				// comme valeurs clés (épaisseur, hauteur, dimensions…).
+				if (par.typeID != APIParT_Length)
+					continue;
+				// Tableaux : valeur ambiguë, ignorer ; paramètres cachés :
+				// pas dans les réglages.
+				if (par.typeMod == API_ParArray)
 					continue;
 				if ((par.flags & API_ParFlg_Hidden) != 0 || (par.flags & API_ParFlg_SHidden) != 0)
 					continue;

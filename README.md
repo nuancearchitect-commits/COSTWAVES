@@ -347,12 +347,14 @@ Bouton **« Correspondance matériaux »** :
   matériau, position de la couche, nombre de couches) ; « — (aucune) »
   retire la clé. La valeur de la clé sera exploitée au métré
   (différenciation des articles — étape suivante) ;
-- **Objets GDL** (bouton « Objets GDL… ») : fenêtre dédiée aux objets de
-  bibliothèque — « Ajouter… » enchaîne : choix de l'objet (.gsm posables
+- **Objets GDL** (bouton « Correspondance objets GDL » sur la palette, sous
+  « Correspondance matériaux ») : fenêtre autonome avec son système de
+  classification ; « Ajouter… » enchaîne : choix de l'objet (.gsm posables
   chargés, recherche), sa classe (article), puis sa valeur clé parmi les
-  **paramètres GDL de l'objet** (libellé + nom GDL) ; la classe
-  « (aucune) » retire la correspondance. Règles enregistrées dans la même
-  bibliothèque (type « object ») ;
+  **variables GDL de type longueur** de l'objet (épaisseur, hauteur,
+  dimensions… — libellé + nom GDL) ; la classe « (aucune) » retire la
+  correspondance. Règles enregistrées dans la même bibliothèque
+  (type « object ») ;
 - **Tableau des matériaux** du projet (Matériau | Classe) ;
 - **clic sur un matériau** → ouvre la fenêtre de choix de la classe :
   liste **« ID — Nom »** avec **barre de recherche en haut** (style

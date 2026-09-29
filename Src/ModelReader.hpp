@@ -117,10 +117,11 @@ public:
 	static GS::UniString	GetBuildingMaterialName (API_AttributeIndex index);
 
 	// Paramètres GDL d'un objet de bibliothèque, par nom d'attribut
-	// (valeurs clés de la correspondance objets GDL). Paires
-	// (libellé lisible, nom GDL stable) ; titres, séparateurs et
-	// paramètres cachés exclus. Retourne false si l'objet est
-	// introuvable ou sans paramètres lisibles.
+	// (valeurs clés de la correspondance objets GDL). Seules les
+	// variables de TYPE LONGUEUR sont retournées (épaisseur, hauteur,
+	// dimensions…), hors tableaux et paramètres cachés. Paires
+	// (libellé lisible, nom GDL stable). Retourne false si l'objet est
+	// introuvable.
 	static bool	GetLibraryPartParameters (const GS::UniString& libPartName,
 										 GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams);
 
