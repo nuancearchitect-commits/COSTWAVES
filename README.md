@@ -342,10 +342,14 @@ Bouton **« Correspondance matériaux »** :
   couches ;
 - **Valeur clé** (dernière colonne de chaque ligne) : le clic ouvre le choix
   d'un paramètre différenciant, pour créer des articles qui varient par
-  épaisseur, dimension… — clés calculées par COSTWAVES (épaisseur de
+  épaisseur, dimension… — le sélecteur se réduit par **filtre de groupe**
+  (popup « Groupe : » : clés calculées COSTWAVES, puis groupes de propriétés
+  Archicad) et par recherche ; le catalogue ne propose que des paramètres
+  de **dimension/position** (épaisseur, hauteur, profondeur, largeur,
+  longueur, position) : clés calculées par COSTWAVES (épaisseur de
   l'élément, de la couche du matériau, position de la couche, nombre de
   couches, épaisseur totale du composite) ou **propriété Archicad** du
-  projet (intégrées et personnalisées, identifiées par GUID) ; « — (aucune) »
+  projet (identifiée par GUID) ; « — (aucune) »
   retire la clé. La valeur de la clé sera exploitée au métré (différenciation
   des articles — étape suivante) ;
 - **Tableau des matériaux** du projet (Matériau | Classe) ;

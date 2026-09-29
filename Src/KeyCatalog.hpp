@@ -14,7 +14,11 @@ namespace CostWaves {
 //    couches (épaisseurs, position de la couche…), mesurées sur la
 //    maquette au moment du métré ;
 //  - PROPRIÉTÉS ARCHICAD du projet (gestionnaire de propriétés) :
-//    intégrées et personnalisées, identifiées par leur GUID stable.
+//    identifiées par GUID stable — mais seulement celles dont le nom
+//    évoque une DIMENSION ou une POSITION (épaisseur, hauteur,
+//    profondeur, largeur, longueur, position), pour garder le catalogue
+//    court (tous types et groupes confondus).
+// Le sélecteur regroupe ensuite ces clés par groupe (filtre popup).
 class KeyCatalog {
 public:
 	// Toutes les clés disponibles (clés calculées d'abord, puis propriétés

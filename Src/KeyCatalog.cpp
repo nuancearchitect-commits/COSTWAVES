@@ -11,6 +11,31 @@ GS::UniString FR (const char* utf8Text)
 	return GS::UniString (utf8Text, CC_UTF8);
 }
 
+// Mots-clés de PARAMÈTRES DE DIMENSION / POSITION : le catalogue ne
+// propose que les propriétés Archicad dont le nom parle d'épaisseur,
+// hauteur, profondeur, largeur, longueur, dimension ou position — de
+// tous les types et groupes (la liste complète serait trop grande).
+// Les variantes sans accent attrapent les noms mal pliés en majuscules.
+bool MatchesDimensionKeyword (const GS::UniString& name)
+{
+	static const char* kKeywords[] = {
+		"ÉPAISSEUR", "EPAISSEUR", "THICKNESS",
+		"HAUTEUR", "HEIGHT",
+		"PROFONDEUR", "DEPTH",
+		"LARGEUR", "WIDTH",
+		"LONGUEUR", "LENGTH",
+		"DIMENSION",
+		"POSITION"
+	};
+
+	const GS::UniString upper = name.ToUpperCase ();
+	for (const char* keyword : kKeywords) {
+		if (upper.Contains (GS::UniString (keyword, CC_UTF8)))
+			return true;
+	}
+	return false;
+}
+
 } // namespace
 
 
@@ -69,6 +94,11 @@ void KeyCatalog::CollectAvailableKeys (GS::Array<CWKeyEntry>& outKeys)
 
 		for (UIndex d = 0; d < definitions.GetSize (); ++d) {
 			if (definitions[d].name.IsEmpty ())
+				continue;
+
+			// Réduction du catalogue : seuls les paramètres de dimension /
+			// position sont proposés (épaisseur, hauteur, profondeur…).
+			if (!MatchesDimensionKeyword (definitions[d].name))
 				continue;
 
 			CWKeyEntry key;

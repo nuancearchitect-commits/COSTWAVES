@@ -62,14 +62,18 @@
 
 'GDLG' ID_ADDON_DLG_KEYPICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir la valeur clé" {
 /* [  1] */	SearchEdit                   10   12  540   22 LargePlain frame | update | absolute | editable 60
-/* [  2] */	MultiSelList                10   44  540  330 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  3] */	Button                      350  390  100   23 LargePlain "Choisir"
-/* [  4] */	Button                     450  390  100   23 LargePlain "Annuler"
+/* [  2] */	LeftText                    10   44   60   18 LargePlain vTop | noTrunc Default "Groupe :"
+/* [  3] */	PopupControl                75   41  475   22 80 3
+/* [  4] */	MultiSelList                10   72  540  302 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  5] */	Button                      350  390  100   23 LargePlain "Choisir"
+/* [  6] */	Button                     450  390  100   23 LargePlain "Annuler"
 }
 
 'DLGH' ID_ADDON_DLG_KEYPICKER DLG_Key_Picker {
 1    ""        SearchEdit_0
-2    ""        MultiSelList_0
-3    ""        Button_0
-4    ""        Button_1
+2    ""        LeftText_0
+3    ""        PopupControl_0
+4    ""        MultiSelList_0
+5    ""        Button_0
+6    ""        Button_1
 }

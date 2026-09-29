@@ -17,22 +17,58 @@ GS::UniString FR (const char* utf8Text)
 KeyPickerDialog::KeyPickerDialog (const GS::Array<CWKeyEntry>& inKeys, const GS::UniString& inCurrentKeyId)
 	:	DG::ModalDialog (ACAPI_GetOwnResModule (), ID_ADDON_DLG_KEYPICKER, ACAPI_GetOwnResModule ()),
 		searchEdit (GetReference (), SearchEditId),
+		groupLabel (GetReference (), GroupLabelId),
+		groupPopup (GetReference (), GroupPopupId),
 		list (GetReference (), ListId),
 		chooseButton (GetReference (), ChooseButtonId),
 		cancelButton (GetReference (), CancelButtonId),
 		keys (inKeys),
 		currentKeyId (inCurrentKeyId)
 {
-	FillList (GS::UniString ());
+	// Groupes distincts du catalogue, sans doublon, ordre conservé
+	// (clés calculées COSTWAVES d'abord, puis propriétés Archicad).
+	for (UIndex k = 0; k < keys.GetSize (); ++k) {
+		if (!keys[k].group.IsEmpty () && !groups.Contains (keys[k].group))
+			groups.Push (keys[k].group);
+	}
+
+	// Filtre par groupe : « (tous les groupes) » + un item par groupe.
+	groupPopup.AppendItem ();
+	groupPopup.SetItemText (groupPopup.GetItemCount (), FR ("(tous les groupes)"));
+	for (UIndex g = 0; g < groups.GetSize (); ++g) {
+		groupPopup.AppendItem ();
+		groupPopup.SetItemText (groupPopup.GetItemCount (), groups[g]);
+	}
+
+	// Par défaut : le groupe de la clé déjà choisie (édition), sinon tous.
+	short groupSelection = 1;
+	if (!currentKeyId.IsEmpty ()) {
+		for (UIndex k = 0; k < keys.GetSize (); ++k) {
+			if (keys[k].id != currentKeyId)
+				continue;
+			for (UIndex g = 0; g < groups.GetSize (); ++g) {
+				if (groups[g] == keys[k].group) {
+					// +1 : item 1 = « (tous les groupes) », items 2.. = groupes.
+					groupSelection = static_cast<short> (g + 2);
+					break;
+				}
+			}
+			break;
+		}
+	}
+	groupPopup.SelectItem (groupSelection);
+
+	FillList ();
 
 	chooseButton.Attach (*this);
 	cancelButton.Attach (*this);
 	list.Attach (*this);
 	searchEdit.Attach (*this);
+	groupPopup.Attach (*this);
 }
 
 
-void KeyPickerDialog::FillList (const GS::UniString& filter)
+void KeyPickerDialog::FillList ()
 {
 	isFilling = true;
 
@@ -63,8 +99,19 @@ void KeyPickerDialog::FillList (const GS::UniString& filter)
 	list.SetTabItemText (1, 1, FR ("—"));
 	list.SetTabItemText (1, 2, FR ("(aucune)"));
 
-	const GS::UniString needle = filter.ToUpperCase ();
+	// Filtres combinés : GROUPE sélectionné dans le popup + TEXTE recherché.
+	const short groupSelection = groupPopup.GetSelectedItem ();
+	bool hasGroupFilter = false;
+	GS::UniString groupFilter;
+	if (groupSelection >= 2 && static_cast<UIndex> (groupSelection - 1) <= groups.GetSize ()) {
+		groupFilter = groups[static_cast<UIndex> (groupSelection) - 2];
+		hasGroupFilter = true;
+	}
+
+	const GS::UniString needle = searchEdit.GetText ().ToUpperCase ();
 	for (UIndex k = 0; k < keys.GetSize (); ++k) {
+		if (hasGroupFilter && keys[k].group != groupFilter)
+			continue;
 		if (!needle.IsEmpty ()
 			&& !keys[k].group.ToUpperCase ().Contains (needle)
 			&& !keys[k].name.ToUpperCase ().Contains (needle))
@@ -137,7 +184,16 @@ void KeyPickerDialog::SearchTextChanged (const DG::SearchEditChangeEvent& ev)
 	if (ev.GetSource () != &searchEdit)
 		return;
 
-	FillList (searchEdit.GetText ());
+	FillList ();
+}
+
+
+void KeyPickerDialog::PopUpChanged (const DG::PopUpChangeEvent& ev)
+{
+	if (ev.GetSource () != &groupPopup || isFilling)
+		return;
+
+	FillList ();
 }
 
 } // namespace CostWaves
