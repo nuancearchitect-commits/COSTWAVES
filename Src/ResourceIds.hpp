@@ -5,6 +5,7 @@
 #define ID_ADDON_MENU		32500
 
 #define ID_ADDON_DLG		32600
+#define ID_ADDON_DLG_PICKER	32601
 #define ID_ADDON_DLG_MAPPING	32606
 
 #endif

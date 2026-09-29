@@ -1718,10 +1718,13 @@ GS::UniString CalcRulesFilePath ()
 }
 
 // Échappement minimal d'une chaîne JSON.
+// Valeur JSON : texte échappé ET encadré de guillemets ("...") — sans les
+// guillemets le fichier écrit est du JSON invalide (illisible au rechargement).
 GS::UniString EscapeJsonText (const GS::UniString& text)
 {
 	std::wstring source = GS::ToWString (text);
 	std::wstring escaped;
+	escaped += L'"';
 	for (wchar_t ch : source) {
 		if (ch == L'\\' || ch == L'"')
 			escaped += L'\\';
@@ -1733,6 +1736,7 @@ GS::UniString EscapeJsonText (const GS::UniString& text)
 			escaped += ch;
 		}
 	}
+	escaped += L'"';
 	return GS::ToUniString (escaped);
 }
 

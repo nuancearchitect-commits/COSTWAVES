@@ -239,11 +239,14 @@ private:
 	}
 };
 
-// Échappement minimal d'une chaîne JSON.
+// Valeur JSON : texte échappé ET encadré de guillemets ("..."). Sans les
+// guillemets, le fichier écrit est du JSON invalide et devient illisible
+// au chargement (règles perdues à la réouverture).
 GS::UniString EscapeRuleText (const GS::UniString& text)
 {
 	std::wstring source = GS::ToWString (text);
 	std::wstring escaped;
+	escaped += L'"';
 	for (wchar_t ch : source) {
 		if (ch == L'\\' || ch == L'"')
 			escaped += L'\\';
@@ -255,6 +258,7 @@ GS::UniString EscapeRuleText (const GS::UniString& text)
 			escaped += ch;
 		}
 	}
+	escaped += L'"';
 	return GS::ToUniString (escaped);
 }
 
