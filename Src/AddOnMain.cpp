@@ -49,9 +49,9 @@ API_AddonType CheckEnvironment (API_EnvirParams* envir)
 GSErrCode RegisterInterface (void)
 {
 #ifdef ServerMainVers_2700
-	return ACAPI_MenuItem_RegisterMenu (AddOnMenuID, 0, MenuCode_Tools, MenuFlag_Default);
+	return ACAPI_MenuItem_RegisterMenu (AddOnMenuID, 0, MenuCode_UserDef, MenuFlag_Default);
 #else
-	return ACAPI_Register_Menu (AddOnMenuID, 0, MenuCode_Tools, MenuFlag_Default);
+	return ACAPI_Register_Menu (AddOnMenuID, 0, MenuCode_UserDef, MenuFlag_Default);
 #endif
 }
 

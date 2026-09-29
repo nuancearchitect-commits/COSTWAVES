@@ -98,11 +98,16 @@ CostWavesPalette::CostWavesPalette ()
 		mappingButton (GetReference (), MappingButtonId),
 		statusText (GetReference (), StatusTextId)
 {
+	Attach (*this);					// PanelObserver
+	mappingButton.Attach (*this);	// ButtonItemObserver
+
 	infoText.SetText (FR ("CostWaves — correspondances entre les attributs Archicad ")
 					  + FR ("et les articles CostWaves."));
 	statusText.SetText (FR ("Ouvrez « Correspondance » pour préparer les règles."));
 
-	mappingButton.Attach (*this);		// ButtonItemObserver
+	// Active la distribution des événements aux observers attachés — SANS cet
+	// appel, les clics sur les contrôles de la palette ne déclenchent RIEN.
+	BeginEventProcessing ();
 }
 
 
