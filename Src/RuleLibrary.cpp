@@ -279,6 +279,7 @@ const char* StructureTypeKey (CWStructureType structureType)
 		case CWStructureType::Profile:			return "profile";
 		case CWStructureType::Favorite:			return "favorite";
 		case CWStructureType::LibraryPart:		return "object";
+		case CWStructureType::LibraryPartBool:	return "objectBool";
 	}
 	return "composite";
 }
@@ -447,6 +448,7 @@ GS::UniString RuleLibrary::StructureTypeName (CWStructureType structureType)
 		case CWStructureType::Profile:			return FR ("Profil");
 		case CWStructureType::Favorite:			return FR ("Favori");
 		case CWStructureType::LibraryPart:		return FR ("Objet de bibliothèque");
+		case CWStructureType::LibraryPartBool:	return FR ("Article hérité");
 	}
 	return FR ("Composite");
 }
@@ -459,6 +461,7 @@ bool RuleLibrary::StructureTypeFromName (const GS::UniString& name, CWStructureT
 	if (name == US ("profile") || name == FR ("Profil")) { outType = CWStructureType::Profile; return true; }
 	if (name == US ("favorite") || name == FR ("Favori")) { outType = CWStructureType::Favorite; return true; }
 	if (name == US ("object") || name == FR ("Objet de bibliothèque")) { outType = CWStructureType::LibraryPart; return true; }
+	if (name == US ("objectBool") || name == FR ("Article hérité")) { outType = CWStructureType::LibraryPartBool; return true; }
 	return false;
 }
 

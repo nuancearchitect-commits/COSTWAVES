@@ -21,7 +21,8 @@ public:
 		InfoTextId		= 1,
 		MappingButtonId	= 2,
 		StatusTextId	= 3,
-		GdlButtonId		= 4
+		GdlButtonId		= 4,
+		InheritedButtonId = 5
 	};
 
 	// Singleton : la palette vit aussi longtemps que l'add-on.
@@ -49,6 +50,7 @@ private:
 	DG::LeftText	infoText;
 	DG::Button		mappingButton;
 	DG::Button		gdlButton;
+	DG::Button		inheritedButton;
 	DG::LeftText	statusText;
 
 	static GS::Ref<CostWavesPalette>	instance;

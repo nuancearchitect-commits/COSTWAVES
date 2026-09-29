@@ -3,6 +3,7 @@
 #include "CostWavesPalette.hpp"
 
 #include "GdlMappingDialog.hpp"
+#include "InheritedArticlesDialog.hpp"
 #include "MappingDialog.hpp"
 
 namespace CostWaves {
@@ -98,11 +99,13 @@ CostWavesPalette::CostWavesPalette ()
 		infoText (GetReference (), InfoTextId),
 		mappingButton (GetReference (), MappingButtonId),
 		gdlButton (GetReference (), GdlButtonId),
+		inheritedButton (GetReference (), InheritedButtonId),
 		statusText (GetReference (), StatusTextId)
 {
 	Attach (*this);					// PanelObserver
 	mappingButton.Attach (*this);	// ButtonItemObserver
 	gdlButton.Attach (*this);
+	inheritedButton.Attach (*this);
 
 	infoText.SetText (FR ("CostWaves — correspondances entre les attributs Archicad ")
 					  + FR ("et les articles CostWaves."));
@@ -133,6 +136,9 @@ void CostWavesPalette::ButtonClicked (const DG::ButtonClickEvent& ev)
 		dialog.Invoke ();
 	} else if (ev.GetSource () == &gdlButton) {
 		GdlMappingDialog dialog;
+		dialog.Invoke ();
+	} else if (ev.GetSource () == &inheritedButton) {
+		InheritedArticlesDialog dialog;
 		dialog.Invoke ();
 	}
 }

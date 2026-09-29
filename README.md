@@ -355,6 +355,13 @@ Bouton **« Correspondance matériaux »** :
   dimensions… — libellé + nom GDL) ; la classe « (aucune) » retire la
   correspondance. Règles enregistrées dans la même bibliothèque
   (type « object ») ;
+- **Articles hérités** (bouton « Articles hérités » sur la palette) : un
+  article hérité naît d'un objet GDL dont un **paramètre booléen** est
+  activé (tablette, seuil, volet…) ; « Ajouter… » : l'objet, son
+  paramètre booléen, puis l'article CostWaves hérité ; « (aucune) »
+  retire la règle. Exemples : descente eau pluviale Ø125/Ø160, plinthe
+  marbre H8/H12 — deux articles issus d'un seul objet grâce à la valeur
+  clé ;
 - **Tableau des matériaux** du projet (Matériau | Classe) ;
 - **clic sur un matériau** → ouvre la fenêtre de choix de la classe :
   liste **« ID — Nom »** avec **barre de recherche en haut** (style

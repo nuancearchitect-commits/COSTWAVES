@@ -129,6 +129,14 @@ public:
 										 GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
 										 GS::UniString& outNote, GS::UniString& outAlert);
 
+	// Paramètres GDL BOOLÉENS d'un objet (articles hérités : tablette,
+	// seuil, volet…). Même contrat que GetLibraryPartParameters
+	// (comptage dans outNote, explication dans outAlert, diagnostic dans
+	// CostWaves-diagnostic.txt).
+	static bool	GetLibraryPartBooleanParameters (const GS::UniString& libPartName,
+												   GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
+												   GS::UniString& outNote, GS::UniString& outAlert);
+
 private:
 	// Caches de lecture (phase 3 : un seul appel API par attribut distinct),
 	// purgés au début de chaque Scan.

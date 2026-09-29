@@ -22,7 +22,9 @@ enum class CWStructureType {
 	Composite,
 	Profile,
 	Favorite,
-	LibraryPart
+	LibraryPart,
+	LibraryPartBool		// article HÉRITÉ : objet GDL + paramètre booléen
+						// activé (tablette, seuil, volet…) ; clé « bool:<nom> »
 };
 
 
