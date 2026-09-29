@@ -163,22 +163,27 @@ void GdlMappingDialog::AddRule ()
 	const short articleIndex = articlePicker.GetSelectedArticleIndex ();
 
 	// 3) La valeur clé : une variable GDL de TYPE LONGUEUR de l'objet
-	//    (épaisseur, hauteur, dimensions…), facultative.
+	//    (épaisseur, hauteur, dimensions…), facultative. Annuler le choix
+	//    = pas de clé (l'article choisi reste enregistré). Un échec de
+	//    lecture est EXPLIQUÉ dans la ligne d'état (jamais silencieux).
 	GS::UniString keyId;
 	GS::UniString keyName;
+	GS::UniString paramNote;
 	if (articleIndex != 0) {
 		GS::Array<GS::Pair<GS::UniString, GS::UniString>> params;
-		if (ModelReader::GetLibraryPartParameters (objectName, params) && !params.IsEmpty ()) {
+		if (ModelReader::GetLibraryPartParameters (objectName, params, paramNote)
+			&& !params.IsEmpty ()) {
+			paramNote.Clear ();		// la liste va s'afficher : plus de note
+
 			GdlItemPickerDialog paramPicker (ID_ADDON_DLG_PARAMPICKER, FR ("Paramètre"), FR ("Nom GDL"),
 											 params, true);
 			paramPicker.Invoke ();
-			if (!paramPicker.IsAccepted ())
-				return;
-
-			const short paramIndex = paramPicker.GetSelectedItemIndex ();
-			if (paramIndex >= 1 && static_cast<UIndex> (paramIndex) <= params.GetSize ()) {
-				keyId = params[static_cast<UIndex> (paramIndex) - 1].second;		// nom GDL stable
-				keyName = params[static_cast<UIndex> (paramIndex) - 1].first;	// libellé lisible
+			if (paramPicker.IsAccepted ()) {
+				const short paramIndex = paramPicker.GetSelectedItemIndex ();
+				if (paramIndex >= 1 && static_cast<UIndex> (paramIndex) <= params.GetSize ()) {
+					keyId = params[static_cast<UIndex> (paramIndex) - 1].second;		// nom GDL stable
+					keyName = params[static_cast<UIndex> (paramIndex) - 1].first;	// libellé lisible
+				}
 			}
 		}
 	}
@@ -217,7 +222,9 @@ void GdlMappingDialog::AddRule ()
 			rules.Push (rule);
 
 		SetStatus (FR ("« ") + objectName + FR (" » → ") + article.id + FR (" — ") + article.name
-				   + (keyName.IsEmpty () ? GS::UniString () : FR (" · clé : ") + keyName));
+				   + (keyName.IsEmpty ()
+					   ? (paramNote.IsEmpty () ? GS::UniString () : FR (" · sans clé (") + paramNote + FR (")"))
+					   : FR (" · clé : ") + keyName));
 	}
 
 	FillList ();

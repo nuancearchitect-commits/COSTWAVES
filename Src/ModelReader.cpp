@@ -126,75 +126,113 @@ GS::UniString ModelReader::GetTypeName (const API_ElemType& type)
 
 
 bool ModelReader::GetLibraryPartParameters (const GS::UniString& libPartName,
-											GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams)
+											GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
+											GS::UniString& outNote)
 {
 	outParams.Clear ();
+	outNote.Clear ();
 	if (libPartName.IsEmpty ())
 		return false;
 
-	// Retrouver l'index de l'objet de bibliothèque par son nom.
+	// Retrouver l'objet de bibliothèque par son nom — en ne considérant que
+	// les objets POSABLES (même filtre que la liste de choix) : un homonyme
+	// non posable (macro, image…) n'a pas de section de paramètres.
 	Int32 partCount = 0;
-	if (ACAPI_LibraryPart_GetNum (&partCount) != NoError || partCount <= 0)
+	if (ACAPI_LibraryPart_GetNum (&partCount) != NoError || partCount <= 0) {
+		outNote = FR ("bibliothèque illisible");
 		return false;
+	}
 
 	Int32 foundIndex = 0;
 	for (Int32 i = 1; i <= partCount && foundIndex == 0; ++i) {
 		API_LibPart libPart;
 		BNZeroMemory (&libPart, sizeof (libPart));
 		libPart.index = i;
-		if (ACAPI_LibraryPart_Get (&libPart) == NoError) {
-			if (GS::UniString (libPart.docu_UName) == libPartName)
-				foundIndex = i;
+		if (ACAPI_LibraryPart_Get (&libPart) == NoError
+			&& GS::UniString (libPart.docu_UName) == libPartName
+			&& (libPart.typeID == APILib_ObjectID
+				|| libPart.typeID == APILib_DoorID
+				|| libPart.typeID == APILib_WindowID
+				|| libPart.typeID == APILib_LampID
+				|| libPart.typeID == APILib_SkylightID)) {
+			foundIndex = i;
 		}
 		// ACAPI_LibraryPart_Get alloue libPart.location : le libérer.
 		delete libPart.location;
 		libPart.location = nullptr;
 	}
-	if (foundIndex == 0)
+	if (foundIndex == 0) {
+		outNote = FR ("objet introuvable dans la bibliothèque chargée");
 		return false;
+	}
 
 	// Paramètres par défaut de l'objet (pattern DevKit LibPart_Test) :
 	// OpenParameters -> GetActParameters -> CloseParameters.
 	API_ParamOwnerType paramOwner;
 	BNZeroMemory (&paramOwner, sizeof (paramOwner));
 	paramOwner.libInd = foundIndex;
-	if (ACAPI_LibraryPart_OpenParameters (&paramOwner) != NoError)
+	GSErrCode err = ACAPI_LibraryPart_OpenParameters (&paramOwner);
+	if (err != NoError) {
+		// Repli : certains builds exigent aussi le type d'élément cible.
+		BNZeroMemory (&paramOwner, sizeof (paramOwner));
+		paramOwner.libInd = foundIndex;
+		paramOwner.type.typeID = API_ObjectID;
+		err = ACAPI_LibraryPart_OpenParameters (&paramOwner);
+	}
+	if (err != NoError) {
+		outNote = FR ("ouverture des paramètres GDL impossible (code ")
+				  + GS::ToUniString (std::to_wstring (static_cast<int> (err))) + FR (")");
 		return false;
+	}
 
-	bool result = false;
 	API_GetParamsType getParams;
 	BNZeroMemory (&getParams, sizeof (getParams));
-	if (ACAPI_LibraryPart_GetActParameters (&getParams) == NoError) {
-		result = true;
-		if (getParams.params != nullptr && *getParams.params != nullptr) {
-			const GSSize nParams = BMGetHandleSize (reinterpret_cast<GSHandle> (getParams.params))
-				/ static_cast<GSSize> (sizeof (API_AddParType));
-			for (GSIndex p = 0; p < nParams; ++p) {
-				const API_AddParType& par = (*getParams.params)[p];
-				// Seules les variables GDL de TYPE LONGUEUR sont proposées
-				// comme valeurs clés (épaisseur, hauteur, dimensions…).
-				if (par.typeID != APIParT_Length)
-					continue;
-				// Tableaux : valeur ambiguë, ignorer ; paramètres cachés :
-				// pas dans les réglages.
-				if (par.typeMod == API_ParArray)
-					continue;
-				if ((par.flags & API_ParFlg_Hidden) != 0 || (par.flags & API_ParFlg_SHidden) != 0)
-					continue;
-
-				const GS::UniString name (par.name);
-				if (name.IsEmpty ())
-					continue;
-				const GS::UniString description (par.uDescname);
-				outParams.Push (GS::Pair<GS::UniString, GS::UniString> (
-					description.IsEmpty () ? name : description, name));
-			}
-		}
-		ACAPI_DisposeAddParHdl (&getParams.params);
+	err = ACAPI_LibraryPart_GetActParameters (&getParams);
+	if (err != NoError) {
+		ACAPI_LibraryPart_CloseParameters ();
+		outNote = FR ("lecture des paramètres GDL impossible (code ")
+				  + GS::ToUniString (std::to_wstring (static_cast<int> (err))) + FR (")");
+		return false;
 	}
+
+	USize totalCount = 0;
+	if (getParams.params != nullptr && *getParams.params != nullptr) {
+		const GSSize nParams = BMGetHandleSize (reinterpret_cast<GSHandle> (getParams.params))
+			/ static_cast<GSSize> (sizeof (API_AddParType));
+		for (GSIndex p = 0; p < nParams; ++p) {
+			const API_AddParType& par = (*getParams.params)[p];
+			// Titres et séparateurs : lignes de présentation.
+			if (par.typeID == APIParT_Title || par.typeID == APIParT_Separator)
+				continue;
+			++totalCount;
+			// Seules les variables GDL de TYPE LONGUEUR sont proposées
+			// comme valeurs clés (épaisseur, hauteur, dimensions…).
+			if (par.typeID != APIParT_Length)
+				continue;
+			// Tableaux : valeur ambiguë ; paramètres cachés : pas dans
+			// les réglages.
+			if (par.typeMod == API_ParArray)
+				continue;
+			if ((par.flags & API_ParFlg_Hidden) != 0 || (par.flags & API_ParFlg_SHidden) != 0)
+				continue;
+
+			const GS::UniString name (par.name);
+			if (name.IsEmpty ())
+				continue;
+			const GS::UniString description (par.uDescname);
+			outParams.Push (GS::Pair<GS::UniString, GS::UniString> (
+				description.IsEmpty () ? name : description, name));
+		}
+	}
+	ACAPI_DisposeAddParHdl (&getParams.params);
 	ACAPI_LibraryPart_CloseParameters ();
 
-	return result;
+	if (outParams.IsEmpty ())
+		outNote = FR ("aucune variable de type longueur — ")
+				  + GS::ToUniString (std::to_wstring (static_cast<int> (totalCount)))
+				  + FR (" paramètre(s) GDL lu(s) au total");
+
+	return true;
 }
 
 
