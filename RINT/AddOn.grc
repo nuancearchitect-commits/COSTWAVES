@@ -22,28 +22,19 @@
 3    ""        LeftText_1
 }
 
-'GDLG' ID_ADDON_DLG_PICKER Modal |noGrow   60   60  500 380  "CostWaves — Choisir une classe" {
-/* [  1] */ SearchEdit                   10   12  480   22 LargePlain frame | update | absolute | editable 60
-/* [  2] */ MultiSelList                10   44  480  250 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  3] */ Button                      290  310  100   23 LargePlain "Choisir"
-/* [  4] */ Button                     390  310  100   23 LargePlain "Annuler"
-}
-
-'DLGH' ID_ADDON_DLG_PICKER DLG_Article_Picker {
-1    ""        SearchEdit_0
-2    ""        MultiSelList_0
-3    ""        Button_0
-4    ""        Button_1
-}
-
-'GDLG' ID_ADDON_DLG_MAPPING Modal |noGrow   60   60  660 430  "CostWaves — Correspondances matériaux" {
-/* [  1] */ LeftText                    10   12  640   30 LargePlain vTop | noTrunc Default ""
+'GDLG' ID_ADDON_DLG_MAPPING Modal |noGrow   60   60  700 620  "CostWaves — Correspondances matériaux" {
+/* [  1] */ LeftText                    10   12  680   30 LargePlain vTop | noTrunc Default ""
 /* [  2] */ LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
-/* [  3] */ PopupControl               125   47  525   22 80 3
-/* [  4] */ MultiSelList                10   80  640  260 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  5] */ LeftText                    10  350  640   36 SmallPlain vTop | noTrunc Default ""
-/* [  6] */ Button                      10  390  130   23 LargePlain "Enregistrer"
-/* [  7] */ Button                     520  390  130   23 LargePlain "Fermer"
+/* [  3] */ PopupControl               125   47  565   22 80 3
+/* [  4] */ MultiSelList                10   80  680  380 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  5] */ LeftText                    10  472  680   36 SmallPlain vTop | noTrunc Default ""
+/* [  6] */ Button                      10  580  130   23 LargePlain "Enregistrer"
+/* [  7] */ Button                     560  580  130   23 LargePlain "Fermer"
+/* [  8] */ LeftText                    10   86  680   18 LargePlain vTop | noTrunc Default ""
+/* [  9] */ SearchEdit                  10  112  680   22 LargePlain frame | update | absolute | editable 60
+/* [10] */ MultiSelList                10  142  680  250 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [11] */ Button                      10  402  130   23 LargePlain "Valider"
+/* [12] */ Button                     150  402  130   23 LargePlain "Fermer la liste"
 }
 
 'DLGH' ID_ADDON_DLG_MAPPING DLG_Mapping {
@@ -54,4 +45,9 @@
 5    ""        LeftText_2
 6    ""        Button_0
 7    ""        Button_1
+8    ""        LeftText_3
+9    ""        SearchEdit_0
+10   ""        MultiSelList_1
+11   ""        Button_2
+12   ""        Button_3
 }

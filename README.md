@@ -333,10 +333,11 @@ Bouton **« Correspondance matériaux »** :
 
 - **Filtre Classification** : système dont les classes sont les articles ;
 - **Tableau des matériaux** du projet (Matériau | Classe) ;
-- **clic sur un matériau** → ouvre la liste des classes **« ID — Nom »**
-  avec **barre de recherche** en haut (style sélecteur d'attributs Archicad,
-  liste indentée comme la classification) — double-clic ou « Choisir »
-  valide ; **« — (aucune) »** retire la correspondance (un matériau sans
+- **clic sur un matériau** (flèche ▼ en bout de ligne) → la liste des
+  classes **« ID — Nom »** s'ouvre DIRECTEMENT À LA PLACE du tableau, avec
+  **champ de recherche en tête** (style sélecteur d'attributs Archicad,
+  liste indentée comme la classification) — double-clic ou « Valider »
+  applique ; **« — (aucune) »** retire la correspondance (un matériau sans
   classe est déjà ignoré du métré — pas d'option Ignorer) ;
 - **Enregistrer** : confirmation avec le chemin
   (`<Documents>/CostWaves-regles.json`, réutilisable entre projets) ;
