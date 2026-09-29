@@ -184,7 +184,7 @@ void MappingDialog::FillList ()
 	}
 
 	if (list.GetItemCount () > 0) {
-		if (selectedAttribute < 1 || static_cast<UIndex> (selectedAttribute) > list.GetItemCount ())
+		if (selectedAttribute < 1 || selectedAttribute > list.GetItemCount ())
 			selectedAttribute = 1;
 		list.SelectItem (selectedAttribute);
 	} else {
