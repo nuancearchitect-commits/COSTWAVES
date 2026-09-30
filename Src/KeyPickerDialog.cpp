@@ -2,6 +2,8 @@
 
 #include "KeyPickerDialog.hpp"
 
+#include "CostWavesStyle.hpp"
+
 namespace CostWaves {
 
 namespace {
@@ -25,6 +27,8 @@ KeyPickerDialog::KeyPickerDialog (const GS::Array<CWKeyEntry>& inKeys, const GS:
 		keys (inKeys),
 		currentKeyId (inCurrentKeyId)
 {
+	CostWavesStyle::ApplyFieldLabel (groupLabel);
+
 	// Groupes distincts du catalogue, sans doublon, ordre conservé
 	// (clés calculées COSTWAVES d'abord, puis propriétés Archicad).
 	for (UIndex k = 0; k < keys.GetSize (); ++k) {
@@ -98,6 +102,8 @@ void KeyPickerDialog::FillList ()
 	list.AppendItem ();
 	list.SetTabItemText (1, 1, FR ("—"));
 	list.SetTabItemText (1, 2, FR ("(aucune)"));
+	CostWavesStyle::CellMuted (list, 1, 1);
+	CostWavesStyle::CellMuted (list, 1, 2);
 
 	// Filtres combinés : GROUPE sélectionné dans le popup + TEXTE recherché.
 	const short groupSelection = groupPopup.GetSelectedItem ();

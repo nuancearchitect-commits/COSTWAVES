@@ -11,16 +11,16 @@
 }
 
 'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  360 330  "CostWaves" {
-/* [  1] */ LeftText                     10   12  340   26 LargePlain vTop | noTrunc Default ""
-/* [  2] */ LeftText                     10   40  340   30 SmallPlain vTop | noTrunc Default ""
-/* [  3] */ LeftText                     10   84  340   16 SmallPlain vTop | noTrunc Default ""
-/* [  4] */ Button                        10  104  340   24 LargePlain "Matériaux, composites et profils…"
-/* [  5] */ LeftText                     10  130  340   16 SmallPlain vTop | noTrunc Default ""
-/* [  6] */ Button                        10  152  340   24 LargePlain "Objets GDL…"
-/* [  7] */ LeftText                     10  178  340   16 SmallPlain vTop | noTrunc Default ""
-/* [  8] */ Button                        10  200  340   24 LargePlain "Articles hérités…"
-/* [  9] */ LeftText                     10  226  340   16 SmallPlain vTop | noTrunc Default ""
-/* [ 10] */ LeftText                     10  258  340   60 SmallPlain vTop | noTrunc Default ""
+/* [  1] */ LeftText                     0    0  360   40 LargePlain noTrunc Default ""
+/* [  2] */ LeftText                    10   50  340   30 SmallPlain vTop | noTrunc Default ""
+/* [  3] */ LeftText                    10   90  340   16 SmallPlain vTop | noTrunc Default ""
+/* [  4] */ Button                       10  110  340   24 LargePlain "Matériaux, composites et profils…"
+/* [  5] */ LeftText                    10  136  340   16 SmallPlain vTop | noTrunc Default ""
+/* [  6] */ Button                       10  158  340   24 LargePlain "Objets GDL…"
+/* [  7] */ LeftText                    10  184  340   16 SmallPlain vTop | noTrunc Default ""
+/* [  8] */ Button                       10  206  340   24 LargePlain "Articles hérités…"
+/* [  9] */ LeftText                    10  232  340   16 SmallPlain vTop | noTrunc Default ""
+/* [ 10] */ LeftText                    10  262  340   48 SmallPlain noTrunc Default ""
 }
 
 'DLGH' ID_ADDON_DLG DLG_CostWaves_Palette {

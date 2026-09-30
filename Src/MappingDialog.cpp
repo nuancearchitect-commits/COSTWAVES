@@ -4,6 +4,7 @@
 
 #include "ArticleManager.hpp"
 #include "ArticlePickerDialog.hpp"
+#include "CostWavesStyle.hpp"
 #include "KeyCatalog.hpp"
 #include "KeyPickerDialog.hpp"
 #include "ModelReader.hpp"
@@ -48,6 +49,10 @@ MappingDialog::MappingDialog ()
 	infoText.SetText (FR ("Cliquez sur un attribut pour lui choisir sa classe (article). ")
 					  + FR ("Matériau sans classe = ignoré ; composite/profil sans classe = ")
 					  + FR ("quantifié par ses matériaux."));
+	CostWavesStyle::ApplyHelp (infoText);
+	CostWavesStyle::ApplyFieldLabel (typeLabel);
+	CostWavesStyle::ApplyFieldLabel (systemLabel);
+	CostWavesStyle::ApplyStatusChip (statusText);
 
 	// Filtre type d'attribut : Matériau / Composite / Profil complexe.
 	typePopup.AppendItem ();
@@ -181,8 +186,10 @@ void MappingDialog::FillList ()
 				list.SetTabItemText (item, 2, article != nullptr
 					? rule->articleId + FR (" — ") + article->name
 					: rule->articleId);
+				CostWavesStyle::CellAccent (list, item, 2);
 			} else {
 				list.SetTabItemText (item, 2, FR ("—"));
+				CostWavesStyle::CellMuted (list, item, 2);
 			}
 		} else {
 			// Composite / profil : case à cocher (icône) + article ou
@@ -199,9 +206,11 @@ void MappingDialog::FillList ()
 					? rule->articleId + FR (" — ") + article->name
 					: rule->articleId);
 				list.SetTabItemFontStyle (item, 3, DG::Font::Plain);
+				CostWavesStyle::CellAccent (list, item, 3);
 			} else {
 				list.SetTabItemText (item, 3, FR (kByMaterialsText));
 				list.SetTabItemFontStyle (item, 3, DG::Font::Italic);
+				CostWavesStyle::CellMuted (list, item, 3);
 			}
 		}
 
@@ -211,8 +220,10 @@ void MappingDialog::FillList ()
 		if (rule != nullptr && !rule->keyName.IsEmpty ()) {
 			++withKey;
 			list.SetTabItemText (item, keyColumn, rule->keyName);
+			CostWavesStyle::CellOk (list, item, keyColumn);
 		} else {
 			list.SetTabItemText (item, keyColumn, FR ("—"));
+			CostWavesStyle::CellMuted (list, item, keyColumn);
 		}
 	}
 

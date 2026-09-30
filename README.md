@@ -373,6 +373,13 @@ Bouton **« Matériaux, composites et profils… »** :
   l'ouverture** (« Tous » sélectionné), le filtre ne s'applique que sur
   un clic et se combine avec la recherche (l'entrée « (aucune) » reste
   toujours visible) ;
+- **style CostWaves** (couleurs de la maquette V4, sans copier ses
+  écrans) : palette avec **bande de titre sombre** (#101826, titre blanc
+  en gras) qui suit la largeur, libellé de section et lignes d'état en
+  **accent bleu** #155eef (état en pastille fond #e8f0fe), textes d'aide
+  gris #6a7b90 ; dans les listes : articles en bleu accent, valeurs clés
+  en vert (#027a48), cellules vides « — » et « (aucune) » en gris,
+  colonne Type du sélecteur en pastille accent pour le type attendu ;
 - **Articles hérités** (bouton « Articles hérités » sur la palette) : un
   article hérité naît d'un **paramètre booléen activé** (tablette, seuil,
   volet…), **quel que soit l'objet qui le porte** — le même nom de

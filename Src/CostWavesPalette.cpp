@@ -2,6 +2,7 @@
 
 #include "CostWavesPalette.hpp"
 
+#include "CostWavesStyle.hpp"
 #include "GdlMappingDialog.hpp"
 #include "InheritedArticlesDialog.hpp"
 #include "MappingDialog.hpp"
@@ -112,15 +113,24 @@ CostWavesPalette::CostWavesPalette ()
 	gdlButton.Attach (*this);
 	inheritedButton.Attach (*this);
 
-	// Esprit maquette V4 : titre, sous-titre, section, boutons décrits.
+	// Couleurs de la maquette V4 : bande de titre sombre « rail » avec
+	// titre blanc, sous-titre et descriptions gris, libellé de section
+	// accent, ligne d'état en pastille (fond soft, texte accent).
 	titleText.SetText (FR ("COSTWAVES"));
+	CostWavesStyle::ApplyBand (titleText);
 	subtitleText.SetText (FR ("Correspondances entre les attributs Archicad")
 						  + FR (" et les articles CostWaves."));
+	CostWavesStyle::ApplyHelp (subtitleText);
 	sectionLabel.SetText (FR ("CORRESPONDANCES"));
+	CostWavesStyle::ApplySectionLabel (sectionLabel);
 	mappingDesc.SetText (FR ("Règles par attribut + valeur clé"));
+	CostWavesStyle::ApplyHelp (mappingDesc);
 	gdlDesc.SetText (FR ("Règles par objet + paramètre de longueur"));
+	CostWavesStyle::ApplyHelp (gdlDesc);
 	inheritedDesc.SetText (FR ("Booléen activé → article + valeur clé"));
+	CostWavesStyle::ApplyHelp (inheritedDesc);
 	statusText.SetText (FR ("Ouvrez une correspondance pour préparer les règles."));
+	CostWavesStyle::ApplyStatusChip (statusText);
 
 	// Active la distribution des événements aux observers attachés — SANS cet
 	// appel, les clics sur les contrôles de la palette ne déclenchent RIEN.
@@ -137,6 +147,15 @@ void CostWavesPalette::PanelCloseRequested (const DG::PanelCloseRequestEvent& /*
 {
 	*accepted = true;
 	HidePalette ();
+}
+
+
+void CostWavesPalette::PanelResized (const DG::PanelResizeEvent& ev)
+{
+	// La bande de titre et la pastille d'état suivent la largeur de la
+	// palette (le reste reste ancré en haut à gauche).
+	titleText.Resize (ev.GetHorizontalChange (), 0);
+	statusText.Resize (ev.GetHorizontalChange (), 0);
 }
 
 

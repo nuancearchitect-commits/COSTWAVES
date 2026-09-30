@@ -9,8 +9,11 @@
 namespace CostWaves {
 
 // Palette CostWaves (menu NUANCE BIM > COSTWAVES) : point d'entrée de
-// l'add-on, dans l'esprit de la maquette CostWaves V4 — titre, sous-titre,
-// label de section, boutons avec description, ligne d'état. Trois actions :
+// l'add-on, aux COULEURS de la maquette CostWaves V4 — bande de titre
+// sombre « rail » (#101826) avec titre blanc, libellé de section accent
+// (#155eef), descriptions gris, ligne d'état en pastille « chip » (fond
+// soft #e8f0fe, texte accent). La bande et la pastille suivent la
+// largeur quand la palette est redimensionnée. Trois actions :
 //  - « Matériaux, composites et profils… » : fenêtre des correspondances
 //    attributs Archicad -> articles (classes) + valeurs clés ;
 //  - « Objets GDL… » : correspondances objet de bibliothèque -> article
@@ -18,8 +21,8 @@ namespace CostWaves {
 //  - « Articles hérités… » : booléen activé (global) -> article
 //    + valeur clé.
 class CostWavesPalette final :	public DG::Palette,
-								public DG::PanelObserver,
-								public DG::ButtonItemObserver
+					public DG::PanelObserver,
+					public DG::ButtonItemObserver
 {
 public:
 	enum ItemIds {
@@ -51,6 +54,7 @@ private:
 
 	// DG::PanelObserver
 	virtual void	PanelCloseRequested (const DG::PanelCloseRequestEvent& ev, bool* accepted) override;
+	virtual void	PanelResized (const DG::PanelResizeEvent& ev) override;
 
 	// DG::ButtonItemObserver
 	virtual void	ButtonClicked (const DG::ButtonClickEvent& ev) override;

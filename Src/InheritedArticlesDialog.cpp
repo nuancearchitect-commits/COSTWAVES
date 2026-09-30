@@ -4,6 +4,7 @@
 
 #include "ArticleManager.hpp"
 #include "ArticlePickerDialog.hpp"
+#include "CostWavesStyle.hpp"
 #include "GdlItemPickerDialog.hpp"
 #include "ModelReader.hpp"
 #include "RuleLibrary.hpp"
@@ -40,6 +41,9 @@ InheritedArticlesDialog::InheritedArticlesDialog ()
 					  + FR (" volet…), quel que soit l'objet qui le porte. « Ajouter… » :")
 					  + FR (" choisir un objet pour lister ses paramètres, puis le booléen,")
 					  + FR (" puis l'article."));
+	CostWavesStyle::ApplyHelp (infoText);
+	CostWavesStyle::ApplyFieldLabel (systemLabel);
+	CostWavesStyle::ApplyStatusChip (statusText);
 
 	// Système de classification (les classes = articles proposés).
 	systems = ModelReader::GetClassificationSystems ();
@@ -119,9 +123,14 @@ void InheritedArticlesDialog::FillList ()
 		list.SetTabItemText (item, 2, article != nullptr
 			? rules[r].articleId + FR (" — ") + article->name
 			: rules[r].articleId);
+		CostWavesStyle::CellAccent (list, item, 2);
 
 		list.SetTabItemText (item, 3, rules[r].valueKeyName.IsEmpty ()
 			? FR ("—") : rules[r].valueKeyName);
+		if (rules[r].valueKeyName.IsEmpty ())
+			CostWavesStyle::CellMuted (list, item, 3);
+		else
+			CostWavesStyle::CellOk (list, item, 3);
 	}
 
 	isFilling = false;

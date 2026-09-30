@@ -2,6 +2,7 @@
 
 #include "ArticlePickerDialog.hpp"
 
+#include "CostWavesStyle.hpp"
 #include "UniStringWStringConversion.hpp"
 
 namespace CostWaves {
@@ -71,6 +72,8 @@ void ArticlePickerDialog::FillList (const GS::UniString& filter)
 	list.AppendItem ();
 	list.SetTabItemText (1, 1, FR ("—"));
 	list.SetTabItemText (1, 2, FR ("(aucune)"));
+	CostWavesStyle::CellMuted (list, 1, 1);
+	CostWavesStyle::CellMuted (list, 1, 2);
 
 	const GS::UniString needle = filter.ToUpperCase ();
 	for (UIndex a = 0; a < articles.GetSize (); ++a) {

@@ -2,6 +2,8 @@
 
 #include "GdlItemPickerDialog.hpp"
 
+#include "CostWavesStyle.hpp"
+
 namespace CostWaves {
 
 namespace {
@@ -154,6 +156,8 @@ void GdlItemPickerDialog::FillList ()
 		list.SetTabItemText (1, 2, FR ("(aucune)"));
 		if (hasTypes)
 			list.SetTabItemText (1, 3, GS::UniString ());
+		CostWavesStyle::CellMuted (list, 1, 1);
+		CostWavesStyle::CellMuted (list, 1, 2);
 	}
 
 	// Ordre : les paramètres du type demandé EN TÊTE (ordre GDL conservé),
@@ -189,9 +193,14 @@ void GdlItemPickerDialog::FillList ()
 		list.SetTabItemText (row, 2, item.name);
 		if (hasTypes) {
 			list.SetTabItemText (row, 3, item.type);
-			// Type demandé : en gras (double vérification visuelle).
-			if (!highlightType.IsEmpty () && item.type == highlightType)
+			// Type demandé : pastille accent (fond soft, texte accent) et
+			// gras — double vérification visuelle ; autres types : gris.
+			if (!highlightType.IsEmpty () && item.type == highlightType) {
 				list.SetTabItemFontStyle (row, 3, DG::Font::Bold);
+				CostWavesStyle::CellChip (list, row, 3);
+			} else {
+				CostWavesStyle::CellMuted (list, row, 3);
+			}
 		}
 		visibleItems.Push (static_cast<short> (order[o] + 1));
 	}
