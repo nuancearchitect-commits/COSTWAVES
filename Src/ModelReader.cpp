@@ -241,46 +241,54 @@ bool OpenAndCollectParamsOfType (API_ParamOwnerType& owner, API_AddParID wantedT
 	return outResult.opened;
 }
 
-// Premier élément posé utilisant l'objet de bibliothèque d'index libInd
-// (même catégorie que l'objet) — les paramètres d'une instance posée
-// sont toujours complets (valeurs effectives de l'élément).
-bool FindPlacedElementUsingLibPart (API_LibTypeID libTypeID, Int32 libInd,
-									API_Guid& outGuid, API_ElemType& outType)
+// Premier élément posé utilisant UN DES objets de bibliothèque homonymes
+// (une bibliothèque peut contenir deux exemplaires du même nom — embarquée
+// + locale ; l'élément posé référence le sien par son PROPRE index).
+bool FindPlacedElementUsingLibParts (const GS::Array<GS::Pair<API_LibTypeID, Int32>>& candidates,
+									 API_Guid& outGuid, API_ElemType& outType)
 {
-	API_ElemTypeID typeID = API_ZombieElemID;
-	switch (libTypeID) {
-		case APILib_ObjectID:		typeID = API_ObjectID; break;
-		case APILib_LampID:			typeID = API_LampID; break;
-		case APILib_WindowID:		typeID = API_WindowID; break;
-		case APILib_DoorID:			typeID = API_DoorID; break;
-		case APILib_SkylightID:		typeID = API_SkylightID; break;
-		default:					return false;
-	}
-
-	GS::Array<API_Guid> elems;
-	if (ACAPI_Element_GetElemList (typeID, &elems) != NoError || elems.IsEmpty ())
+	if (candidates.IsEmpty ())
 		return false;
 
-	for (UIndex e = 0; e < elems.GetSize (); ++e) {
-		API_Element element;
-		BNZeroMemory (&element, sizeof (element));
-		element.header.guid = elems[e];
-		if (ACAPI_Element_Get (&element) != NoError)
+	for (UIndex c = 0; c < candidates.GetSize (); ++c) {
+		const API_LibTypeID libTypeID = candidates[c].first;
+		const Int32 libInd = candidates[c].second;
+
+		API_ElemTypeID typeID = API_ZombieElemID;
+		switch (libTypeID) {
+			case APILib_ObjectID:		typeID = API_ObjectID; break;
+			case APILib_LampID:			typeID = API_LampID; break;
+			case APILib_WindowID:		typeID = API_WindowID; break;
+			case APILib_DoorID:			typeID = API_DoorID; break;
+			case APILib_SkylightID:		typeID = API_SkylightID; break;
+			default:					continue;
+		}
+
+		GS::Array<API_Guid> elems;
+		if (ACAPI_Element_GetElemList (typeID, &elems) != NoError || elems.IsEmpty ())
 			continue;
 
-		Int32 elemLibInd = 0;
-		switch (typeID) {
-			case API_ObjectID:		elemLibInd = element.object.libInd; break;
-			case API_LampID:		elemLibInd = element.lamp.libInd; break;
-			case API_WindowID:		elemLibInd = element.window.openingBase.libInd; break;
-			case API_DoorID:		elemLibInd = element.door.openingBase.libInd; break;
-			case API_SkylightID:	elemLibInd = element.skylight.openingBase.libInd; break;
-			default: break;
-		}
-		if (elemLibInd == libInd) {
-			outGuid = elems[e];
-			outType = element.header.type;
-			return true;
+		for (UIndex e = 0; e < elems.GetSize (); ++e) {
+			API_Element element;
+			BNZeroMemory (&element, sizeof (element));
+			element.header.guid = elems[e];
+			if (ACAPI_Element_Get (&element) != NoError)
+				continue;
+
+			Int32 elemLibInd = 0;
+			switch (typeID) {
+				case API_ObjectID:		elemLibInd = element.object.libInd; break;
+				case API_LampID:		elemLibInd = element.lamp.libInd; break;
+				case API_WindowID:		elemLibInd = element.window.openingBase.libInd; break;
+				case API_DoorID:		elemLibInd = element.door.openingBase.libInd; break;
+				case API_SkylightID:	elemLibInd = element.skylight.openingBase.libInd; break;
+				default: break;
+			}
+			if (elemLibInd == libInd) {
+				outGuid = elems[e];
+				outType = element.header.type;
+				return true;
+			}
 		}
 	}
 	return false;
@@ -319,52 +327,58 @@ static bool ReadLibPartParamsOfType (const GS::UniString& libPartName, API_AddPa
 
 	// Retrouver l'objet de bibliothèque par son nom — en ne considérant que
 	// les objets POSABLES (même filtre que la liste de choix) : un homonyme
-	// non posable (macro, image…) n'a pas de section de paramètres.
-	Int32 partCount = 0;
-	if (ACAPI_LibraryPart_GetNum (&partCount) != NoError || partCount <= 0) {
-		outNote = FR ("bibliothèque illisible");
-		return false;
-	}
-
-	Int32 foundIndex = 0;
-	API_LibTypeID foundType = APILib_ObjectID;
-	for (Int32 i = 1; i <= partCount && foundIndex == 0; ++i) {
-		API_LibPart libPart;
-		BNZeroMemory (&libPart, sizeof (libPart));
-		libPart.index = i;
-		if (ACAPI_LibraryPart_Get (&libPart) == NoError
-			&& GS::UniString (libPart.docu_UName) == libPartName
-			&& (libPart.typeID == APILib_ObjectID
-				|| libPart.typeID == APILib_DoorID
-				|| libPart.typeID == APILib_WindowID
-				|| libPart.typeID == APILib_LampID
-				|| libPart.typeID == APILib_SkylightID)) {
-			foundIndex = i;
-			foundType = libPart.typeID;
+	// non posable (macro, image…) n'a pas de section de paramètres. TOUS les
+	// exemplaires homonymes sont retenus (embarquée + locale) : l'élément
+	// posé référence le sien, et chaque exemplaire peut différer.
+	GS::Array<GS::Pair<API_LibTypeID, Int32>> candidates;
+	{
+		Int32 partCount = 0;
+		if (ACAPI_LibraryPart_GetNum (&partCount) != NoError || partCount <= 0) {
+			outNote = FR ("bibliothèque illisible");
+			return false;
 		}
-		// ACAPI_LibraryPart_Get alloue libPart.location : le libérer.
-		delete libPart.location;
-		libPart.location = nullptr;
+
+		for (Int32 i = 1; i <= partCount; ++i) {
+			API_LibPart libPart;
+			BNZeroMemory (&libPart, sizeof (libPart));
+			libPart.index = i;
+			if (ACAPI_LibraryPart_Get (&libPart) == NoError
+				&& GS::UniString (libPart.docu_UName) == libPartName
+				&& (libPart.typeID == APILib_ObjectID
+					|| libPart.typeID == APILib_DoorID
+					|| libPart.typeID == APILib_WindowID
+					|| libPart.typeID == APILib_LampID
+					|| libPart.typeID == APILib_SkylightID)) {
+				candidates.Push (GS::Pair<API_LibTypeID, Int32> (libPart.typeID, i));
+			}
+			// ACAPI_LibraryPart_Get alloue libPart.location : le libérer.
+			delete libPart.location;
+			libPart.location = nullptr;
+		}
 	}
-	if (foundIndex == 0) {
+	if (candidates.IsEmpty ()) {
 		outNote = FR ("objet introuvable dans la bibliothèque chargée");
 		return false;
 	}
 
-	// Passe 1 : paramètres par DÉFAUT de l'objet (pattern DevKit
-	// LibPart_Test) : OpenParameters -> GetActParameters -> CloseParameters.
+	// Passe 1 : paramètres par DÉFAUT — l'exemplaire homonyme le PLUS RICHE
+	// en paramètres du type recherché gagne (pattern DevKit LibPart_Test) :
+	// OpenParameters -> GetActParameters -> CloseParameters.
 	GdlParamsResult def;
-	{
+	for (UIndex c = 0; c < candidates.GetSize (); ++c) {
 		API_ParamOwnerType owner;
 		BNZeroMemory (&owner, sizeof (owner));
-		owner.libInd = foundIndex;
-		if (!OpenAndCollectParamsOfType (owner, wantedType, def)) {
-			// Repli : certains builds exigent aussi le type d'élément cible.
+		owner.libInd = candidates[c].second;
+		GdlParamsResult candidate;
+		if (!OpenAndCollectParamsOfType (owner, wantedType, candidate)) {
+			// Repli : certains builds exigent le type d'élément cible.
 			BNZeroMemory (&owner, sizeof (owner));
-			owner.libInd = foundIndex;
+			owner.libInd = candidates[c].second;
 			owner.type.typeID = API_ObjectID;
-			OpenAndCollectParamsOfType (owner, wantedType, def);
+			OpenAndCollectParamsOfType (owner, wantedType, candidate);
 		}
+		if (candidate.opened && (!def.opened || candidate.matchedCount > def.matchedCount))
+			def = candidate;
 	}
 
 	// Passe 2 : TOUJOURS tenter une INSTANCE POSÉE de l'objet — la liste
@@ -375,7 +389,7 @@ static bool ReadLibPartParamsOfType (const GS::UniString& libPartName, API_AddPa
 	{
 		API_Guid elemGuid;
 		API_ElemType elemType;
-		if (FindPlacedElementUsingLibPart (foundType, foundIndex, elemGuid, elemType)) {
+		if (FindPlacedElementUsingLibParts (candidates, elemGuid, elemType)) {
 			API_ParamOwnerType elemOwner;
 			BNZeroMemory (&elemOwner, sizeof (elemOwner));
 			elemOwner.guid = elemGuid;
@@ -407,7 +421,12 @@ static bool ReadLibPartParamsOfType (const GS::UniString& libPartName, API_AddPa
 	GS::UniString diagPath;
 	{
 		GS::UniString content;
-		content += FR ("Objet : ") + libPartName + FR ("\n\n");
+		content += FR ("Objet : ") + libPartName
+				  + (candidates.GetSize () > 1
+					  ? FR (" (") + GS::ToUniString (std::to_wstring (static_cast<int> (candidates.GetSize ())))
+						+ FR (" exemplaires homonymes)")
+					  : GS::UniString ())
+				  + FR ("\n\n");
 		content += FR ("=== Paramètres de la bibliothèque (défauts) ===\n");
 		content += FR ("Types : ") + (def.typeSummary.IsEmpty () ? FR ("lecture échouée") : def.typeSummary) + FR ("\n");
 		content += def.dump + FR ("\n");
