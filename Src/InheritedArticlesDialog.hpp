@@ -23,7 +23,10 @@ namespace CostWaves {
 //     « (aucune) » retire la règle ;
 //  4) la valeur clé (FACULTATIVE) : une variable GDL de type longueur
 //     de l'objet — comme dans les correspondances objets GDL, elle
-//     différencie les variantes de l'article hérité (Ø125/Ø160, H8/H12…).
+//     différencie les variantes de l'article hérité (Ø125/Ø160, H8/H12…) ;
+//  5) la formule de QUANTITÉ (colonne Qté) : composée depuis les
+//     paramètres GDL de l'objet d'origine et les quantités Archicad —
+//     PAS de mode de calcul ni de déductions pour ce type.
 // Règles enregistrées dans la bibliothèque partagée avec la clé
 // « bool:<nom GDL> » (type « objectBool ») + la valeur clé ; l'objet
 // d'origine n'est conservé qu'à titre documentaire. « Fermer » enregistre.
@@ -61,7 +64,8 @@ private:
 	void	AddRule ();				// objet -> paramètre booléen -> article
 	void	EditSelectedArticle ();	// clic cellule Article hérité
 	void	EditSelectedValueKey ();	// clic cellule Valeur clé (objet -> paramètre)
-	void	EditSelectedCalcSetting (short setting);	// Unité / Mode / Déductions
+	void	EditSelectedUnit ();			// clic cellule Unité (cycle auto/m²/ml/m³/u/kg)
+	void	EditSelectedQuantity ();	// clic cellule Qté (formule de la règle)
 	void	DeleteSelectedRule ();	// bouton « Supprimer »
 	void	SetStatus (const GS::UniString& message);
 

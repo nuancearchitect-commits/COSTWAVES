@@ -2036,6 +2036,9 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		// clé, l'article est compté (1 par objet porteur).
 		GS::Array<UIndex>	matchedInherited;	// index des règles déclenchées
 		GS::Array<double>	matchedKeyValues;	// valeur clé lue (-1 = absente)
+		// Longueurs GDL de l'occurrence : servent la valeur clé ET la
+		// FORMULE DE QUANTITÉ de la règle (variables = noms GDL, en mètres).
+		GS::Array<GS::Pair<GS::UniString, double>> instanceLengths;
 		// Valeur clé de la règle de STRUCTURE (variante d'article) : règle
 		// objet GDL -> paramètre longueur de l'occurrence ; règle composite
 		// -> épaisseur (clés catalogue « element.thickness » /
@@ -2045,11 +2048,16 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 										&& structureRule != nullptr
 										&& structureType == CWStructureType::LibraryPart
 										&& !structureRule->keyId.IsEmpty ());
+		// Formule de quantité de la règle objet GDL : ses variables sont les
+		// paramètres GDL de l'occurrence -> il faut les lire.
+		const bool structureRuleHasFormula = (!is2D && isLibraryPartElement
+											  && structureRule != nullptr
+											  && structureType == CWStructureType::LibraryPart
+											  && !structureRule->quantityFormula.IsEmpty ());
 		if (!is2D && isLibraryPartElement
-			&& (!inheritedRuleIndices.IsEmpty () || needKeyFromParams)) {
+			&& (!inheritedRuleIndices.IsEmpty () || needKeyFromParams || structureRuleHasFormula)) {
 			GS::Array<GS::Pair<GS::UniString, double>> booleans;
-			GS::Array<GS::Pair<GS::UniString, double>> lengths;
-			if (CollectInstanceGdlParameters (elemGuid, booleans, lengths)) {
+			if (CollectInstanceGdlParameters (elemGuid, booleans, instanceLengths)) {
 				for (UIndex b = 0; b < booleans.GetSize (); ++b) {
 					const GS::UniString boolKey = GS::UniString (kInheritedBoolPrefix, CC_UTF8)
 												  + booleans[b].first;
@@ -2061,9 +2069,9 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 						matchedInherited.Push (inheritedRuleIndices[rr]);
 						double keyValue = -1.0;
 						if (!inheritedRule.valueKeyId.IsEmpty ()) {
-							for (UIndex l = 0; l < lengths.GetSize (); ++l) {
-								if (lengths[l].first == inheritedRule.valueKeyId) {
-									keyValue = lengths[l].second;
+							for (UIndex l = 0; l < instanceLengths.GetSize (); ++l) {
+								if (instanceLengths[l].first == inheritedRule.valueKeyId) {
+									keyValue = instanceLengths[l].second;
 									break;
 								}
 							}
@@ -2075,9 +2083,9 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 				// Valeur clé de la règle objet GDL : le paramètre longueur
 				// de l'occurrence (absent de l'objet -> pas de variante).
 				if (needKeyFromParams) {
-					for (UIndex l = 0; l < lengths.GetSize (); ++l) {
-						if (lengths[l].first == structureRule->keyId) {
-							rowKeyValueText = FormatKeyLengthValue (lengths[l].second);
+					for (UIndex l = 0; l < instanceLengths.GetSize (); ++l) {
+						if (instanceLengths[l].first == structureRule->keyId) {
+							rowKeyValueText = FormatKeyLengthValue (instanceLengths[l].second);
 							break;
 						}
 					}
@@ -2114,6 +2122,19 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 			row.structureType = structureType;
 			row.structureName = structureName;
 			row.keyValueText = rowKeyValueText;
+			// Formule de quantité : les paramètres GDL (longueurs, mètres)
+			// deviennent des QUANTITÉS de la ligne — variables de la formule
+			// (évaluateur : libellé = nom GDL). Jumeau « (m) » pour le repli
+			// d'unité (ml et m = mètres linéaires).
+			if (structureRuleHasFormula) {
+				for (UIndex l = 0; l < instanceLengths.GetSize (); ++l) {
+					row.quantities.Push (CWQuantity (instanceLengths[l].first, instanceLengths[l].second,
+													 GS::UniString ("ml", CC_UTF8)));
+					row.quantities.Push (CWQuantity (instanceLengths[l].first + FR (" (m)"),
+													 instanceLengths[l].second,
+													 GS::UniString ("m", CC_UTF8)));
+				}
+			}
 			if (structureRule != nullptr) {
 				row.hasRule = true;
 				row.ruleArticleId = structureRule->articleId;
@@ -2216,6 +2237,19 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 				// La valeur clé différencie les VARIANTES de l'article
 				// hérité (Ø125/Ø160, H8/H12…) : une ligne par valeur.
 				inheritedRow.keyValueText = FormatKeyLengthValue (matchedKeyValues[m]);
+			}
+			// Formule de quantité de la règle héritée : les paramètres GDL
+			// (longueurs, mètres) de l'occurrence deviennent des QUANTITÉS
+			// de la ligne — variables de la formule (libellé = nom GDL).
+			if (!inheritedRule.quantityFormula.IsEmpty ()) {
+				for (UIndex l = 0; l < instanceLengths.GetSize (); ++l) {
+					inheritedRow.quantities.Push (CWQuantity (instanceLengths[l].first,
+															  instanceLengths[l].second,
+															  GS::UniString ("ml", CC_UTF8)));
+					inheritedRow.quantities.Push (CWQuantity (instanceLengths[l].first + FR (" (m)"),
+															  instanceLengths[l].second,
+															  GS::UniString ("m", CC_UTF8)));
+				}
 			}
 			outRows.Push (inheritedRow);
 			++outReport.inheritedArticleRows;

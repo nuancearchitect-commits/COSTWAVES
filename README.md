@@ -357,7 +357,8 @@ Bouton **« Matériaux, composites et profils… »** :
   retire la clé. La valeur de la clé EST exploitée au métré :
   **une ligne par valeur** dans le Quantitatif (voir « Variantes
   d'article » ci-dessous) ;
-- **Réglages de calcul dans la ligne** (colonne Classe remplie) :
+- **Réglages de calcul dans la ligne** (fenêtre Matériaux, composites et
+  profils — colonne Classe remplie) :
   - **Unité** — le clic fait tourner `auto → m² → ml → m³ → u → kg` ;
     « (auto) » = l'unité de l'article de la base CostWaves ;
   - **Mode calcul** — le clic fait tourner `Brute → Conditionnelle →
@@ -367,6 +368,20 @@ Bouton **« Matériaux, composites et profils… »** :
   Ces réglages sont enregistrés dans la bibliothèque (fichiers `unit`,
   `calcMode`, `deductOpenings`, `deductHoles` du JSON) et **appliqués par le
   moteur du Quantitatif** ;
+- **Colonne Qté (formule) — objets GDL et articles hérités** : ces types
+  n'ont **ni mode de calcul ni déductions** (leurs quantités ne sont pas
+  des surfaces d'ouvrage) — la colonne Mode calcul/Déduits est remplacée
+  par **Qté**, une FORMULE composée depuis les **paramètres GDL** de
+  l'objet (longueurs, en mètres) et les **quantités Archicad** de
+  l'élément : pour une fenêtre, on trouve ses paramètres (Largeur,
+  Hauteur, Surface…) ET ceux de son **mur hôte** (Épaisseur mur hôte,
+  Contour ouverture, Surface tableau). Le clic ouvre l'éditeur :
+  double-clic sur une variable pour l'insérer, opérations `+ − * /` et
+  parenthèses (une formule vide = quantité par défaut : première de
+  l'unité, sinon comptage). La formule s'applique **même au comptage**
+  (ex. `A / 0.625` lames) et prime sur la formule de l'article ; son
+  résultat est dans l'unité de la règle (colonne Unité). Enregistrée dans
+  la bibliothèque (fichier `quantityFormula` du JSON) ;
 - **Objets GDL** (bouton « Objets GDL… » sur la palette) : fenêtre autonome avec son système de
   classification ; « Ajouter… » enchaîne : choix de l'objet (.gsm posables
   chargés, recherche), sa classe (article), puis sa valeur clé parmi les
@@ -377,8 +392,8 @@ Bouton **« Matériaux, composites et profils… »** :
 - **édition DANS la ligne** (fenêtres Objets GDL et Articles hérités) : clic
   sur la colonne **Article** → changement (choix « (aucune) » = suppression
   de la règle) ; clic sur **Valeur clé** → re-choix du paramètre longueur
-  de l'objet ; les colonnes Unité / Mode calcul / Déduit fen. / Déduit trou
-  fonctionnent comme dans la fenêtre des matériaux ;
+  de l'objet ; **Unité** cycle comme dans la fenêtre des matériaux ;
+  **Qté** ouvre l'éditeur de formule (voir ci-dessus) ;
 - **bouton Supprimer** (fenêtres Objets GDL et Articles hérités) : supprime
   la correspondance sélectionnée après confirmation ; dans la fenêtre
   Matériaux, composites et profils, la colonne Classe « (aucune) » retire
@@ -489,11 +504,14 @@ classification) :
 - **Réglages pilotés par la correspondance** : l'unité, le mode de calcul
   (**Brute** — géométrie principale ; **Conditionnelle** — volume conditionné
   des connexions pour le m³ ; **Nette** — après déductions ouvertures/trous)
-  et les déductions viennent des **colonnes de la règle** dans les fenêtres
-  de correspondance (tous types) — le panneau du bas du Quantitatif les
+  et les déductions viennent des **colonnes de la règle** dans la fenêtre
+  Matériaux, composites et profils — le panneau du bas du Quantitatif les
   **affiche en lecture seule** (plus de boutons radio ni cases ici) ;
   modifier un réglage = ouvrir la fenêtre de correspondance, cliquer la
-  cellule de la ligne, puis « Recalculer ».
+  cellule de la ligne, puis « Recalculer ». Pour les **objets GDL** et les
+  **articles hérités**, pas de mode ni de déductions : le panneau affiche
+  « qté : formule de la règle (paramètres GDL + quantités Archicad) » — la
+  quantité vient de la **colonne Qté** de la correspondance (formule).
 - **Quantité retenue vs calculée** : correction manuelle possible (« Retenir »)
   ; « Réinitialiser » revient à la valeur calculée ; **la quantité calculée
   d'origine n'est jamais perdue** (affichée en permanence dans le panneau).

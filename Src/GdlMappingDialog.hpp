@@ -22,8 +22,10 @@ namespace CostWaves {
 //     (épaisseur, hauteur, dimensions…), ou « (aucune) ».
 // ÉDITION dans la ligne : clic sur la cellule Article -> change l'article
 // (« (aucune) » supprime la correspondance) ; clic sur Valeur clé -> choix
-// du paramètre ; clic sur Unité / Mode calcul -> valeur suivante ; clic
-// sur les cases Déduit fenêtres / Déduit trous -> bascule.
+// du paramètre ; clic sur Unité -> valeur suivante (auto/m²/ml/m³/u/kg) ;
+// clic sur Qté -> FORMULE de la quantité (paramètres GDL de l'objet +
+// quantités Archicad — une fenêtre porte celles de son mur hôte). PAS de
+// mode de calcul ni de déductions pour ce type : la formule décide.
 // « Supprimer » retire la correspondance sélectionnée (confirmation).
 // « Fermer » enregistre la bibliothèque (best effort).
 class GdlMappingDialog final :	public DG::ModalDialog,
@@ -60,7 +62,8 @@ private:
 	void	AddRule ();				// objet -> article -> paramètre GDL
 	void	EditSelectedArticle ();	// clic cellule Article
 	void	EditSelectedKey ();		// clic cellule Valeur clé
-	void	EditSelectedCalcSetting (short setting);	// Unité / Mode / Déductions
+	void	EditSelectedUnit ();			// clic cellule Unité (cycle auto/m²/ml/m³/u/kg)
+	void	EditSelectedQuantity ();	// clic cellule Qté (formule de la règle)
 	void	DeleteSelectedRule ();	// bouton « Supprimer »
 	void	SetStatus (const GS::UniString& message);
 

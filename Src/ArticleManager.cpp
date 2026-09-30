@@ -2366,6 +2366,17 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 				line.deductOpenings = rule->deductOpenings;
 				line.deductHoles = rule->deductHoles;
 			}
+			// Objets GDL et articles hérités : NI mode de calcul NI
+			// déductions (leurs quantités ne sont pas des surfaces d'ouvrage)
+			// — la quantité vient de la FORMULE de la règle (ou du repli
+			// d'unité), toujours en mode Brute.
+			if (rule != nullptr && (rule->structureType == CWStructureType::LibraryPart
+									 || rule->structureType == CWStructureType::LibraryPartBool)) {
+				line.calcMode = CWCalcMode::Brute;
+				line.deductOpenings = true;
+				line.deductHoles = true;
+			}
+			line.formulaQuantity = (rule != nullptr && !rule->quantityFormula.IsEmpty ());
 			for (UIndex p = 0; p < previousLines.GetSize (); ++p) {
 				if (previousLines[p].articleId == article.id
 					&& previousLines[p].variantLabel == variant) {
@@ -2385,15 +2396,22 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 		// sur la règle de calcul du catalogue (calcQuantity/calcFormula),
 		// sinon première quantité de l'unité.
 		double quantity = 0.0;
-		if (line.dimension == CWQtyDimension::Unitary) {
+		const bool ruleFormula = (rule != nullptr && !rule->quantityFormula.IsEmpty ());
+		if (line.dimension == CWQtyDimension::Unitary && !ruleFormula) {
 			// Unité non géométrique (u, kg, ENS…) : comptage — 1 par
-			// élément facturé (3 groupes = 3).
+			// élément facturé (3 groupes = 3). Une FORMULE de règle
+			// s'applique même au comptage (ex. A / 0.625 lames).
 			quantity = 1.0;
 		} else {
 			CWArticle effective = article;
 			effective.unit = line.unit;
 			if (rule != nullptr && !rule->quantity.IsEmpty ())
 				effective.calcQuantity = rule->quantity;
+			// La FORMULE de la règle (objets GDL, articles hérités) prime
+			// sur la formule de l'article : variables = paramètres GDL
+			// (poussés à la lecture) et quantités Archicad de la ligne.
+			if (ruleFormula)
+				effective.calcFormula = rule->quantityFormula;
 			const double base = QuantityForArticle (effective, quantities);
 			quantity = QuantityByMode (line.dimension, line.calcMode,
 									   line.deductOpenings, line.deductHoles,

@@ -384,6 +384,7 @@ bool RuleLibrary::LoadRules (GS::Array<CWMapRule>& outRules, GS::UniString& outE
 
 		// Réglages de calcul (fenêtre de correspondance, tous types).
 		rule.unit = JsonFieldText (entry, "unit");
+		rule.quantityFormula = JsonFieldText (entry, "quantityFormula");
 		const GS::UniString calcModeKey = JsonFieldText (entry, "calcMode");
 		if (calcModeKey == US ("conditionnelle"))
 			rule.calcMode = CWCalcMode::Conditionnelle;
@@ -431,6 +432,7 @@ bool RuleLibrary::SaveRules (const GS::Array<CWMapRule>& rules, GS::UniString& o
 			+ US (", \"valueKey\": ") + EscapeRuleText (rule.valueKeyId)
 			+ US (", \"valueKeyName\": ") + EscapeRuleText (rule.valueKeyName)
 			+ US (", \"unit\": ") + EscapeRuleText (rule.unit)
+			+ US (", \"quantityFormula\": ") + EscapeRuleText (rule.quantityFormula)
 			+ US (", \"calcMode\": \"") + US (CWCalcModeKey (rule.calcMode))
 			+ US ("\", \"deductOpenings\": ") + US (rule.deductOpenings ? "true" : "false")
 			+ US (", \"deductHoles\": ") + US (rule.deductHoles ? "true" : "false")

@@ -21,6 +21,16 @@ class KeyCatalog {
 public:
 	// Toutes les clés disponibles (clés calculées par COSTWAVES uniquement).
 	static void	CollectAvailableKeys (GS::Array<CWKeyEntry>& outKeys);
+
+	// Variables d'une FORMULE DE QUANTITÉ (objets GDL, articles hérités) :
+	// paramètres GDL de type longueur de l'objet (nom GDL stable = texte
+	// inséré, valeur en mètres) + quantités Archicad de l'élément — une
+	// fenêtre/porte porte celles de son MUR HÔTE (Épaisseur mur hôte,
+	// Contour ouverture, Surface tableau). outNote explique toute limite
+	// (paramètres illisibles…).
+	static void	CollectFormulaVariables (const GS::UniString& objectName,
+										  GS::Array<CWKeyEntry>& outVariables,
+										  GS::UniString& outNote);
 };
 
 } // namespace CostWaves

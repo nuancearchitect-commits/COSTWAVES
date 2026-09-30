@@ -224,3 +224,25 @@
 14   ""        Button_3
 }
 
+'GDLG' ID_ADDON_DLG_FORMULA Modal |noGrow   60   60  560 460  "CostWaves — Formule de quantité" {
+/* [  1] */ LeftText                    10   12  540   44 SmallPlain vTop | noTrunc Default ""
+/* [  2] */ LeftText                    10   62  540   16 LargePlain vTop | noTrunc Default "Formule :"
+/* [  3] */ TextEdit                    10   84  540   23 LargePlain 256
+/* [  4] */ LeftText                    10  116  540   16 LargePlain vTop | noTrunc Default "Variables disponibles (double-clic = insérer) :"
+/* [  5] */ MultiSelList                10  140  540  250 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  6] */ Button                      10  424  110   23 LargePlain "Vider"
+/* [  7] */ Button                     310  424  110   23 LargePlain "Annuler"
+/* [  8] */ Button                     440  424  110   23 LargePlain "OK"
+}
+
+'DLGH' ID_ADDON_DLG_FORMULA DLG_Formula_Editor {
+1    ""        LeftText_0
+2    ""        LeftText_1
+3    ""        TextEdit_0
+4    ""        LeftText_2
+5    ""        MultiSelList_0
+6    ""        Button_0
+7    ""        Button_1
+8    ""        Button_2
+}
+

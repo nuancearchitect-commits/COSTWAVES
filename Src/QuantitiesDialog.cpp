@@ -257,15 +257,21 @@ void QuantitiesDialog::UpdateDetailPanel ()
 	// Unité / Mode calcul / Déduit fenêtres / Déduit trous de la ligne,
 	// fenêtres Matériaux, objets GDL, articles hérités) — affichage en
 	// lecture seule ici.
-	GS::UniString settings = FR ("Réglages de la correspondance — unité : ") + line->unit
-		+ FR (" · mode : ") + FR (CWCalcModeLabel (line->calcMode));
+	GS::UniString settings = FR ("Réglages de la correspondance — unité : ") + line->unit;
 	if (!line->variantLabel.IsEmpty ())
 		settings += FR (" · valeur clé : ") + line->variantLabel;
-	if (line->dimension == CWQtyDimension::Surface)
-		settings += FR (" · déduit fenêtres : ") + (line->deductOpenings ? FR ("oui") : FR ("non"))
-				 + FR (" · déduit trous : ") + (line->deductHoles ? FR ("oui") : FR ("non"));
-	else if (line->dimension != CWQtyDimension::Unitary)
-		settings += FR (" · déductions : surfaces uniquement");
+	if (line->formulaQuantity) {
+		// Objet GDL / article hérité : PAS de mode ni de déductions — la
+		// quantité vient de la formule de la règle.
+		settings += FR (" · qté : formule de la règle (paramètres GDL + quantités Archicad)");
+	} else {
+		settings += FR (" · mode : ") + FR (CWCalcModeLabel (line->calcMode));
+		if (line->dimension == CWQtyDimension::Surface)
+			settings += FR (" · déduit fenêtres : ") + (line->deductOpenings ? FR ("oui") : FR ("non"))
+					 + FR (" · déduit trous : ") + (line->deductHoles ? FR ("oui") : FR ("non"));
+		else if (line->dimension != CWQtyDimension::Unitary)
+			settings += FR (" · déductions : surfaces uniquement");
+	}
 	settingsText.SetText (settings);
 	CostWavesStyle::ApplyHelp (settingsText);
 

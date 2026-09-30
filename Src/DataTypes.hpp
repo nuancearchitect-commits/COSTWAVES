@@ -245,6 +245,13 @@ struct CWMapRule {
 	bool			deductOpenings = true;	// déduire les ouvertures (surfaces)
 	bool			deductHoles = true;		// déduire les trous (surfaces)
 
+	// Formule de QUANTITÉ (objets GDL et articles hérités — PAS de mode de
+	// calcul ni de déductions pour ces types) : expression arithmétique
+	// composée depuis les paramètres GDL de l'objet (longueurs, en m) et
+	// les quantités Archicad de l'élément (une fenêtre porte celles de son
+	// mur hôte). Vide = quantité par défaut (première de l'unité / comptage).
+	GS::UniString	quantityFormula;
+
 	bool		ignored = false;		// structure exclue du métré
 
 	CWMapRule () = default;
@@ -363,6 +370,7 @@ struct CWQuantityLine {
 	GS::UniString	articleId;
 	GS::UniString	articleName;
 	GS::UniString	variantLabel;	// valeur clé (variante Ø125/Ø160…) — vide = article simple
+	bool		formulaQuantity = false;	// qté calculée par la formule de la règle (GDL/hérité)
 	GS::UniString	unit;			// unité affichée (modifiable par l'utilisateur)
 	CWQtyDimension	dimension = CWQtyDimension::Unitary;
 	CWCalcMode		calcMode = CWCalcMode::Brute;

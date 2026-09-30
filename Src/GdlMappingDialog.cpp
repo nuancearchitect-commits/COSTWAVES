@@ -5,7 +5,9 @@
 #include "ArticleManager.hpp"
 #include "ArticlePickerDialog.hpp"
 #include "CostWavesStyle.hpp"
+#include "FormulaEditorDialog.hpp"
 #include "GdlItemPickerDialog.hpp"
+#include "KeyCatalog.hpp"
 #include "ModelReader.hpp"
 #include "RuleLibrary.hpp"
 
@@ -86,20 +88,19 @@ void GdlMappingDialog::FillList ()
 {
 	isFilling = true;
 
-	// Colonnes : Objet | Article | Valeur clé | Unité | Mode calcul |
-	// Déduit fenêtres | Déduit trous — réglages éditables DANS la ligne.
-	const short columnCount = 7;
+	// Colonnes : Objet | Article | Valeur clé | Unité | Qté — PAS de mode
+	// de calcul ni de déductions pour les objets GDL : la quantité est une
+	// FORMULE composée depuis les paramètres GDL et les quantités Archicad.
+	const short columnCount = 5;
 	list.SetHeaderItemCount (columnCount);
 	list.SetTabFieldCount (columnCount);
 	list.SetHeaderItemText (1, FR ("Objet"));
 	list.SetHeaderItemText (2, FR ("Article"));
 	list.SetHeaderItemText (3, FR ("Valeur clé"));
 	list.SetHeaderItemText (4, FR ("Unité"));
-	list.SetHeaderItemText (5, FR ("Mode calcul"));
-	list.SetHeaderItemText (6, FR ("Déduit fen."));
-	list.SetHeaderItemText (7, FR ("Déduit trou"));
+	list.SetHeaderItemText (5, FR ("Qté"));
 
-	const short widths[7] = { 150, 160, 110, 56, 86, 60, 60 };
+	const short widths[5] = { 150, 160, 110, 56, 284 };
 	short position = 0;
 	for (short i = 1; i <= columnCount; ++i) {
 		list.SetHeaderItemSize (i, widths[i - 1]);
@@ -136,11 +137,12 @@ void GdlMappingDialog::FillList ()
 			CostWavesStyle::CellOk (list, item, 3);
 
 		list.SetTabItemText (item, 4, CWUnitDisplay (rules[r].unit));
-		list.SetTabItemText (item, 5, FR (CWCalcModeLabel (rules[r].calcMode)));
-		list.SetTabItemIcon (item, 6, DG::Icon (SysResModule,
-			static_cast<short> (rules[r].deductOpenings ? DG::ListBox::CheckedIcon : DG::ListBox::UncheckedIcon)));
-		list.SetTabItemIcon (item, 7, DG::Icon (SysResModule,
-			static_cast<short> (rules[r].deductHoles ? DG::ListBox::CheckedIcon : DG::ListBox::UncheckedIcon)));
+		list.SetTabItemText (item, 5, rules[r].quantityFormula.IsEmpty ()
+			? FR ("— (auto)") : rules[r].quantityFormula);
+		if (rules[r].quantityFormula.IsEmpty ())
+			CostWavesStyle::CellMuted (list, item, 5);
+		else
+			CostWavesStyle::CellOk (list, item, 5);
 
 		visibleRules.Push (r + 1);
 	}
@@ -329,8 +331,8 @@ void GdlMappingDialog::ListBoxClicked (const DG::ListBoxClickEvent& ev)
 		return;
 
 	// Édition DANS la ligne : Article -> change (0 = supprime) ; Valeur clé
-	// -> paramètre de l'objet ; Unité / Mode -> valeur suivante ; cases
-	// Déduit fenêtres / Déduit trous -> bascule.
+	// -> paramètre de l'objet ; Unité -> valeur suivante ; Qté -> formule
+	// (paramètres GDL + quantités Archicad).
 	switch (ev.GetTabFieldIndex ()) {
 		case 2:
 			EditSelectedArticle ();
@@ -339,10 +341,10 @@ void GdlMappingDialog::ListBoxClicked (const DG::ListBoxClickEvent& ev)
 			EditSelectedKey ();
 			return;
 		case 4:
+			EditSelectedUnit ();
+			return;
 		case 5:
-		case 6:
-		case 7:
-			EditSelectedCalcSetting (static_cast<short> (ev.GetTabFieldIndex () - 4));
+			EditSelectedQuantity ();
 			return;
 		default:
 			break;
@@ -431,40 +433,45 @@ void GdlMappingDialog::EditSelectedKey ()
 }
 
 
-void GdlMappingDialog::EditSelectedCalcSetting (short setting)
+void GdlMappingDialog::EditSelectedUnit ()
 {
 	const short ruleIndex = GdlSelectedRuleIndex (visibleRules, selectedRule);
 	if (ruleIndex < 0)
 		return;
 	CWMapRule& rule = rules[ruleIndex];
 
-	switch (setting) {
-		case 0:
-			rule.unit = CWNextUnit (rule.unit);
-			SetStatus (FR ("« ") + rule.structureName + FR (" » — unité : ") + CWUnitDisplay (rule.unit));
-			break;
-		case 1:
-			rule.calcMode = static_cast<CWCalcMode> ((static_cast<int> (rule.calcMode) + 1) % 3);
-			SetStatus (FR ("« ") + rule.structureName + FR (" » — mode de calcul : ")
-					   + FR (CWCalcModeLabel (rule.calcMode)));
-			break;
-		case 2:
-			rule.deductOpenings = !rule.deductOpenings;
-			SetStatus (FR ("« ") + rule.structureName + FR (" » — déduire les ouvertures : ")
-					   + (rule.deductOpenings ? FR ("oui") : FR ("non")));
-			break;
-		default:
-			rule.deductHoles = !rule.deductHoles;
-			SetStatus (FR ("« ") + rule.structureName + FR (" » — déduire les trous : ")
-					   + (rule.deductHoles ? FR ("oui") : FR ("non")));
-			break;
-	}
-
+	rule.unit = CWNextUnit (rule.unit);
 	FillList ();
-	isFilling = true;
-	if (selectedRule >= 1 && selectedRule <= list.GetItemCount ())
-		list.SelectItem (selectedRule);
-	isFilling = false;
+	SetStatus (FR ("« ") + rule.structureName + FR (" » — unité : ") + CWUnitDisplay (rule.unit));
+}
+
+
+void GdlMappingDialog::EditSelectedQuantity ()
+{
+	const short ruleIndex = GdlSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0)
+		return;
+	CWMapRule& rule = rules[ruleIndex];
+
+	// Variables de la formule : paramètres GDL de l'objet + quantités
+	// Archicad (une fenêtre porte celles de son mur hôte).
+	GS::Array<CWKeyEntry> variables;
+	GS::UniString note;
+	KeyCatalog::CollectFormulaVariables (rule.structureName, variables, note);
+	if (!note.IsEmpty ())
+		SetStatus (note);
+
+	FormulaEditorDialog editor (rule.structureName, variables, rule.quantityFormula);
+	editor.Invoke ();
+	if (!editor.IsAccepted ())
+		return;
+
+	rule.quantityFormula = editor.GetFormula ();
+	FillList ();
+	SetStatus (FR ("« ") + rule.structureName
+			   + (rule.quantityFormula.IsEmpty ()
+					  ? FR (" » : quantité automatique (formule vidée).")
+					  : FR (" » — qté : ") + rule.quantityFormula));
 }
 
 
