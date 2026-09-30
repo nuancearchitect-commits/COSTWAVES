@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CostWaves IFC — métré depuis l'IFC</title>
+<!--
+  CostWaves IFC — prototype web de métré depuis un fichier IFC.
+  Continuité du add-on Archicad COSTWAVES (nuancearchitect-commits/COSTWAVES) :
+  même bibliothèque de règles (CostWaves-regles.json), même moteur
+  (règles -> articles -> variantes par valeur clé -> formules -> retenues).
+
+  Parsing 100 % dans le navigateur (web-ifc WASM, vendu dans ./vendor/) :
+  aucun envoi de données, aucun serveur.
+-->
+<style>
+:root{
+	--rail:#101826; --accent:#155eef; --ok:#027a48; --ink-1:#0c1424; --ink-3:#6a7b90;
+	--soft:#e8f0fe; --bg:#f4f7fb; --card:#ffffff; --line:#e3eaf3; --warn:#b54708;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink-1);font-size:14px}
+#layout{display:flex;min-height:100vh}
+#rail{width:264px;flex:none;background:var(--rail);color:#d6e2f2;padding:18px 14px;position:sticky;top:0;height:100vh;overflow:auto}
+#rail h1{font-size:17px;margin:4px 0 2px;color:#fff;letter-spacing:.4px}
+#rail .sub{font-size:11.5px;color:#8fa3bd;margin-bottom:18px}
+#rail .nav a{display:block;color:#c5d4e8;text-decoration:none;padding:7px 10px;border-radius:8px;font-size:13px;margin-bottom:2px}
+#rail .nav a:hover{background:rgba(21,94,239,.18)}
+#rail .sect{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:#7e93ae;margin:16px 10px 6px}
+#rail .filebox{margin:8px 0;padding:10px;background:rgba(255,255,255,.05);border:1px dashed #3a4b64;border-radius:10px;font-size:12px;color:#a9bcd4}
+#rail .ok{color:#7fe0b2}
+#rail button{width:100%;margin-top:6px}
+main{flex:1;padding:22px 26px;max-width:1200px}
+header h2{margin:0 0 4px;font-size:20px}
+header p{margin:0 0 18px;color:var(--ink-3)}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:18px;box-shadow:0 1px 2px rgba(16,24,38,.04)}
+section>h3{margin:0 0 10px;font-size:15px}
+section>h3 .n{display:inline-block;background:var(--rail);color:#fff;border-radius:6px;font-size:11px;padding:2px 7px;margin-right:8px;vertical-align:2px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:#f0f4fa;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-weight:600;color:#3b4a5f;white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:hover td{background:#f8fafd}
+tr.sel td{background:var(--soft)}
+.muted{color:var(--ink-3)}
+.accent{color:var(--accent);font-weight:600}
+.okc{color:var(--ok);font-weight:600}
+.warnc{color:var(--warn);font-weight:600}
+.right{text-align:right}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:11.5px}
+button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-weight:600}
+button:hover{filter:brightness(1.08)}
+button.ghost{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+button.mini{padding:3px 9px;font-size:11px}
+input[type=text],select{border:1px solid #c9d6e6;border-radius:8px;padding:6px 8px;font-size:12.5px;background:#fff;max-width:100%}
+input[type=file]{font-size:12px}
+.drop{border:2px dashed #b9c9e0;border-radius:12px;padding:22px;text-align:center;color:var(--ink-3);background:#f8fafd}
+.drop.over{border-color:var(--accent);background:var(--soft)}
+.chip{display:inline-block;background:var(--soft);color:var(--accent);border-radius:999px;padding:3px 10px;font-size:11.5px;margin:2px 4px 2px 0;cursor:pointer;font-weight:600}
+.chip:hover{background:#d5e3fd}
+#journal{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;max-height:260px;overflow:auto;background:#0d1626;color:#bfd3ec;border-radius:10px;padding:10px 12px}
+#journal .w{color:#ffd37e}#journal .e{color:#ff9d9d}#journal .k{color:#8be3b8}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){#layout{display:block}#rail{position:static;width:auto;height:auto}main{padding:14px}}
+details summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:12.5px}
+label.f{display:block;font-size:11.5px;color:var(--ink-3);margin:8px 0 3px}
+#totline{font-size:15px;padding:10px 8px 2px;font-weight:600}
+</style>
+</head>
+<body>
+<div id="layout">
+<aside id="rail">
+	<h1>COSTWAVES <span style="color:#7fb2ff">IFC</span></h1>
+	<div class="sub">Métré depuis l'IFC, dans le navigateur — continuité du add-on Archicad COSTWAVES.</div>
+	<div class="sect">Fichier</div>
+	<div class="filebox" id="filebox">Aucun IFC chargé.<br>Glissez un .ifc ici ou utilisez le bouton.</div>
+	<button class="ghost" onclick="document.getElementById('ifcfile').click()">Charger un IFC…</button>
+	<input type="file" id="ifcfile" accept=".ifc" hidden>
+	<div class="sect">Règles</div>
+	<button class="ghost" onclick="document.getElementById('rulesfile').click()">Importer CostWaves-regles.json…</button>
+	<input type="file" id="rulesfile" accept=".json" hidden>
+	<button class="ghost" id="btn-demo-rules">Règles de démonstration</button>
+	<div class="sect">Métré</div>
+	<button id="btn-csv">Exporter CSV</button>
+	<button class="ghost" id="btn-json">Exporter JSON</button>
+	<button class="ghost" id="btn-reset">Réinitialiser les retenues</button>
+	<div class="sect">Liens</div>
+	<div class="filebox">Add-on Archicad :<br><a href="https://github.com/nuancearchitect-commits/COSTWAVES" style="color:#9dc0ff" target="_blank">nuancearchitect-commits/COSTWAVES</a></div>
+</aside>
+<main>
+<header>
+	<h2>Métré COSTWAVES depuis un IFC</h2>
+	<p>Le moteur du add-on (règles → articles → variantes par valeur clé → formules → quantités retenues), appliqué à un fichier IFC. Rien ne quitte votre navigateur.</p>
+</header>
+
+<section id="sec-fichier">
+	<h3><span class="n">1</span>Fichier IFC</h3>
+	<div class="drop" id="drop">Glissez-déposez un fichier <b>.ifc</b> ici (ou cliquez pour parcourir)</div>
+	<div id="ifcstats" class="muted" style="margin-top:10px"></div>
+	<details style="margin-top:10px"><summary>Éléments lus</summary>
+		<div style="max-height:300px;overflow:auto;margin-top:8px"><table id="tbl-rows"></table></div>
+	</details>
+	<details style="margin-top:6px"><summary>Détail de l'élément sélectionné (quantités + propriétés — cliquez pour insérer dans une formule)</summary>
+		<div id="elem-detail" class="muted" style="margin-top:8px">Cliquez une ligne du tableau des éléments.</div>
+	</details>
+</section>
+
+<section id="sec-regles">
+	<h3><span class="n">2</span>Règles de correspondance <span class="muted" style="font-weight:400;font-size:12px">(même format que le add-on : CostWaves-regles.json)</span></h3>
+	<div id="ruleslist"></div>
+	<details style="margin-top:10px"><summary>Ajouter / modifier une règle</summary>
+		<div class="grid2" style="margin-top:10px">
+			<div>
+				<label class="f">Type</label><select id="r-type">
+					<option value="material">Matériau (couche de composite)</option>
+					<option value="composite">Composite (nom du jeu de couches)</option>
+					<option value="object">Objet (type/nom d'objet IFC — fenêtre, porte, proxy…)</option>
+					<option value="objectBool">Article hérité (propriété booléenne)</option>
+				</select>
+				<label class="f">Nom de la structure (matériau, jeu de couches, type d'objet…)</label><input type="text" id="r-name" style="width:100%" placeholder="ex. MUR_EXT_30, BetON 25, Fenetre PVC">
+				<label class="f">Article CostWaves (identifiant)</label><input type="text" id="r-article" style="width:100%" placeholder="ex. CW-BET-25 (vide = non facturé / décomposé)">
+				<div id="r-mode-wrap"><label class="f">Mode (composite)</label><select id="r-mode"><option value="element">Élément (facturé pour lui-même)</option><option value="component">Composants (ses couches)</option></select></div>
+			</div>
+			<div>
+				<label class="f">Unité (vide = automatique)</label><select id="r-unit"><option value="">(auto)</option><option>m²</option><option>ml</option><option>m³</option><option>u</option><option>kg</option></select>
+				<label class="f">Quantité à adopter (libellé d'une quantité IFC, vide = automatique)</label><input type="text" id="r-quantity" style="width:100%" placeholder="ex. NetSideArea">
+				<label class="f">Valeur clé — variante (propriété ou quantité, vide = aucune)</label><input type="text" id="r-key" style="width:100%" placeholder="ex. LargeurTablette, skin.thickness">
+				<label class="f">Valeur clé secondaire (articles hérités)</label><input type="text" id="r-valuekey" style="width:100%" placeholder="ex. LargeurTablette">
+				<label class="f">Formule de quantité (objets et articles hérités — variables = quantités/propriétés)</label><input type="text" id="r-formula" class="mono" style="width:100%" placeholder="ex. Perimeter * LargeurTablette">
+			</div>
+		</div>
+		<div style="margin-top:12px"><button id="btn-add-rule">Enregistrer la règle</button> <span class="muted" id="r-editing"></span></div>
+	</details>
+</section>
+
+<section id="sec-metre">
+	<h3><span class="n">3</span>Métré</h3>
+	<div style="max-height:420px;overflow:auto"><table id="tbl-metre"></table></div>
+	<div id="totline"></div>
+	<p class="muted" style="font-size:11.5px">« Qté retenue » est modifiable (la calculée est toujours conservée) et mémorisée dans le navigateur par article + variante. Les quantités par couche utilisent celles de l'élément porteur (l'IFC ne fournit pas de quantités par couche) — voir README.</p>
+</section>
+
+<section id="sec-journal">
+	<h3><span class="n">4</span>Journal</h3>
+	<div id="journal">Prêt.</div>
+</section>
+</main>
+</div>
+
+<script type="module">
+import * as WebIFC from './vendor/web-ifc-api.js';
+
+/* ============================ état ============================ */
+const state = { rows: [], rules: [], lines: [], selectedRow: null,
+				retained: JSON.parse(localStorage.getItem('cw-ifc-retained') || '{}'),
+				rulesSaved: JSON.parse(localStorage.getItem('cw-ifc-rules') || 'null'),
+				editingRule: -1, lastFormulaInput: null };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function log(msg, cls) {
+	const j = $('journal');
+	j.innerHTML += `<div class="${cls||''}">${new Date().toLocaleTimeString('fr-FR')} — ${esc(msg)}</div>`;
+	j.scrollTop = j.scrollHeight;
+}
+
+/* ======================= lecture de l'IFC ======================= */
+const ELEMENT_TYPES = [
+	[WebIFC.IFCWALLSTANDARDCASE, 'Mur standard'], [WebIFC.IFCWALL, 'Mur'],
+	[WebIFC.IFCSLAB, 'Dalle'], [WebIFC.IFCROOF, 'Toit'],
+	[WebIFC.IFCCOLUMN, 'Poteau'], [WebIFC.IFCBEAM, 'Poutre'],
+	[WebIFC.IFCWINDOW, 'Fenêtre'], [WebIFC.IFCDOOR, 'Porte'],
+	[WebIFC.IFCSTAIR, 'Escalier'], [WebIFC.IFCRAMP, 'Rampe'],
+	[WebIFC.IFCCURTAINWALL, 'Mur-rideau'], [WebIFC.IFCPLATE, 'Plaque'], [WebIFC.IFCMEMBER, 'Membrure'],
+	[WebIFC.IFCBUILDINGELEMENTPROXY, 'Objet (proxy)'], [WebIFC.IFCBUILDINGELEMENTPART, 'Partie d\'ouvrage'],
+	[WebIFC.IFCFURNISHINGELEMENT, 'Mobilier'], [WebIFC.IFCFLOWTERMINAL, 'Appareil terminal'],
+	[WebIFC.IFCFLOWSEGMENT, 'Conduit/tuyau'], [WebIFC.IFCFLOWFITTING, 'Raccord'],
+	[WebIFC.IFCDISTRIBUTIONELEMENT, 'Élément de distribution'],
+	[WebIFC.IFCCOVERING, 'Revêtement'], [WebIFC.IFCFOOTING, 'Fondation'], [WebIFC.IFCPILE, 'Pie'],
+];
+const v = x => (x && typeof x === 'object' && 'value' in x) ? x.value : (x ?? null);
+
+async function parseIfc(buffer) {
+	log('Initialisation du moteur IFC (web-ifc WASM)…');
+	const api = new WebIFC.IfcAPI();
+	api.SetWasmPath(new URL('./vendor/', import.meta.url).href, true);
+	await api.Init();
+	const modelID = api.OpenModel(new Uint8Array(buffer));
+	log('Fichier ouvert — lecture des relations…');
+
+	// Étage de chaque élément (IfcRelContainedInSpatialStructure)
+	const storeyOf = {};
+	try {
+		const rels = api.GetLineIDsWithType(modelID, WebIFC.IFCRELCONTAINEDINSPATIALSTRUCTURE);
+		for (let i = 0; i < rels.size(); ++i) {
+			const rel = api.GetLine(modelID, rels.get(i));
+			let storeyName = '';
+			try { storeyName = v(api.GetLine(modelID, rel.RelatingStructure.value).Name) || ''; } catch (e) {}
+			for (const elRef of (rel.RelatedElements || [])) storeyOf[elRef.value] = storeyName;
+		}
+	} catch (e) { log('Étages illisibles : ' + e.message, 'w'); }
+
+	// Psets + quantités de chaque élément (IfcRelDefinesByProperties)
+	const propsOf = {}, quantsOf = {};
+	try {
+		const rels = api.GetLineIDsWithType(modelID, WebIFC.IFCRELDEFINESBYPROPERTIES);
+		for (let i = 0; i < rels.size(); ++i) {
+			const rel = api.GetLine(modelID, rels.get(i));
+			const defRef = rel.RelatingPropertyDefinition;
+			if (!defRef || !defRef.value) continue;
+			let def; try { def = api.GetLine(modelID, defRef.value); } catch (e) { continue; }
+			const targets = (rel.RelatedObjects || []).map(r => r.value);
+			if (Array.isArray(def.HasProperties)) {						// IfcPropertySet
+				for (const t of targets) {
+					propsOf[t] = propsOf[t] || {};
+					for (const pRef of def.HasProperties) {
+						let p; try { p = api.GetLine(modelID, pRef.value); } catch (e) { continue; }
+						if (!p || !p.Name) continue;
+						if (p.NominalValue && 'value' in p.NominalValue)
+							propsOf[t][v(p.Name)] = { value: p.NominalValue.value,
+													  isBool: p.NominalValue.type === 3,
+													  isNum: p.NominalValue.type === 4 };
+					}
+				}
+			} else if (Array.isArray(def.Quantities)) {					// IfcElementQuantity
+				for (const t of targets) {
+					quantsOf[t] = quantsOf[t] || {};
+					for (const qRef of def.Quantities) {
+						let q; try { q = api.GetLine(modelID, qRef.value); } catch (e) { continue; }
+						if (!q || !q.Name) continue;
+						const val = ['AreaValue','LengthValue','VolumeValue','CountValue','WeightValue']
+							.map(f => q[f] && 'value' in q[f] ? q[f].value : null).find(x => x !== null);
+						if (val !== null) quantsOf[t][v(q.Name)] = val;
+					}
+				}
+			}
+		}
+	} catch (e) { log('Psets/quantités illisibles : ' + e.message, 'w'); }
+
+	// Matériaux (IfcRelAssociatesMaterial : couches ou matériau direct)
+	const matOf = {};
+	try {
+		const rels = api.GetLineIDsWithType(modelID, WebIFC.IFCRELASSOCIATESMATERIAL);
+		for (let i = 0; i < rels.size(); ++i) {
+			const rel = api.GetLine(modelID, rels.get(i));
+			const ref = rel.RelatingMaterial;
+			if (!ref || !ref.value) continue;
+			let mat; try { mat = api.GetLine(modelID, ref.value); } catch (e) { continue; }
+			const info = { layerSetName: '', layers: [], materialName: '' };
+			if (mat && mat.ForLayerSet) {								// usage -> jeu de couches
+				let set; try { set = api.GetLine(modelID, mat.ForLayerSet.value); } catch (e) { set = null; }
+				if (set) {
+					info.layerSetName = v(set.LayerSetName) || v(set.Name) || '';
+					for (const lRef of (set.MaterialLayers || [])) {
+						let layer; try { layer = api.GetLine(modelID, lRef.value); } catch (e) { continue; }
+						if (!layer) continue;
+						let mName = '';
+						if (layer.Material && layer.Material.value) {
+							try { mName = v(api.GetLine(modelID, layer.Material.value).Name) || ''; } catch (e) {}
+						}
+						info.layers.push({ name: mName || v(layer.Name) || '?',
+										   thickness: v(layer.LayerThickness) || 0 });
+					}
+				}
+			} else if (mat && Array.isArray(mat.MaterialProfiles)) {	// profilé (IfcMaterialProfileSet)
+				for (const pRef of mat.MaterialProfiles) {
+					let prof; try { prof = api.GetLine(modelID, pRef.value); } catch (e) { continue; }
+					if (!prof) continue;
+					let mName = '';
+					if (prof.Material && prof.Material.value) {
+						try { mName = v(api.GetLine(modelID, prof.Material.value).Name) || ''; } catch (e) {}
+					}
+					info.layers.push({ name: mName, thickness: 0, profile: v(prof.Profile) || '' });
+				}
+			} else if (mat && mat.Name) {
+				info.materialName = v(mat.Name) || '';
+			}
+			for (const t of (rel.RelatedObjects || []).map(r => r.value)) matOf[t] = info;
+		}
+	} catch (e) { log('Matériaux illisibles : ' + e.message, 'w'); }
+
+	// Classification (IfcRelAssociatesClassification)
+	const classOf = {};
+	try {
+		const rels = api.GetLineIDsWithType(modelID, WebIFC.IFCRELASSOCIATESCLASSIFICATION);
+		for (let i = 0; i < rels.size(); ++i) {
+			const rel = api.GetLine(modelID, rels.get(i));
+			const ref = rel.RelatingClassification;
+			if (!ref || !ref.value) continue;
+			let cref; try { cref = api.GetLine(modelID, ref.value); } catch (e) { continue; }
+			if (!cref) continue;
+			const code = v(cref.ItemReference) || v(cref.Name) || '';
+			if (!code) continue;
+			for (const t of (rel.RelatedObjects || []).map(r => r.value)) classOf[t] = code;
+		}
+	} catch (e) { log('Classification illisible : ' + e.message, 'w'); }
+
+	// Éléments
+	const rows = [];
+	const seen = new Set();
+	for (const [type, label] of ELEMENT_TYPES) {
+		if (!type || !label) continue;
+		let ids; try { ids = api.GetLineIDsWithType(modelID, type); } catch (e) { continue; }
+		for (let i = 0; i < ids.size(); ++i) {
+			const id = ids.get(i);
+			if (seen.has(id)) continue;
+			seen.add(id);
+			let el; try { el = api.GetLine(modelID, id); } catch (e) { continue; }
+			rows.push({
+				id, typeLabel: label,
+				guid: v(el.GlobalId) || '', name: v(el.Name) || '',
+				objectType: v(el.ObjectType) || '', tag: v(el.Tag) || '',
+				storey: storeyOf[id] || '',
+				layerSetName: (matOf[id] || {}).layerSetName || '',
+				layers: (matOf[id] || {}).layers || [],
+				materialName: (matOf[id] || {}).materialName || '',
+				props: propsOf[id] || {}, quants: quantsOf[id] || {},
+				classification: classOf[id] || '',
+			});
+		}
+	}
+	api.CloseModel(modelID);
+	const nP = Object.keys(propsOf).length, nQ = Object.keys(quantsOf).length, nM = Object.keys(matOf).length;
+	log(`Lecture terminée : ${rows.length} élément(s), ${nP} élément(s) avec propriétés, ${nQ} avec quantités, ${nM} avec matériaux.`, 'k');
+	return { rows, counts: { rows: rows.length, props: nP, quants: nQ, mats: nM } };
+}
+
+/* ==================== évaluateur de formules ==================== */
+/* Port direct du FormulaEvaluator du add-on : + - * / (× · ÷), parenthèses,
+   nombres (.,) et libellés de variables (recherche du plus long). */
+function evaluateFormula(formula, variables) {
+	const text = formula; let pos = 0;
+	const skip = () => { while (pos < text.length && /[\s\u00A0]/.test(text[pos])) ++pos; };
+	const names = Object.keys(variables).filter(n => n.length).sort((a, b) => b.length - a.length);
+	function Expr() {
+		skip();
+		if (pos >= text.length) throw new Error('formule incomplète');
+		const ch = text[pos];
+		if (ch === '(') {
+			++pos; const val = Sum(); skip();
+			if (pos >= text.length || text[pos] !== ')') throw new Error('parenthèse fermante manquante');
+			++pos; return val;
+		}
+		if (ch === '-' || ch === '−') { ++pos; return -Expr(); }
+		if (ch === '+') { ++pos; return Expr(); }
+		if (/[0-9]/.test(ch)) {
+			let num = '', sep = false;
+			while (pos < text.length) {
+				const c = text[pos];
+				if (/[0-9]/.test(c)) { num += c; ++pos; }
+				else if ((c === '.' || c === ',') && !sep) { sep = true; num += '.'; ++pos; }
+				else break;
+			}
+			return parseFloat(num);
+		}
+		for (const n of names) {
+			if (text.startsWith(n, pos)) {
+				if (pos + n.length < text.length && /[A-Za-z0-9_À-ÿ]/.test(text[pos + n.length])) continue;
+				pos += n.length;
+				const val = Number(variables[n]);
+				if (Number.isNaN(val)) throw new Error('variable non numérique : ' + n);
+				return val;
+			}
+		}
+		throw new Error('variable ou caractère inattendu à « ' + text.slice(pos, pos + 18) + ' »');
+	}
+	function Term() {
+		let val = Expr();
+		for (;;) {
+			skip();
+			if (pos >= text.length) break;
+			const c = text[pos];
+			if (c === '*' || c === '×' || c === '·') { ++pos; val *= Expr(); }
+			else if (c === '/' || c === '÷') { ++pos; const d = Expr(); if (d === 0) throw new Error('division par zéro'); val /= d; }
+			else break;
+		}
+		return val;
+	}
+	function Sum() { let val = Term(); for (;;) { skip(); if (pos < text.length && (text[pos] === '+' || text[pos] === '-' || text[pos] === '−')) { const op = text[pos]; ++pos; const r = Term(); val = (op === '+') ? val + r : val - r; } else break; } return val; }
+	const result = Sum();
+	skip();
+	if (pos < text.length) throw new Error('caractère inattendu à la fin');
+	return result;
+}
+
+/* ===================== moteur de métré ===================== */
+function fmtKeyLength(m) {
+	if (!(m > 0)) return '';
+	const mm = m * 1000;
+	return mm < 10000 ? (Math.abs(mm - Math.round(mm)) < 1e-6 ? `${Math.round(mm)} mm` : `${mm.toFixed(2)} mm`)
+					  : `${m.toFixed(2)} m`;
+}
+const normUnit = u => (u || '').toLowerCase().replace('²','2').replace('³','3').trim();
+
+function pickQuantity(quants, unit, calcMode) {
+	const u = normUnit(unit);
+	const unitRe = u === 'm2' ? /(area|surface)/i : u === 'm3' ? /(volume)/i
+				 : (u === 'ml' || u === 'm') ? /(length|width|height|perimeter|depth)/i
+				 : u === 'kg' ? /(weight|mass)/i : null;
+	const modeRe = calcMode === 'nette' ? /^net/i : calcMode === 'brute' ? /^gross/i : /(cond|^gross)/i;
+	let entries = Object.entries(quants);
+	if (unitRe) entries = entries.filter(([n]) => unitRe.test(n));
+	if (!entries.length) return null;
+	const preferred = entries.find(([n]) => modeRe.test(n)) || entries.find(([n]) => /^net/i.test(n))
+				   || entries.find(([n]) => /^gross/i.test(n)) || entries[0];
+	return preferred;
+}
+
+function ruleVariables(row, layer) {
+	const vars = {};
+	for (const [n, val] of Object.entries(row.quants || {})) vars[n] = val;
+	for (const [n, info] of Object.entries(row.props || {}))
+		if (info && info.isNum) vars[n] = info.value;
+	if (layer) {
+		if (layer.thickness) vars['skin.thickness'] = layer.thickness;
+		vars['skin.index'] = (row.layers.indexOf(layer) + 1);
+		vars['skin.count'] = row.layers.length;
+	}
+	const total = (row.layers || []).reduce((s, l) => s + (l.thickness || 0), 0);
+	if (total > 0) { vars['element.thickness'] = total; vars['structure.totalThickness'] = total; }
+	return vars;
+}
+
+function computeContribution(row, rule, layer, sourceText) {
+	const vars = ruleVariables(row, layer);
+	const isObjType = rule.type === 'object' || rule.type === 'objectBool';
+	const unit = rule.unit || (isObjType ? '' : 'm²');
+	let qty = null, note = '';
+
+	if (isObjType && rule.quantityFormula) {
+		try { qty = evaluateFormula(rule.quantityFormula, vars); }
+		catch (e) { log(`Formule « ${rule.quantityFormula} » en échec sur ${row.name || row.guid} : ${e.message} — repli automatique.`, 'w'); }
+	}
+	if (qty === null && rule.quantity && rule.quantity in vars) qty = vars[rule.quantity];
+	if (qty === null) {
+		if (isObjType && !rule.quantityFormula && !rule.quantity) {
+			const pick = pickQuantity(row.quants, unit, 'brute');
+			qty = pick ? pick[1] : 1; note = pick ? '' : 'comptage (aucune quantité IFC)';
+		} else if (normUnit(unit) === 'u' || unit === '') {
+			qty = 1; note = 'comptage';
+		} else {
+			const pick = pickQuantity(row.quants, unit, rule.calcMode || 'brute');
+			qty = pick ? pick[1] : 0;
+			note = pick ? '' : 'aucune quantité de l\'unité — 0';
+		}
+	}
+
+	// Variante (valeur clé)
+	let variant = '';
+	if (isObjType) {
+		const keyName = rule.type === 'objectBool' ? rule.valueKey : rule.key;
+		if (keyName) {
+			if (keyName in vars) variant = fmtKeyLength(Number(vars[keyName])) || String(vars[keyName]);
+			else if (keyName === 'skin.thickness' && layer) variant = fmtKeyLength(layer.thickness);
+			else log(`Valeur clé « ${keyName} » absente d'un élément — variante ignorée.`, 'w');
+		}
+	} else if (rule.key === 'skin.thickness' && layer) variant = fmtKeyLength(layer.thickness);
+	else if (rule.key === 'skin.index' && layer) variant = `couche ${row.layers.indexOf(layer) + 1}`;
+	else if (rule.key === 'skin.count' && layer) variant = `${row.layers.length} couches`;
+	else if (rule.key === 'element.thickness' || rule.key === 'structure.totalThickness') {
+		const total = (row.layers || []).reduce((s, l) => s + (l.thickness || 0), 0);
+		variant = fmtKeyLength(total);
+	}
+
+	return { articleId: rule.article, variant, unit: unit || 'u', qty, note,
+			 sourceText: sourceText || '', count: 1 };
+}
+
+function computeLines(rows, rules) {
+	const lines = new Map();
+	const add = c => {
+		const key = c.articleId + '|' + c.variant;
+		if (!lines.has(key))
+			lines.set(key, { articleId: c.articleId, variant: c.variant, unit: c.unit,
+							 qty: 0, count: 0, sources: new Set(), note: c.note });
+		const l = lines.get(key);
+		l.qty += c.qty; l.count += 1; l.sources.add(c.sourceText);
+		if (c.note && !l.note) l.note = c.note;
+	};
+	const findRule = (type, name) => rules.find(r => r.type === type && r.name === name);
+	const unmapped = new Set();
+
+	for (const row of rows) {
+		let billed = false;
+
+		// 1) Composite (jeu de couches) : la règle décide — lui-même ou ses couches.
+		const compRule = row.layerSetName ? findRule('composite', row.layerSetName) : null;
+		if (compRule && compRule.ignored) { log(`Structure « ${row.layerSetName} » ignorée (règle).`); continue; }
+		if (compRule && compRule.article && compRule.mode !== 'component') {
+			add(computeContribution(row, compRule, null, `Composite — ${row.layerSetName}`));
+			billed = true;
+		} else if (row.layers.length) {
+			// Couches : règles matériaux (mode composant du composite, ou matériau direct)
+			for (const layer of row.layers) {
+				const matRule = findRule('material', layer.name);
+				if (!matRule) { unmapped.add(layer.name); continue; }
+				if (matRule.ignored || !matRule.article) continue;
+				add(computeContribution(row, matRule, layer,
+					`Matériau — ${layer.name}` + (row.layerSetName ? ` · via ${row.layerSetName}` : '')));
+				billed = true;
+			}
+		} else if (row.materialName) {
+			const matRule = findRule('material', row.materialName);
+			if (matRule && matRule.article && !matRule.ignored) {
+				add(computeContribution(row, matRule, null, `Matériau — ${row.materialName}`));
+				billed = true;
+			} else if (!matRule) unmapped.add(row.materialName);
+		}
+		if (compRule && !compRule.article && !row.layers.length)
+			log(`Composite « ${row.layerSetName} » sans article et sans couches lisibles — non facturé.`, 'w');
+
+		// 2) Objet (règle par type/nom d'objet) — s'ajoute aux couches éventuelles.
+		const objName = row.objectType || row.name;
+		const objRule = objName ? findRule('object', objName) : null;
+		if (objRule && objRule.article && !objRule.ignored) {
+			add(computeContribution(row, objRule, null, `Objet — ${objName}`));
+			billed = true;
+		}
+
+		// 3) Articles hérités : propriété booléenne activée, quel que soit l'objet.
+		for (const rule of rules.filter(r => r.type === 'objectBool' && r.article && !r.ignored)) {
+			const paramName = (rule.key || '').replace(/^bool:/, '');
+			if (!paramName) continue;
+			const prop = row.props[paramName];
+			if (prop && prop.isBool && prop.value === true) {
+				add(computeContribution(row, rule, null, `Booléen — ${paramName} · objet porteur : ${objName || '?'}`));
+				billed = true;
+			}
+		}
+
+		// 4) Repli : classification de l'élément.
+		if (!billed && row.classification) {
+			add({ articleId: row.classification, variant: '', unit: 'u', qty: 1,
+				  note: 'repli classification', sourceText: `Classe — ${row.classification}`, count: 1 });
+		}
+	}
+	if (unmapped.size) log('⚠ Structures sans règle matériau (à configurer) : ' + [...unmapped].join(', '), 'w');
+	return [...lines.values()].map(l => {
+		const key = l.articleId + '|' + l.variant;
+		const retained = state.retained[key];
+		return { ...l, sources: [...l.sources],
+				 retained: retained !== undefined ? retained : l.qty,
+				 manual: retained !== undefined && retained !== l.qty };
+	}).sort((a, b) => a.articleId.localeCompare(b.articleId) || a.variant.localeCompare(b.variant));
+}
+
+/* ======================= règles : UI ======================= */
+const DEMO_RULES = { rules: [
+	{ type: 'composite', name: 'MUR_EXT_30', article: '', mode: 'component', quantity: '', key: '', keyName: '', valueKey: '', valueKeyName: '', unit: '', quantityFormula: '', calcMode: 'brute', deductOpenings: true, deductHoles: true, ignored: false },
+	{ type: 'material', name: 'BetON 25', article: 'CW-BET-25', mode: 'component', quantity: '', key: 'skin.thickness', keyName: 'Épaisseur de la couche', valueKey: '', valueKeyName: '', unit: 'm³', quantityFormula: '', calcMode: 'brute', deductOpenings: true, deductHoles: true, ignored: false },
+	{ type: 'material', name: 'Enduit', article: 'CW-END-02', mode: 'component', quantity: '', key: 'skin.thickness', keyName: 'Épaisseur de la couche', valueKey: '', valueKeyName: '', unit: 'm²', quantityFormula: '', calcMode: 'nette', deductOpenings: true, deductHoles: true, ignored: false },
+	{ type: 'object', name: 'Fenetre PVC', article: 'CW-FEN-01', mode: 'element', quantity: '', key: '', keyName: '', valueKey: '', valueKeyName: '', unit: 'm²', quantityFormula: 'Perimeter * LargeurTablette', calcMode: 'brute', deductOpenings: true, deductHoles: true, ignored: false },
+	{ type: 'objectBool', name: 'Fenetre PVC', article: 'CW-TAB-01', mode: 'element', quantity: '', key: 'bool:HasTablette', keyName: 'HasTablette', valueKey: 'LargeurTablette', valueKeyName: 'LargeurTablette', unit: 'ml', quantityFormula: 'Width', calcMode: 'brute', deductOpenings: true, deductHoles: true, ignored: false },
+] };
+
+const TYPE_LABELS = { material: 'Matériau', composite: 'Composite', object: 'Objet', objectBool: 'Hérité (bool)', profile: 'Profil', favorite: 'Favori' };
+
+function normalizeRules(json) {
+	const arr = Array.isArray(json) ? json : (json.rules || []);
+	return arr.map(r => ({
+		type: r.type || 'material', name: r.name || '', article: r.article || '',
+		mode: r.mode || 'element', quantity: r.quantity || '', key: r.key || '', keyName: r.keyName || '',
+		valueKey: r.valueKey || '', valueKeyName: r.valueKeyName || '', unit: r.unit || '',
+		quantityFormula: r.quantityFormula || '', calcMode: r.calcMode || 'brute',
+		deductOpenings: r.deductOpenings !== false, deductHoles: r.deductHoles !== false,
+		ignored: !!r.ignored,
+	})).filter(r => r.name);
+}
+
+function renderRules() {
+	const host = $('ruleslist');
+	if (!state.rules.length) { host.innerHTML = '<p class="muted">Aucune règle — importez CostWaves-regles.json (exporté du add-on Archicad), chargez les règles de démonstration, ou créez une règle ci-dessous.</p>'; return; }
+	host.innerHTML = `<table><tr><th>Type</th><th>Structure</th><th>Article</th><th>Unité</th><th>Qté / formule</th><th>Clé / variante</th><th></th></tr>` +
+		state.rules.map((r, i) => `<tr>
+			<td>${TYPE_LABELS[r.type] || r.type}${r.ignored ? ' <span class="warnc">(ignoré)</span>' : ''}</td>
+			<td class="accent">${esc(r.name)}</td>
+			<td>${esc(r.article) || '<span class="muted">(décomposé)</span>'}</td>
+			<td>${esc(r.unit) || '<span class="muted">(auto)</span>'}</td>
+			<td class="mono">${esc(r.quantityFormula || r.quantity || '—')}</td>
+			<td class="muted">${esc(r.key || '')}${r.valueKey ? ' · ' + esc(r.valueKey) : ''}</td>
+			<td><button class="mini ghost" data-edit="${i}">Éditer</button> <button class="mini" data-del="${i}">Supprimer</button></td>
+		</tr>`).join('') + '</table>';
+	host.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { state.rules.splice(+b.dataset.del, 1); saveRules(); refresh(); });
+	host.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
+		const r = state.rules[+b.dataset.edit]; state.editingRule = +b.dataset.edit;
+		$('r-type').value = r.type; $('r-name').value = r.name; $('r-article').value = r.article;
+		$('r-mode').value = r.mode || 'element'; $('r-unit').value = r.unit; $('r-quantity').value = r.quantity;
+		$('r-key').value = r.key; $('r-valuekey').value = r.valueKey; $('r-formula').value = r.quantityFormula;
+		$('r-editing').textContent = 'Édition de la règle #' + (state.editingRule + 1);
+		$('r-type').closest('details').open = true;
+	});
+}
+
+function saveRules() { localStorage.setItem('cw-ifc-rules', JSON.stringify({ rules: state.rules })); }
+
+/* ======================= rendu métré ======================= */
+function fmtQty(x) { return (Math.round(x * 100) / 100).toString(); }
+
+function renderMetre() {
+	const t = $('tbl-metre');
+	if (!state.lines.length) { t.innerHTML = ''; $('totline').textContent = state.rows.length ? 'Aucune ligne — vérifiez les règles.' : ''; return; }
+	t.innerHTML = `<tr><th>Article</th><th>Variante</th><th>Source(s)</th><th>Unité</th><th class="right">Qté calculée</th><th class="right">Qté retenue</th><th class="right">Éléments</th><th>Note</th></tr>` +
+		state.lines.map((l, i) => `<tr>
+			<td class="accent">${esc(l.articleId)}</td>
+			<td>${esc(l.variant) || '<span class="muted">—</span>'}</td>
+			<td class="muted" style="max-width:220px">${esc(l.sources.join(' · '))}</td>
+			<td>${esc(l.unit)}</td>
+			<td class="right mono">${fmtQty(l.qty)}</td>
+			<td class="right"><input type="text" class="mono" data-line="${i}" value="${fmtQty(l.retained)}" style="width:80px;text-align:right"></td>
+			<td class="right">${l.count}</td>
+			<td class="muted" style="max-width:180px">${esc(l.note || '')}${l.manual ? ' <span class="warnc">*</span>' : ''}</td>
+		</tr>`).join('');
+	t.querySelectorAll('[data-line]').forEach(inp => {
+		inp.onchange = () => {
+			const l = state.lines[+inp.dataset.line];
+			const val = parseFloat(inp.value.replace(',', '.'));
+			if (Number.isNaN(val)) { inp.value = fmtQty(l.retained); return; }
+			l.retained = val; l.manual = val !== l.qty;
+			state.retained[l.articleId + '|' + l.variant] = val;
+			localStorage.setItem('cw-ifc-retained', JSON.stringify(state.retained));
+			log(`Retenue « ${l.articleId}${l.variant ? ' (' + l.variant + ')' : ''} » = ${val} (calculée ${fmtQty(l.qty)}).`);
+			renderMetre();
+		};
+	});
+	$('totline').textContent = `${state.lines.length} ligne(s) — ` +
+		state.lines.map(l => `${l.articleId}${l.variant ? ' (' + l.variant + ')' : ''} : ${fmtQty(l.retained)} ${l.unit}`).join(' · ');
+}
+
+function renderRows() {
+	const t = $('tbl-rows');
+	if (!state.rows.length) { t.innerHTML = ''; return; }
+	t.innerHTML = `<tr><th>Type</th><th>Nom</th><th>ID (Tag)</th><th>Étage</th><th>Matériau / couches</th><th class="right">Qtés</th><th class="right">Props</th><th>Classe</th></tr>` +
+		state.rows.map((r, i) => `<tr data-row="${i}">
+			<td>${r.typeLabel}</td><td class="accent">${esc(r.name)}</td><td class="mono">${esc(r.tag)}</td><td>${esc(r.storey)}</td>
+			<td>${esc(r.layerSetName ? r.layerSetName + ' : ' + r.layers.map(l => l.name + (l.thickness ? ` (${fmtKeyLength(l.thickness) || '?'})` : '')).join(' + ')
+					: r.materialName)}</td>
+			<td class="right">${Object.keys(r.quants).length}</td><td class="right">${Object.keys(r.props).length}</td>
+			<td class="muted">${esc(r.classification)}</td></tr>`).join('');
+	t.querySelectorAll('[data-row]').forEach(tr => tr.onclick = () => {
+		t.querySelectorAll('tr').forEach(x => x.classList.remove('sel'));
+		tr.classList.add('sel');
+		selectRow(state.rows[+tr.dataset.row]);
+	});
+}
+
+function selectRow(row) {
+	state.selectedRow = row;
+	$('elem-detail').innerHTML =
+		`<b>${esc(row.typeLabel)} — ${esc(row.name)}</b> <span class="muted">(${esc(row.guid)})</span><br>` +
+		`<div style="margin-top:6px"><b class="muted">Quantités IFC</b> : ` +
+		(Object.keys(row.quants).length ? Object.entries(row.quants).map(([n, val]) => `<span class="chip" data-var="${esc(n)}">${esc(n)} = ${val}</span>`).join('') : '<span class="muted">aucune</span>') + '</div>' +
+		`<div style="margin-top:6px"><b class="muted">Propriétés</b> : ` +
+		(Object.keys(row.props).length ? Object.entries(row.props).map(([n, p]) => `<span class="chip" data-var="${esc(n)}">${esc(n)} = ${p.isBool ? (p.value ? 'oui' : 'non') : esc(p.value)}</span>`).join('') : '<span class="muted">aucune</span>') + '</div>' +
+		`<p class="muted" style="font-size:11px;margin:8px 0 0">Cliquez une pastille pour l'insérer dans le champ « Formule » de la règle en cours d'édition.</p>`;
+	$('elem-detail').querySelectorAll('[data-var]').forEach(c => c.onclick = () => {
+		const inp = $('r-formula');
+		inp.value = (inp.value && !inp.value.endsWith(' ') ? inp.value + ' ' : '') + c.dataset.var;
+		inp.focus();
+		$('r-type').closest('details').open = true;
+	});
+}
+
+function refresh() {
+	if (state.rows.length) state.lines = computeLines(state.rows, state.rules);
+	else state.lines = [];
+	renderRules(); renderMetre(); renderRows();
+}
+
+/* ======================= événements ======================= */
+async function loadIfcFile(file) {
+	try {
+		$('filebox').innerHTML = `Lecture de <b>${esc(file.name)}</b>…`;
+		const buffer = await file.arrayBuffer();
+		const { rows, counts } = await parseIfc(buffer);
+		state.rows = rows; state.selectedRow = null;
+		$('filebox').innerHTML = `<span class="ok">✔</span> ${esc(file.name)}<br>${counts.rows} éléments · ${counts.quants} avec quantités · ${counts.mats} avec matériaux`;
+		$('ifcstats').textContent = `${counts.rows} élément(s) · ${counts.props} avec propriétés (Psets) · ${counts.quants} avec quantités · ${counts.mats} avec matériaux.` +
+			(counts.quants === 0 ? ' ⚠ Aucune quantité IFC — activez « quantités de base » à l\'export Archicad (voir README).' : '');
+		refresh();
+	} catch (e) {
+		log('Échec de lecture : ' + e.message, 'e');
+		$('filebox').innerHTML = 'Échec de lecture — voir le journal.';
+	}
+}
+$('ifcfile').onchange = e => e.target.files[0] && loadIfcFile(e.target.files[0]);
+const drop = $('drop');
+drop.onclick = () => $('ifcfile').click();
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => e.dataTransfer.files[0] && loadIfcFile(e.dataTransfer.files[0]));
+
+$('rulesfile').onchange = async e => {
+	const f = e.target.files[0]; if (!f) return;
+	try {
+		const json = JSON.parse(await f.text());
+		state.rules = normalizeRules(json);
+		saveRules(); refresh();
+		log(`Règles importées : ${state.rules.length} règle(s) depuis ${f.name}.`, 'k');
+	} catch (err) { log('Import de règles impossible : ' + err.message, 'e'); }
+};
+$('btn-demo-rules').onclick = () => {
+	state.rules = normalizeRules(DEMO_RULES); saveRules(); refresh();
+	log('Règles de démonstration chargées (prévues pour costwaves-demo.ifc).', 'k');
+};
+$('btn-add-rule').onclick = () => {
+	const rule = { type: $('r-type').value, name: $('r-name').value.trim(), article: $('r-article').value.trim(),
+				   mode: $('r-mode').value, quantity: $('r-quantity').value.trim(), key: $('r-key').value.trim(),
+				   valueKey: $('r-valuekey').value.trim(), unit: $('r-unit').value,
+				   quantityFormula: $('r-formula').value.trim(), calcMode: 'brute',
+				   deductOpenings: true, deductHoles: true, ignored: false };
+	if (!rule.name) { log('Nom de structure obligatoire.', 'w'); return; }
+	if (rule.type === 'objectBool' && !rule.key.startsWith('bool:')) rule.key = 'bool:' + rule.key;
+	if (state.editingRule >= 0 && state.rules[state.editingRule]) {
+		state.rules[state.editingRule] = rule; state.editingRule = -1; $('r-editing').textContent = '';
+	} else state.rules.push(rule);
+	saveRules(); refresh();
+	log(`Règle enregistrée : ${TYPE_LABELS[rule.type]} « ${rule.name} » → ${rule.article || '(décomposé)'}.`, 'k');
+};
+$('r-formula').addEventListener('focus', () => state.lastFormulaInput = $('r-formula'));
+
+$('btn-reset').onclick = () => {
+	state.retained = {}; localStorage.removeItem('cw-ifc-retained');
+	refresh(); log('Quantités retenues réinitialisées (valeurs calculées).');
+};
+function download(name, mime, content) {
+	const a = document.createElement('a');
+	a.href = URL.createObjectURL(new Blob([content], { type: mime }));
+	a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+$('btn-csv').onclick = () => {
+	if (!state.lines.length) { log('Rien à exporter.', 'w'); return; }
+	const q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
+	const csv = '\uFEFF' + ['Article;Variante;Unité;Qté calculée;Qté retenue;Éléments;Source(s);Note',
+		...state.lines.map(l => [l.articleId, l.variant, l.unit, fmtQty(l.qty), fmtQty(l.retained), l.count, l.sources.join(' | '), l.note].map(q).join(';'))].join('\r\n');
+	download('costwaves-metre.csv', 'text/csv;charset=utf-8', csv);
+	log('Export CSV téléchargé.', 'k');
+};
+$('btn-json').onclick = () => {
+	if (!state.lines.length) { log('Rien à exporter.', 'w'); return; }
+	download('costwaves-metre.json', 'application/json', JSON.stringify({
+		generatedAt: new Date().toISOString(), lines: state.lines,
+		rules: state.rules,
+	}, null, 2));
+	log('Export JSON téléchargé.', 'k');
+};
+
+/* ======================= démarrage ======================= */
+if (state.rulesSaved) { state.rules = normalizeRules(state.rulesSaved); log(`Règles restaurées du navigateur : ${state.rules.length}.`); }
+renderRules();
+log('Prêt — chargez un IFC (de test : demo/costwaves-demo.ifc du dépôt) puis les règles de démonstration.');
+</script>
+</body>
+</html>

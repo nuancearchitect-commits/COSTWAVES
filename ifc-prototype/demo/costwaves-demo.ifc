@@ -1,0 +1,83 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');
+FILE_NAME('costwaves-demo.ifc','2026-09-30T15:00:00',('CostWaves'),('nuancearchitect'),'CostWaves IFC demo','CostWaves','');
+FILE_SCHEMA(('IFC2X3'));
+ENDSEC;
+DATA;
+/* --- Contexte / unites (SI, metres) --- */
+#1=IFCPROJECT('1rNg7Ib9P5$QeCfLm1ZpR00',$,'Demo CostWaves',$,$,$,$,(#2),#7);
+#2=IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,#3,$);
+#3=IFCAXIS2PLACEMENT3D(#4,$,$);
+#4=IFCCARTESIANPOINT((0.,0.,0.));
+#5=IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);
+#6=IFCSIUNIT(*,.AREAUNIT.,$,.SQUARE_METRE.);
+#7=IFCUNITASSIGNMENT((#5,#6,#8,#9));
+#8=IFCSIUNIT(*,.VOLUMEUNIT.,$,.CUBIC_METRE.);
+#9=IFCSIUNIT(*,.PLANEANGLEUNIT.,$,.RADIAN.);
+/* --- Structure spatiale --- */
+#10=IFCSITE('1rNg7Ib9P5$QeCfLm1Zs001',$,'Site',$,$,#11,$,$,.ELEMENT.,$,$,$,$,$);
+#11=IFCLOCALPLACEMENT($,#3);
+#12=IFCBUILDING('1rNg7Ib9P5$QeCfLm1Zb001',$,'Batiment',$,$,#13,$,$,.ELEMENT.,$,$,$);
+#13=IFCLOCALPLACEMENT(#11,#3);
+#14=IFCBUILDINGSTOREY('1rNg7Ib9P5$QeCfLm1Zt001',$,'Rez-de-chaussee',$,$,#15,$,$,.ELEMENT.,0.);
+#15=IFCLOCALPLACEMENT(#13,#3);
+#16=IFCRELAGGREGATES('1rNg7Ib9P5$QeCfLm1Za001',$,$,$,#1,(#10));
+#17=IFCRELAGGREGATES('1rNg7Ib9P5$QeCfLm1Za002',$,$,$,#10,(#12));
+#18=IFCRELAGGREGATES('1rNg7Ib9P5$QeCfLm1Za003',$,$,$,#12,(#14));
+/* --- Geometrie (volumetrique simple, pour la forme) --- */
+#20=IFCLOCALPLACEMENT(#15,#3);
+#21=IFCAXIS2PLACEMENT2D(#22,$);
+#22=IFCCARTESIANPOINT((0.,0.));
+#23=IFCRECTANGLEPROFILEDEF(.AREA.,$,#21,5.,0.3);
+#24=IFCDIRECTION((0.,0.,1.));
+#25=IFCEXTRUDEDAREASOLID(#23,#3,#24,3.);
+#26=IFCSHAPEREPRESENTATION(#2,'Body','SweptSolid',(#25));
+#27=IFCPRODUCTDEFINITIONSHAPE($,$,(#26));
+#28=IFCRECTANGLEPROFILEDEF(.AREA.,$,#21,8.,0.3);
+#29=IFCEXTRUDEDAREASOLID(#28,#3,#24,3.);
+#30=IFCSHAPEREPRESENTATION(#2,'Body','SweptSolid',(#29));
+/* --- Elements : 2 murs + 1 fenetre --- */
+#31=IFCWALLSTANDARDCASE('1rNg7Ib9P5$QeCfLm1Zw01',$,'Mur composite',$,$,#20,#27,'W-001');
+#32=IFCWALLSTANDARDCASE('1rNg7Ib9P5$QeCfLm1Zw02',$,'Mur beton',$,$,#20,#30,'W-002');
+#33=IFCWINDOW('1rNg7Ib9P5$QeCfLm1Zf01',$,'Fenetre PVC','Fenetre PVC',$,#20,#27,'F-001',1.5,1.2);
+/* --- Materiaux : composite MUR_EXT_30 + materiau direct --- */
+#40=IFCMATERIAL('BetON 25');
+#41=IFCMATERIAL('Enduit');
+#42=IFCMATERIALLAYER(#40,0.25,$);
+#43=IFCMATERIALLAYER(#41,0.02,$);
+#44=IFCMATERIALLAYERSET((#42,#43),'MUR_EXT_30');
+#45=IFCMATERIALLAYERSETUSAGE(#44,.AXIS2.,.POSITIVE.,0.);
+#46=IFCRELASSOCIATESMATERIAL('1rNg7Ib9P5$QeCfLm1Zm01',$,$,$,(#31),#45);
+#47=IFCRELASSOCIATESMATERIAL('1rNg7Ib9P5$QeCfLm1Zm02',$,$,$,(#32),#40);
+/* --- Pset de la fenetre (parametres GDL equivalents) --- */
+#50=IFCPROPERTYSINGLEVALUE('HasTablette',$,IFCBOOLEAN(.T.),$);
+#51=IFCPROPERTYSINGLEVALUE('LargeurTablette',$,IFCLENGTHMEASURE(0.15),$);
+#52=IFCPROPERTYSINGLEVALUE('HauteurAllage',$,IFCLENGTHMEASURE(1.0),$);
+#53=IFCPROPERTYSET('1rNg7Ib9P5$QeCfLm1Zp01',$,'Pset_FenetreDemo',$,(#50,#51,#52));
+#54=IFCRELDEFINESBYPROPERTIES('1rNg7Ib9P5$QeCfLm1Zr01',$,$,$,(#33),#53);
+/* --- Quantites de base --- */
+#60=IFCQUANTITYAREA('GrossSideArea',$,$,10.5);
+#61=IFCQUANTITYAREA('NetSideArea',$,$,9.8);
+#62=IFCQUANTITYVOLUME('NetVolume',$,$,3.15);
+#63=IFCELEMENTQUANTITY('1rNg7Ib9P5$QeCfLm1Zq01',$,'Qto_WallBaseQuantities',$,'BaseQuantities',(#60,#61,#62));
+#64=IFCRELDEFINESBYPROPERTIES('1rNg7Ib9P5$QeCfLm1Zr02',$,$,$,(#31),#63);
+#65=IFCQUANTITYAREA('GrossSideArea',$,$,8.0);
+#66=IFCQUANTITYAREA('NetSideArea',$,$,7.6);
+#67=IFCQUANTITYVOLUME('NetVolume',$,$,2.4);
+#68=IFCELEMENTQUANTITY('1rNg7Ib9P5$QeCfLm1Zq02',$,'Qto_WallBaseQuantities',$,'BaseQuantities',(#65,#66,#67));
+#69=IFCRELDEFINESBYPROPERTIES('1rNg7Ib9P5$QeCfLm1Zr03',$,$,$,(#32),#68);
+#70=IFCQUANTITYAREA('Area',$,$,1.8);
+#71=IFCQUANTITYLENGTH('Height',$,$,1.5);
+#72=IFCQUANTITYLENGTH('Width',$,$,1.2);
+#73=IFCQUANTITYLENGTH('Perimeter',$,$,5.4);
+#74=IFCELEMENTQUANTITY('1rNg7Ib9P5$QeCfLm1Zq03',$,'Qto_WindowBaseQuantities',$,'BaseQuantities',(#70,#71,#72,#73));
+#75=IFCRELDEFINESBYPROPERTIES('1rNg7Ib9P5$QeCfLm1Zr04',$,$,$,(#33),#74);
+/* --- Contenance spatiale --- */
+#76=IFCRELCONTAINEDINSPATIALSTRUCTURE('1rNg7Ib9P5$QeCfLm1Zn01',$,$,$,(#31,#32,#33),#14);
+/* --- Classification (Uniclass) --- */
+#80=IFCCLASSIFICATION($,$,'Uniclass 2015');
+#81=IFCCLASSIFICATIONREFERENCE(#80,'SS-25-30-20',$,$);
+#82=IFCRELASSOCIATESCLASSIFICATION('1rNg7Ib9P5$QeCfLm1Zc01',$,$,$,(#33),#81);
+ENDSEC;
+END-ISO-10303-21;

@@ -1,0 +1,13 @@
+{
+  "name": "costwaves-ifc",
+  "version": "0.1.0",
+  "description": "Métré COSTWAVES depuis un IFC, dans le navigateur (web-ifc). Continuité du add-on Archicad COSTWAVES.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node demo/test-parse.mjs && node demo/test-engine.mjs"
+  },
+  "dependencies": {
+    "web-ifc": "0.0.68"
+  }
+}
