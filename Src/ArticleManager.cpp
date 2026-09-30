@@ -3,6 +3,7 @@
 #include "ArticleManager.hpp"
 
 #include "Exporter.hpp"
+#include "RuleLibrary.hpp"
 
 #include "UniStringWStringConversion.hpp"
 
@@ -2173,6 +2174,288 @@ void ArticleManager::BuildArticleSummary (const GS::Array<CWElementRow>& rows,
 			}
 			++skinEntry.skinCount;
 		}
+	}
+}
+
+// --- Fenêtre « Quantitatif » : lignes par article quantifié -----------------------
+
+namespace {
+
+// Dimension portée par une unité — détermine les paramètres de calcul
+// disponibles (m² -> surface, ml/m -> longueur, m³ -> volume, sinon comptage).
+CWQtyDimension DimensionForUnit (const GS::UniString& unit)
+{
+	const GS::UniString normalized = NormalizeUnit (unit);
+	if (normalized == US ("M2"))
+		return CWQtyDimension::Surface;
+	if (normalized == US ("ML") || normalized == US ("M"))
+		return CWQtyDimension::Length;
+	if (normalized == US ("M3"))
+		return CWQtyDimension::Volume;
+	return CWQtyDimension::Unitary;
+}
+
+// Somme des quantités portant l'un des deux libellés (déductions).
+double SumQuantityLabels (const GS::Array<CWQuantity>& quantities,
+						  const char* label1Utf8, const char* label2Utf8)
+{
+	double total = 0.0;
+	for (UIndex q = 0; q < quantities.GetSize (); ++q) {
+		if (quantities[q].label == FR (label1Utf8)
+			|| (label2Utf8 != nullptr && quantities[q].label == FR (label2Utf8)))
+			total += quantities[q].value;
+	}
+	return total;
+}
+
+// Quantité d'une contribution selon le mode de calcul (fenêtre Quantitatif).
+// La BASE est la règle de calcul de l'article (catalogue / règle de
+// correspondance) ; le mode l'ajuste :
+//  - Brute : la base telle quelle (géométrie principale) ;
+//  - Conditionnelle : le VOLUME CONDITIONNÉ des connexions si disponible ;
+//  - Nette : la base MOINS les ouvertures et trous déduits (surfaces).
+double QuantityByMode (CWQtyDimension dimension, CWCalcMode mode,
+					   bool deductOpenings, bool deductHoles,
+					   const GS::Array<CWQuantity>& quantities, double base)
+{
+	switch (mode) {
+		case CWCalcMode::Brute:
+			return base;
+
+		case CWCalcMode::Conditionnelle:
+			if (dimension == CWQtyDimension::Volume) {
+				for (UIndex q = 0; q < quantities.GetSize (); ++q) {
+					if (quantities[q].label == FR ("Volume conditionné"))
+						return quantities[q].value;
+				}
+			}
+			return base;
+
+		case CWCalcMode::Nette: {
+			if (dimension != CWQtyDimension::Surface)
+				return base;
+			double deduction = 0.0;
+			if (deductOpenings)
+				deduction += SumQuantityLabels (quantities, "Surface fenêtres", "Surface portes");
+			if (deductHoles)
+				deduction += SumQuantityLabels (quantities, "Surface trous vides", "Surface trous");
+			return base - deduction;
+		}
+	}
+	return base;
+}
+
+// Origine Archicade d'une ligne facturée (traçabilité) : la RÈGLE de
+// correspondance si présente (composite, profil, matériau, objet GDL),
+// sinon la classe de classification portée par l'élément.
+void SourceForRow (const CWElementRow& row, const GS::Array<CWMapRule>& rules,
+				   CWSourceType& outType, GS::UniString& outText, GS::UniString& outDetail)
+{
+	outDetail.Clear ();
+	if (row.hasRule) {
+		switch (row.structureType) {
+			case CWStructureType::Composite:
+				outType = CWSourceType::CompositeRule;
+				outText = FR ("Composite — ") + row.structureName;
+				return;
+			case CWStructureType::Profile:
+				outType = CWSourceType::ProfileRule;
+				outText = FR ("Profil — ") + row.structureName;
+				return;
+			case CWStructureType::BuildingMaterial:
+				outType = CWSourceType::MaterialRule;
+				outText = FR ("Matériau — ") + row.structureName;
+				return;
+			case CWStructureType::LibraryPart: {
+				outType = CWSourceType::LibraryPartRule;
+				outText = FR ("Objet GDL — ") + row.structureName;
+				const CWMapRule* rule = RuleLibrary::FindRule (rules, CWStructureType::LibraryPart,
+															   row.structureName);
+				if (rule != nullptr && !rule->keyName.IsEmpty ())
+					outDetail = FR ("valeur clé : ") + rule->keyName;
+				return;
+			}
+			default:
+				break;
+		}
+	}
+	outType = CWSourceType::Classification;
+	outText = row.classItemName.IsEmpty ()
+		? row.typeName
+		: FR ("Classe — ") + row.classItemName;
+}
+
+} // namespace
+
+
+void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
+										 const GS::Array<CWArticle>&			articles,
+										 const GS::Array<CWMapRule>&			rules,
+										 CWQuantMode							globalMode,
+										 const GS::Array<CWQuantityLine>&	previousLines,
+										 GS::Array<CWQuantityLine>&			outLines)
+{
+	outLines.Clear ();
+
+	// Article du catalogue correspondant à l'identifiant.
+	auto findArticle = [&] (const GS::UniString& articleId) -> const CWArticle* {
+		for (UIndex a = 0; a < articles.GetSize (); ++a) {
+			if (articles[a].id == articleId)
+				return &articles[a];
+		}
+		return nullptr;
+	};
+
+	// Contribution d'une quantité (élément ou skin) à un article : crée la
+	// ligne au premier passage, conserve les réglages de l'affichage
+	// précédent (unité, mode, déductions, correction manuelle).
+	auto addContribution = [&] (const CWArticle& article, const GS::UniString& ruleQuantity,
+								const GS::Array<CWQuantity>& quantities,
+								CWSourceType sourceType, const GS::UniString& sourceText,
+								const GS::UniString& sourceDetail) {
+		CWQuantityLine* linePtr = nullptr;
+		for (UIndex l = 0; l < outLines.GetSize (); ++l) {
+			if (outLines[l].articleId == article.id) {
+				linePtr = &outLines[l];
+				break;
+			}
+		}
+		if (linePtr == nullptr) {
+			CWQuantityLine line;
+			line.articleId = article.id;
+			line.articleName = article.name;
+			line.unit = article.unit.IsEmpty () ? FR ("u") : article.unit;
+			for (UIndex p = 0; p < previousLines.GetSize (); ++p) {
+				if (previousLines[p].articleId == article.id) {
+					line.unit = previousLines[p].unit;
+					line.calcMode = previousLines[p].calcMode;
+					line.deductOpenings = previousLines[p].deductOpenings;
+					line.deductHoles = previousLines[p].deductHoles;
+					line.manualOverride = previousLines[p].manualOverride;
+					line.retainedQuantity = previousLines[p].retainedQuantity;
+					break;
+				}
+			}
+			outLines.Push (line);
+			linePtr = &outLines[outLines.GetSize () - 1];
+		}
+
+		CWQuantityLine& line = *linePtr;
+		line.dimension = DimensionForUnit (line.unit);
+
+		// Base : la règle de correspondance (« quantité à adopter ») prime
+		// sur la règle de calcul du catalogue (calcQuantity/calcFormula),
+		// sinon première quantité de l'unité.
+		double quantity = 0.0;
+		if (line.dimension == CWQtyDimension::Unitary) {
+			// Unité non géométrique (u, kg, ENS…) : comptage — 1 par
+			// élément facturé (3 groupes = 3).
+			quantity = 1.0;
+		} else {
+			CWArticle effective = article;
+			effective.unit = line.unit;
+			if (!ruleQuantity.IsEmpty ())
+				effective.calcQuantity = ruleQuantity;
+			const double base = QuantityForArticle (effective, quantities);
+			quantity = QuantityByMode (line.dimension, line.calcMode,
+									   line.deductOpenings, line.deductHoles,
+									   quantities, base);
+		}
+
+		// Disponibilités lues dans la maquette (notes du mode courant).
+		if (SumQuantityLabels (quantities, "Surface fenêtres", "Surface portes") > 0.0)
+			line.hasOpenings = true;
+		if (SumQuantityLabels (quantities, "Surface trous vides", "Surface trous") > 0.0)
+			line.hasHoles = true;
+		for (UIndex q = 0; q < quantities.GetSize (); ++q) {
+			if (quantities[q].label == FR ("Volume conditionné")) {
+				line.hasConditioned = true;
+				break;
+			}
+		}
+
+		// Origine : comptage + sous-total par source.
+		bool sourceFound = false;
+		for (UIndex s = 0; s < line.sources.GetSize (); ++s) {
+			if (line.sources[s].type == sourceType && line.sources[s].text == sourceText) {
+				++line.sources[s].count;
+				line.sources[s].subtotal += quantity;
+				sourceFound = true;
+				break;
+			}
+		}
+		if (!sourceFound) {
+			CWQuantitySource source;
+			source.type = sourceType;
+			source.text = sourceText;
+			source.detail = sourceDetail;
+			source.count = 1;
+			source.subtotal = quantity;
+			line.sources.Push (source);
+		}
+
+		++line.elementCount;
+		line.calculatedQuantity += quantity;
+	};
+
+	for (UIndex i = 0; i < rows.GetSize (); ++i) {
+		const CWElementRow& row = rows[i];
+
+		// Les membres consommés sont facturés via leur ensemble/groupe.
+		if (row.consumed)
+			continue;
+
+		const GS::UniString effectiveArticleId = RowArticleId (row);
+		const CWQuantMode rowMode = row.hasRule ? row.ruleMode : globalMode;
+		const bool billElement = (rowMode != CWQuantMode::Component) || row.is2D;
+
+		if (billElement && !effectiveArticleId.IsEmpty ()) {
+			const CWArticle* article = findArticle (effectiveArticleId);
+			if (article != nullptr) {
+				CWSourceType sourceType = CWSourceType::Unknown;
+				GS::UniString sourceText;
+				GS::UniString sourceDetail;
+				SourceForRow (row, rules, sourceType, sourceText, sourceDetail);
+				addContribution (*article, row.ruleQuantity, row.quantities,
+								 sourceType, sourceText, sourceDetail);
+			}
+		}
+
+		// Skins (mode Composants des règles) : article du MATÉRIAU de la couche.
+		if (rowMode != CWQuantMode::Component)
+			continue;
+
+		for (UIndex c = 0; c < row.components.GetSize (); ++c) {
+			const CWComponentRow& component = row.components[c];
+			if (component.kind != RowKind::Skin || ComponentArticleId (component).IsEmpty ())
+				continue;
+
+			const CWArticle* skinArticle = findArticle (ComponentArticleId (component));
+			if (skinArticle == nullptr)
+				continue;
+
+			addContribution (*skinArticle, component.ruleQuantity, component.quantities,
+							 CWSourceType::MaterialRule,
+							 FR ("Matériau — ") + component.label, GS::UniString ());
+		}
+	}
+
+	// Notes (limites du mode courant) et quantité retenue : sans correction
+	// manuelle, la retenue EST la quantité calculée — jamais perdue.
+	for (UIndex l = 0; l < outLines.GetSize (); ++l) {
+		CWQuantityLine& line = outLines[l];
+		if (line.dimension == CWQtyDimension::Surface && line.calcMode == CWCalcMode::Nette
+			&& !line.hasOpenings && !line.hasHoles) {
+			line.note = FR ("aucune déduction disponible — surface brute conservée");
+		} else if (line.calcMode == CWCalcMode::Conditionnelle
+				   && !(line.dimension == CWQtyDimension::Volume && line.hasConditioned)) {
+			line.note = FR ("aucune condition disponible — géométrie principale");
+		} else {
+			line.note.Clear ();
+		}
+
+		if (!line.manualOverride)
+			line.retainedQuantity = line.calculatedQuantity;
 	}
 }
 

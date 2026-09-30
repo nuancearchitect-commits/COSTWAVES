@@ -254,6 +254,70 @@ struct CWArticleSummary {
 	CWArticleSummary () = default;
 };
 
+// --- Fenêtre « Quantitatif » (contrôle avant export) ------------------------------
+
+// Mode de calcul d'une quantité (unités géométriques m²/ml/m³).
+enum class CWCalcMode {
+	Brute = 0,			// géométrie principale de l'élément
+	Conditionnelle = 1,	// conditions de l'article (ex. volume conditionné)
+	Nette = 2			// après déductions (ouvertures, trous)
+};
+
+// Dimension portée par une unité — détermine les paramètres de calcul
+// disponibles (fenêtre Quantitatif).
+enum class CWQtyDimension {
+	Surface,	// m²
+	Length,		// ml, m
+	Volume,		// m³
+	Unitary		// u, kg, ENS… : comptage, pas de mode géométrique
+};
+
+// Comment l'article est identifié dans Archicad (traçabilité).
+enum class CWSourceType {
+	MaterialRule,		// règle Matériau (skin d'un composite)
+	CompositeRule,		// règle Composite
+	ProfileRule,		// règle Profil complexe
+	LibraryPartRule,	// règle Objet GDL
+	InheritedBoolRule,	// article hérité (booléen activé)
+	Classification,	// classe de classification portée par l'élément
+	Unknown
+};
+
+// Une origine Archicad d'un article (l'article peut en avoir plusieurs).
+struct CWQuantitySource {
+	CWSourceType	type = CWSourceType::Unknown;
+	GS::UniString	text;			// « Matériau — Béton 25 »
+	GS::UniString	detail;			// complément (ex. « valeur clé : Largeur »)
+	USize			count = 0;		// éléments facturés par cette source
+	double			subtotal = 0.0;	// contribution de la source (mode courant)
+
+	CWQuantitySource () = default;
+};
+
+// Une ligne du Quantitatif : UN article CostWaves effectivement quantifié.
+// La quantité calculée n'est JAMAIS perdue : la correction manuelle est
+// conservée à part (retainedQuantity + manualOverride).
+struct CWQuantityLine {
+	GS::UniString	articleId;
+	GS::UniString	articleName;
+	GS::UniString	unit;			// unité affichée (modifiable par l'utilisateur)
+	CWQtyDimension	dimension = CWQtyDimension::Unitary;
+	CWCalcMode		calcMode = CWCalcMode::Brute;
+	bool			deductOpenings = true;	// paramètre Nette (surface) : fenêtres + portes
+	bool			deductHoles = true;		// paramètre Nette (surface) : trous
+	bool			hasOpenings = false;	// déductions ouvertures disponibles dans la maquette
+	bool			hasHoles = false;		// déductions trous disponibles dans la maquette
+	bool			hasConditioned = false;	// volume conditionné disponible (mode Conditionnelle)
+	GS::Array<CWQuantitySource>	sources;	// origines Archicad (traçabilité)
+	USize			elementCount = 0;		// éléments/sources facturés
+	double			calculatedQuantity = 0.0;	// quantité calculée (toujours conservée)
+	double			retainedQuantity = 0.0;	// quantité retenue (export)
+	bool			manualOverride = false;	// retenue ≠ calculée
+	GS::UniString	note;			// limite du mode (ex. « aucune déduction disponible »)
+
+	CWQuantityLine () = default;
+};
+
 // --- Rapport de scan -----------------------------------------------------------
 
 struct CWScanReport {

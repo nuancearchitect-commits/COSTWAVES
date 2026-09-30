@@ -19,23 +19,29 @@ namespace CostWaves {
 //  - « Objets GDL… » : correspondances objet de bibliothèque -> article
 //    + valeur clé (paramètre GDL longueur) ;
 //  - « Articles hérités… » : booléen activé (global) -> article
-//    + valeur clé.
+//    + valeur clé ;
+//  - « Quantitatif… » : fenêtre de contrôle et calcul des quantités
+//    avant export (tableau Article | Source | Unité | Mode calcul |
+//    Quantité, traçabilité par article, mode Brute/Conditionnelle/Nette,
+//    correction manuelle).
 class CostWavesPalette final :	public DG::Palette,
 					public DG::PanelObserver,
 					public DG::ButtonItemObserver
 {
 public:
 	enum ItemIds {
-		TitleId				= 1,
-		SubtitleId			= 2,
-		SectionLabelId		= 3,
-		MappingButtonId		= 4,
-		MappingDescId		= 5,
-		GdlButtonId			= 6,
-		GdlDescId			= 7,
-		InheritedButtonId	= 8,
-		InheritedDescId		= 9,
-		StatusTextId		= 10
+		TitleId					= 1,
+		SubtitleId				= 2,
+		SectionLabelId			= 3,
+		MappingButtonId			= 4,
+		MappingDescId			= 5,
+		GdlButtonId				= 6,
+		GdlDescId				= 7,
+		InheritedButtonId		= 8,
+		InheritedDescId			= 9,
+		StatusTextId			= 10,
+		QuantitativeButtonId	= 11,
+		QuantitativeDescId		= 12
 	};
 
 	// Singleton : la palette vit aussi longtemps que l'add-on.
@@ -70,6 +76,8 @@ private:
 	DG::LeftText	gdlDesc;
 	DG::Button		inheritedButton;
 	DG::LeftText	inheritedDesc;
+	DG::Button		quantitativeButton;
+	DG::LeftText	quantitativeDesc;
 	DG::LeftText	statusText;
 
 	static GS::Ref<CostWavesPalette>	instance;

@@ -6,6 +6,7 @@
 #include "GdlMappingDialog.hpp"
 #include "InheritedArticlesDialog.hpp"
 #include "MappingDialog.hpp"
+#include "QuantitiesDialog.hpp"
 
 namespace CostWaves {
 
@@ -106,12 +107,15 @@ CostWavesPalette::CostWavesPalette ()
 		gdlDesc (GetReference (), GdlDescId),
 		inheritedButton (GetReference (), InheritedButtonId),
 		inheritedDesc (GetReference (), InheritedDescId),
+		quantitativeButton (GetReference (), QuantitativeButtonId),
+		quantitativeDesc (GetReference (), QuantitativeDescId),
 		statusText (GetReference (), StatusTextId)
 {
 	Attach (*this);					// PanelObserver
 	mappingButton.Attach (*this);	// ButtonItemObserver
 	gdlButton.Attach (*this);
 	inheritedButton.Attach (*this);
+	quantitativeButton.Attach (*this);
 
 	// Couleurs de la maquette V4 : bande de titre sombre « rail » avec
 	// titre blanc, sous-titre et descriptions gris, libellé de section
@@ -129,6 +133,8 @@ CostWavesPalette::CostWavesPalette ()
 	CostWavesStyle::ApplyHelp (gdlDesc);
 	inheritedDesc.SetText (FR ("Booléen activé → article + valeur clé"));
 	CostWavesStyle::ApplyHelp (inheritedDesc);
+	quantitativeDesc.SetText (FR ("Contrôle des quantités avant export"));
+	CostWavesStyle::ApplyHelp (quantitativeDesc);
 	statusText.SetText (FR ("Ouvrez une correspondance pour préparer les règles."));
 	CostWavesStyle::ApplyStatusChip (statusText);
 
@@ -169,6 +175,9 @@ void CostWavesPalette::ButtonClicked (const DG::ButtonClickEvent& ev)
 		dialog.Invoke ();
 	} else if (ev.GetSource () == &inheritedButton) {
 		InheritedArticlesDialog dialog;
+		dialog.Invoke ();
+	} else if (ev.GetSource () == &quantitativeButton) {
+		QuantitiesDialog dialog;
 		dialog.Invoke ();
 	}
 }

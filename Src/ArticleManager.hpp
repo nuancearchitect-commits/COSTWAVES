@@ -243,9 +243,24 @@ public:
 	// classés (jamais l'élément parent). Les dessins 2D sont toujours
 	// facturés comme éléments.
 	static void	BuildArticleSummary (const GS::Array<CWElementRow>&	rows,
-									   const GS::Array<CWArticle>&		articles,
-									   CWQuantMode						mode,
-									   GS::Array<CWArticleSummary>&	outSummary);
+								   const GS::Array<CWArticle>&		articles,
+								   CWQuantMode						mode,
+								   GS::Array<CWArticleSummary>&	outSummary);
+
+	// Fenêtre « Quantitatif » : une ligne par article EFFECTIVEMENT quantifié,
+	// avec ses origines Archicad (traçabilité), son unité (modifiable), son
+	// mode de calcul (Brute/Conditionnelle/Nette — unités géométriques) et
+	// ses paramètres (déductions). previousLines : réglages de l'affichage
+	// précédent (unité, mode, déductions, correction manuelle) conservés par
+	// articleId — la quantité est TOUJOURS recalculée depuis la maquette, la
+	// valeur calculée n'est jamais perdue (calculatedQuantity conservée à
+	// côté de retainedQuantity).
+	static void	BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
+									 const GS::Array<CWArticle>&			articles,
+									 const GS::Array<CWMapRule>&				rules,
+									 CWQuantMode								globalMode,
+									 const GS::Array<CWQuantityLine>&	previousLines,
+									 GS::Array<CWQuantityLine>&			outLines);
 
 private:
 	// Crée (si absents) le groupe « CostWaves » et la propriété texte donnée

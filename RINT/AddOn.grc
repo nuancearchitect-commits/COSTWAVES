@@ -10,7 +10,7 @@
 /* [  1] */		"COSTWAVES... ^E3 ^ES ^EE ^EI ^ED ^ET ^10001"
 }
 
-'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  360 330  "CostWaves" {
+'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  360 372  "CostWaves" {
 /* [  1] */ LeftText                     0    0  360   40 LargePlain noTrunc Default ""
 /* [  2] */ LeftText                    10   50  340   30 SmallPlain vTop | noTrunc Default ""
 /* [  3] */ LeftText                    10   90  340   16 SmallPlain vTop | noTrunc Default ""
@@ -20,7 +20,9 @@
 /* [  7] */ LeftText                    10  184  340   16 SmallPlain vTop | noTrunc Default ""
 /* [  8] */ Button                       10  206  340   24 LargePlain "Articles hérités…"
 /* [  9] */ LeftText                    10  232  340   16 SmallPlain vTop | noTrunc Default ""
-/* [ 10] */ LeftText                    10  262  340   48 SmallPlain noTrunc Default ""
+/* [ 10] */ LeftText                    10  310  340   48 SmallPlain noTrunc Default ""
+/* [ 11] */ Button                       10  254  340   24 LargePlain "Quantitatif…"
+/* [ 12] */ LeftText                    10  280  340   16 SmallPlain vTop | noTrunc Default ""
 }
 
 'DLGH' ID_ADDON_DLG DLG_CostWaves_Palette {
@@ -34,6 +36,8 @@
 8    ""        Button_2
 9    ""        LeftText_5
 10   ""        LeftText_6
+11   ""        Button_3
+12   ""        LeftText_7
 }
 
 'GDLG' ID_ADDON_DLG_PICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir une classe" {
@@ -180,4 +184,52 @@
 5    ""        Button_1
 6    ""        LeftText_2
 7    ""        PopupControl_0
+}
+
+'GDLG' ID_ADDON_DLG_QUANTITIES Modal |noGrow   60   60  780 592  "CostWaves — Quantitatif" {
+/* [  1] */ LeftText                    10   12  760   28 SmallPlain vTop | noTrunc Default ""
+/* [  2] */ LeftText                    10   48  110   18 LargePlain vTop | noTrunc Default "Classification :"
+/* [  3] */ PopupControl               125   45  300   22 80 3
+/* [  4] */ MultiSelList                10   76  760  336 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  5] */ LeftText                    10  428  120   18 LargePlain vTop | noTrunc Default "Mode de calcul :"
+/* [  6] */ RadioButton                135  425   70   18 LargePlain 1 "Brute"
+/* [  7] */ RadioButton                210  425  120   18 LargePlain 1 "Conditionnelle"
+/* [  8] */ RadioButton                335  425   70   18 LargePlain 1 "Nette"
+/* [  9] */ LeftText                   420  428   50   18 LargePlain vTop | noTrunc Default "Unité :"
+/* [ 10] */ PopupControl               475  425   90   22 80 3
+/* [ 11] */ CheckBox                    10  452  300   20 LargePlain "Déduire les ouvertures (fenêtres, portes)"
+/* [ 12] */ CheckBox                   320  452  200   20 LargePlain "Déduire les trous"
+/* [ 13] */ LeftText                    10  484  130   18 LargePlain vTop | noTrunc Default "Quantité calculée :"
+/* [ 14] */ LeftText                   145  484  210   18 LargePlain vTop | noTrunc Default ""
+/* [ 15] */ LeftText                   360  484  120   18 LargePlain vTop | noTrunc Default "Quantité retenue :"
+/* [ 16] */ TextEdit                   485  481  100   23 LargePlain 32
+/* [ 17] */ Button                     595  480   80   23 LargePlain "Retenir"
+/* [ 18] */ Button                     685  480   85   23 LargePlain "Réinitialiser"
+/* [ 19] */ LeftText                    10  514  760   30 SmallPlain vTop | noTrunc Default ""
+/* [ 20] */ Button                     640  560  130   23 LargePlain "Recalculer"
+/* [ 21] */ Button                      10  560  100   23 LargePlain "Fermer"
+}
+
+'DLGH' ID_ADDON_DLG_QUANTITIES DLG_Quantities {
+1    ""        LeftText_0
+2    ""        LeftText_1
+3    ""        PopupControl_0
+4    ""        MultiSelList_0
+5    ""        LeftText_2
+6    ""        RadioButton_0
+7    ""        RadioButton_1
+8    ""        RadioButton_2
+9    ""        LeftText_3
+10   ""        PopupControl_1
+11   ""        CheckBox_0
+12   ""        CheckBox_1
+13   ""        LeftText_4
+14   ""        LeftText_5
+15   ""        LeftText_6
+16   ""        TextEdit_0
+17   ""        Button_0
+18   ""        Button_1
+19   ""        LeftText_7
+20   ""        Button_2
+21   ""        Button_3
 }

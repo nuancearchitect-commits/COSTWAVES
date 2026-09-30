@@ -409,6 +409,51 @@ guillemets (le fichier précédemment écrit était invalide et illisible au
 rechargement — changements perdus) ; un échec de lecture de la
 bibliothèque est désormais signalé à l'ouverture de la fenêtre.
 
+## 2bis. Fenêtre « Quantitatif » — contrôle des quantités avant export
+
+Bouton **« Quantitatif… »** sur la palette : fenêtre séparée dédiée au
+contrôle et au calcul des quantités **avant export vers CostWaves**.
+Chaque ligne du tableau = **un article CostWaves effectivement quantifié**
+dans la maquette (règles matériaux/composites/profils/objets GDL +
+classification) :
+
+| Colonne | Contenu |
+|---|---|
+| **Article** | `id — libellé` de la base CostWaves |
+| **Source** | origine Archicad (cliquable — voir traçabilité) : « Matériau — Béton 25 », « Composite — MUR_EXT_30 », « Objet GDL — Fenêtre PVC »… ; « (+N) » si l'article a plusieurs origines |
+| **Unité** | unité de l'article, **modifiable** (m², ml, m³, u, kg) — le changement adapte la dimension et les paramètres de calcul |
+| **Mode calcul** | **Brute / Conditionnelle / Nette** pour les unités géométriques (m², ml, m³) ; les unités non géométriques (u, kg…) sont comptées (pas de boutons radio affichés) |
+| **Quantité** | quantité retenue ; « * » = corrigée manuellement |
+
+- **Mode de calcul** (panneau du bas, article sélectionné) :
+  - **Brute** — géométrie principale de l'élément (surface de référence,
+    volume, longueur) ;
+  - **Conditionnelle** — conditions de l'article : le **volume conditionné**
+    des connexions pour le m³ (note « aucune condition disponible » sinon) ;
+  - **Nette** — après déductions : **surface brute − ouvertures − exclusions** ;
+    les déductions sont des **paramètres visibles et contrôlables**
+    (cases « Déduire les ouvertures (fenêtres, portes) », « Déduire les
+    trous ») ;
+  - la quantité est **recalculée automatiquement** à chaque changement de
+    mode, d'unité ou de paramètre.
+- **Quantité retenue vs calculée** : correction manuelle possible (« Retenir »)
+  ; « Réinitialiser » revient à la valeur calculée ; **la quantité calculée
+  d'origine n'est jamais perdue** (affichée en permanence dans le panneau).
+- **Traçabilité** (clic sur la colonne **Source**) : chaîne complète
+  *Article CostWaves → Mapping → Sources Archicad (avec sous-totaux par
+  source et valeur clé) → Mode de calcul → Paramètres → Quantité calculée /
+  retenue* — comprendre **pourquoi** une quantité a été obtenue avant de
+  l'envoyer.
+- **Recalculer** relit la maquette ; les réglages (unité, mode, déductions)
+  et les corrections manuelles sont conservés par article pendant la
+  session (persistance sur fichier : prochaine étape).
+
+*Limites actuelles (incrément 1)* : les **articles hérités** (booléens) ne
+sont pas encore comptés dans la lecture (ils le seront dès que le lecteur
+appliquera ces règles) ; ensembles/groupes non consommés (lecture sans
+propriété de groupe) ; « Conditionnelle » n'exploite que le volume
+conditionné ; les réglages ne survivent pas à la fermeture de la fenêtre.
+
 ## 3. Build (Windows)
 
 ### Télécharger le .apx déjà compilé (recommandé)
