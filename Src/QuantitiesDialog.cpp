@@ -3,6 +3,7 @@
 #include "QuantitiesDialog.hpp"
 
 #include "ArticleManager.hpp"
+#include "CostWavesStyle.hpp"
 #include "ModelReader.hpp"
 #include "RuleLibrary.hpp"
 
