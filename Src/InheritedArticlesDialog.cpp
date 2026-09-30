@@ -84,13 +84,14 @@ void InheritedArticlesDialog::FillList ()
 {
 	isFilling = true;
 
-	const short columnCount = 2;
+	const short columnCount = 3;
 	list.SetHeaderItemCount (columnCount);
 	list.SetTabFieldCount (columnCount);
 	list.SetHeaderItemText (1, FR ("Paramètre (booléen)"));
 	list.SetHeaderItemText (2, FR ("Article hérité"));
+	list.SetHeaderItemText (3, FR ("Valeur clé"));
 
-	const short widths[2] = { 230, 310 };
+	const short widths[3] = { 200, 170, 170 };
 	short position = 0;
 	for (short i = 1; i <= columnCount; ++i) {
 		list.SetHeaderItemSize (i, widths[i - 1]);
@@ -118,6 +119,9 @@ void InheritedArticlesDialog::FillList ()
 		list.SetTabItemText (item, 2, article != nullptr
 			? rules[r].articleId + FR (" — ") + article->name
 			: rules[r].articleId);
+
+		list.SetTabItemText (item, 3, rules[r].valueKeyName.IsEmpty ()
+			? FR ("—") : rules[r].valueKeyName);
 	}
 
 	isFilling = false;
@@ -197,6 +201,35 @@ void InheritedArticlesDialog::AddRule ()
 
 	const short articleIndex = articlePicker.GetSelectedArticleIndex ();
 
+	// 4) La valeur clé (facultative) : une variable GDL de TYPE LONGUEUR de
+	//    l'objet — comme dans les correspondances objets GDL, elle
+	//    différencie les variantes de l'article hérité (Ø125/Ø160, H8/H12…).
+	//    « (aucune) » ou Annuler = sans clé (l'article hérité reste).
+	GS::UniString valueKeyId;
+	GS::UniString valueKeyName;
+	if (articleIndex != 0) {
+		GS::Array<GS::Pair<GS::UniString, GS::UniString>> lengthParams;
+		GS::UniString lengthNote;
+		GS::UniString lengthAlert;
+		if (ModelReader::GetLibraryPartParameters (objectName, lengthParams, lengthNote, lengthAlert)) {
+			if (!lengthAlert.IsEmpty ())
+				DG::WarningAlert (FR ("Valeurs clés limitées pour « ") + objectName + FR (" »"),
+								  lengthAlert, FR ("OK"));
+			if (!lengthParams.IsEmpty ()) {
+				GdlItemPickerDialog valuePicker (ID_ADDON_DLG_PARAMPICKER, FR ("Valeur clé"), FR ("Nom GDL"),
+												 lengthParams, true);
+				valuePicker.Invoke ();
+				if (valuePicker.IsAccepted ()) {
+					const short valueIndex = valuePicker.GetSelectedItemIndex ();
+					if (valueIndex >= 1 && static_cast<UIndex> (valueIndex) <= lengthParams.GetSize ()) {
+						valueKeyId = lengthParams[static_cast<UIndex> (valueIndex) - 1].second;		// nom GDL stable
+						valueKeyName = lengthParams[static_cast<UIndex> (valueIndex) - 1].first;	// libellé lisible
+					}
+				}
+			}
+		}
+	}
+
 	if (articleIndex == 0) {
 		for (UIndex r = 0; r < rules.GetSize (); ++r) {
 			if (rules[r].structureType == CWStructureType::LibraryPartBool
@@ -216,6 +249,8 @@ void InheritedArticlesDialog::AddRule ()
 		rule.mode = CWQuantMode::Element;
 		rule.keyId = boolKey;
 		rule.keyName = paramLabel;
+		rule.valueKeyId = valueKeyId;
+		rule.valueKeyName = valueKeyName;
 
 		// Règle unique par booléen, quel que soit l'objet où il a été
 		// découvert : l'appariement ignore structureName.
@@ -232,7 +267,8 @@ void InheritedArticlesDialog::AddRule ()
 			rules.Push (rule);
 
 		SetStatus (FR ("« ") + paramLabel + FR (" » activé → ") + article.id + FR (" — ") + article.name
-				   + FR (" — tout objet ayant ce paramètre"));
+				   + FR (" — tout objet ayant ce paramètre")
+				   + (valueKeyName.IsEmpty () ? GS::UniString () : FR (" · clé : ") + valueKeyName));
 	}
 
 	FillList ();

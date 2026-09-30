@@ -368,6 +368,8 @@ bool RuleLibrary::LoadRules (GS::Array<CWMapRule>& outRules, GS::UniString& outE
 		rule.quantity = JsonFieldText (entry, "quantity");
 		rule.keyId = JsonFieldText (entry, "key");
 		rule.keyName = JsonFieldText (entry, "keyName");
+		rule.valueKeyId = JsonFieldText (entry, "valueKey");
+		rule.valueKeyName = JsonFieldText (entry, "valueKeyName");
 		if (rule.structureName.IsEmpty ())
 			continue;
 
@@ -412,6 +414,8 @@ bool RuleLibrary::SaveRules (const GS::Array<CWMapRule>& rules, GS::UniString& o
 			+ US ("\", \"quantity\": ") + EscapeRuleText (rule.quantity)
 			+ US (", \"key\": ") + EscapeRuleText (rule.keyId)
 			+ US (", \"keyName\": ") + EscapeRuleText (rule.keyName)
+			+ US (", \"valueKey\": ") + EscapeRuleText (rule.valueKeyId)
+			+ US (", \"valueKeyName\": ") + EscapeRuleText (rule.valueKeyName)
 			+ US (", \"ignored\": ") + US (rule.ignored ? "true" : "false")
 			+ US (" }");
 		if (r + 1 < rules.GetSize ())

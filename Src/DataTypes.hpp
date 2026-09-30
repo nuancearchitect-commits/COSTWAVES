@@ -170,6 +170,12 @@ struct CWMapRule {
 	// et BETON 25 cm). Vide = l'article ne diffère pas par un paramètre.
 	GS::UniString	keyId;			// "element.thickness", "skin.thickness"… ou "property:<guid>"
 	GS::UniString	keyName;		// libellé d'affichage de la clé (ex. "Épaisseur de la couche")
+
+	// Valeur clé SECONDAIRE (dimensionnelle) des articles hérités : le
+	// paramètre booléen (keyId « bool:<nom> ») fait naître l'article, cette
+	// clé GDL de type longueur différencie ses variantes (Ø125/Ø160…).
+	GS::UniString	valueKeyId;		// nom GDL stable (vide = aucune)
+	GS::UniString	valueKeyName;	// libellé d'affichage
 	bool		ignored = false;		// structure exclue du métré
 
 	CWMapRule () = default;

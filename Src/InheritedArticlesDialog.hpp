@@ -20,10 +20,13 @@ namespace CostWaves {
 //  2) le paramètre BOOLÉEN (celui dont l'activation fait naître
 //     l'article) ;
 //  3) l'article CostWaves hérité (classe du système sélectionné) ;
-//     « (aucune) » retire la règle.
+//     « (aucune) » retire la règle ;
+//  4) la valeur clé (FACULTATIVE) : une variable GDL de type longueur
+//     de l'objet — comme dans les correspondances objets GDL, elle
+//     différencie les variantes de l'article hérité (Ø125/Ø160, H8/H12…).
 // Règles enregistrées dans la bibliothèque partagée avec la clé
-// « bool:<nom GDL> » (type « objectBool ») ; l'objet d'origine n'est
-// conservé qu'à titre documentaire. « Fermer » enregistre.
+// « bool:<nom GDL> » (type « objectBool ») + la valeur clé ; l'objet
+// d'origine n'est conservé qu'à titre documentaire. « Fermer » enregistre.
 class InheritedArticlesDialog final :	public DG::ModalDialog,
 										public DG::ButtonItemObserver,
 										public DG::PopUpObserver

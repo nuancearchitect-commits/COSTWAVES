@@ -360,10 +360,11 @@ Bouton **« Correspondance matériaux »** :
   volet…), **quel que soit l'objet qui le porte** — le même nom de
   paramètre se répète entre objets, la règle est donc globale
   (booléen → article, sans lien d'objet ; l'objet du flux « Ajouter… »
-  sert uniquement à lister les paramètres) ; « (aucune) » retire la
-  règle. Exemples : descente eau pluviale Ø125/Ø160, plinthe marbre
-  H8/H12 — deux articles issus d'un seul objet grâce à la valeur
-  clé ;
+  sert uniquement à lister les paramètres) ; une **valeur clé**
+  facultative (variable GDL de type longueur de l'objet, comme dans les
+  correspondances objets GDL) différencie les variantes de l'article
+  hérité (Ø125/Ø160, H8/H12…) ; « (aucune) » retire la
+  règle ;
 - **Tableau des matériaux** du projet (Matériau | Classe) ;
 - **clic sur un matériau** → ouvre la fenêtre de choix de la classe :
   liste **« ID — Nom »** avec **barre de recherche en haut** (style
