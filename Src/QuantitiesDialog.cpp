@@ -234,7 +234,7 @@ void QuantitiesDialog::FillTable ()
 										  + (line.manualOverride ? FR (" *") : GS::UniString ()));
 	}
 
-	if (selectedRow < 1 || static_cast<UIndex> (selectedRow) > list.GetItemCount ())
+	if (selectedRow < 1 || selectedRow > list.GetItemCount ())
 		selectedRow = list.GetItemCount () > 0 ? 1 : 0;
 	if (selectedRow >= 1)
 		list.SelectItem (selectedRow);
