@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Costwaves V4 — mockup</title>
+  <style>
+    :root {
+      --bg:#e8edf4; --paper:#fff; --ink:#132033; --ink-2:#3d4e63; --ink-3:#6a7b90;
+      --line:#d5deea; --line-2:#c5d0dd; --accent:#155eef; --soft:#e8f0fe;
+      --ok:#027a48; --okbg:#e6f6ee; --warn:#b54708; --wbg:#fef4e6;
+      --bad:#b42318; --bbg:#fdecea; --rail:#101826; --sel:#eef4ff;
+      --bim:#155eef; --man:#0f766e; --pdfc:#6d28d9; --pdfbg:#f3e8ff;
+      --chrome:#f7f9fc; --wash:#f4f7fb; --hover:#f3f6fa; --seg:#e8edf3; --stage:#7d8b9c;
+      --font:ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+      --fs:13px; --fs-lab:11px; --fs-h2:16px; --fs-th:10.5px; --fs-chip:11px; --fs-pill:12px; --fs-crumb:12.5px; --fs-foot:17px;
+      --h:32px; --r:8px; --ico-s:32px; --chip-h:22px; --pill-h:26px; --rail-w:56px; --focus:0 0 0 3px rgba(21,94,239,.28);
+      --sh:0 18px 50px rgba(16,24,38,.22);
+      color-scheme:light;
+    }
+    html.dark {
+      --bg:#121a26; --paper:#1a2534; --ink:#e8eef6; --ink-2:#c3d0de; --ink-3:#8b9bb0;
+      --line:#2a3a4e; --line-2:#3a4d63; --accent:#4d8dff; --soft:#1a3058;
+      --ok:#3dd68c; --okbg:#123528; --warn:#f5b056; --wbg:#3a2a12;
+      --bad:#f87171; --bbg:#3a1616; --rail:#0a1018; --sel:#1c3358;
+      --bim:#5b9bff; --man:#2dd4bf; --pdfc:#c4b5fd; --pdfbg:#2e1a4a;
+      --chrome:#151e2c; --wash:#121c2a; --hover:#1e2c3e; --seg:#0f1824; --stage:#0b1118;
+      --focus:0 0 0 3px rgba(77,141,255,.35);
+      --sh:0 18px 50px rgba(0,0,0,.5);
+      color-scheme:dark;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{font-family:var(--font);background:var(--stage);color:var(--ink);font-size:var(--fs);overflow:hidden;-webkit-font-smoothing:antialiased}
+    button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+    button{cursor:pointer;background:none;border:none}
+    :focus-visible{outline:none;box-shadow:var(--focus)}
+    .num{font-variant-numeric:tabular-nums}
+    .nw{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .screen{display:none;height:100%}
+    .screen.on{display:flex}
+    .scr{position:fixed;left:8px;top:10px;z-index:250;display:flex;flex-direction:column;gap:8px}
+    .theme-btn{width:40px;height:40px;border-radius:10px;background:var(--paper);color:var(--ink);border:1px solid var(--line-2);display:grid;place-items:center;box-shadow:var(--sh)}
+    .theme-btn:hover{filter:brightness(1.08)}
+    .theme-btn svg{width:18px;height:18px}
+    html.dark .theme-btn{background:#1e3a6e;color:#f5c14a;border-color:#2a4a7a}
+    .scr-btn{width:40px;height:40px;border-radius:10px;background:#1e3a6e;color:#fff;display:grid;place-items:center;box-shadow:var(--sh)}
+    .scr-btn:hover{filter:brightness(1.08)}
+    .scr-btn svg{width:18px;height:18px}
+    .rail-menu{display:none;position:absolute;left:48px;top:0;width:260px;background:#101826;border:1px solid #243044;border-radius:12px;padding:6px;box-shadow:var(--sh)}
+    .rail-menu.open{display:block}
+    .rail-menu b{display:block;color:#8b9bb0;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:8px 10px 4px}
+    .rail-menu button{display:block;width:100%;text-align:left;color:#e8eef6;padding:8px 10px;border-radius:8px;font-weight:650;font-size:13px}
+    .rail-menu button:hover,.rail-menu button.on{background:#1e3a6e}
+    .btn svg,.ico svg,.seg button svg,.itab svg,.st svg{width:14px;height:14px;flex-shrink:0}
+
+    .app{display:flex;width:100%;height:100%;background:var(--bg)}
+    .rail{width:var(--rail-w);background:var(--rail);display:flex;flex-direction:column;align-items:center;padding:12px 0;flex-shrink:0}
+    .logo{width:32px;height:32px;border-radius:8px;background:linear-gradient(160deg,#5b9bff,#155eef);margin-bottom:14px}
+    .ri{width:40px;height:40px;border-radius:10px;color:#8b9bb0;display:grid;place-items:center}
+    .ri:hover{background:#1c2738;color:#fff}
+    .ri.on{background:#1e3a6e;color:#fff}
+    .rn{display:flex;flex-direction:column;gap:2px;flex:1}
+    .pro{font-size:9px;font-weight:800;color:#f5c14a;border:1px solid #3a4558;padding:3px 6px;border-radius:4px;margin:8px 0}
+    .av{width:28px;height:28px;border-radius:50%;background:#3d6fd4;color:#fff;display:grid;place-items:center;font-size:10px;font-weight:700}
+    .main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .top{height:52px;background:var(--paper);border-bottom:1px solid var(--line);display:grid;grid-template-columns:minmax(140px,1fr) auto minmax(140px,1fr);align-items:center;gap:10px;padding:0 14px;flex-shrink:0}
+    .top-c{display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:nowrap}
+    .top-r{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+    .crumb{color:var(--ink-3);font-weight:650;font-size:var(--fs-crumb);min-width:0}
+    .tb{min-height:44px;background:var(--chrome);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:6px 10px 6px 10px;flex-shrink:0}
+    .marge{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 8px;border:1px solid var(--line-2);border-radius:8px;background:var(--paper);font-size:12px;font-weight:650;color:var(--ink-2);white-space:nowrap}
+     .tranche{width:236px;flex-shrink:0;justify-content:space-between}
+    .tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+    .itabs{display:flex;flex-wrap:nowrap;gap:2px;padding:6px 6px 8px;border-bottom:1px solid var(--line);overflow:hidden}
+    .itab{flex:1 1 0;min-width:0;height:26px;padding:0 3px;border-radius:6px;font-size:10px;font-weight:700;color:var(--ink-3);display:inline-flex;align-items:center;justify-content:center;gap:3px;white-space:nowrap}
+    .itab svg{display:none}
+    .itab:hover{background:var(--hover);color:var(--ink)}
+    .itab.on{background:var(--soft);color:var(--accent)}
+    .insp-h{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding:10px 14px 0}
+    .com-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.45}
+    .com-item:last-child{border-bottom:none}
+    table.metre{table-layout:fixed}
+    th.artcol,td.artcol{width:auto;min-width:0}
+    th.slim,td.slim{width:26px;max-width:26px;padding:8px 0 !important;text-align:center;overflow:hidden}
+    th.slim{font-size:9px;letter-spacing:0;padding:9px 0 !important}
+    th.u,td.u{width:64px} th.q,td.q{width:78px} th.d,td.d{width:62px} th.n,td.n{width:88px}
+    .footbar{height:54px;padding:0 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;border-top:1px solid var(--line);background:var(--chrome);white-space:nowrap;font-size:14px}
+    .footbar .num{font-size:var(--fs-foot);font-weight:800}
+    .footbar .muted{font-size:13px;font-weight:750}
+    .lot-h{display:flex;align-items:center;gap:8px;padding:8px 8px 6px;margin:4px 0 2px;font-weight:800;font-size:12px;letter-spacing:.03em;border-radius:8px}
+    .lot-h .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+    .lot-h.a{color:#155eef;background:linear-gradient(90deg,rgba(21,94,239,.14),transparent)}
+    .lot-h.a .dot{background:#155eef}
+    .lot-h.b{color:#0f766e;background:linear-gradient(90deg,rgba(15,118,110,.14),transparent)}
+    .lot-h.b .dot{background:#0f766e}
+    .lot-h.c{color:#b54708;background:linear-gradient(90deg,rgba(181,71,8,.14),transparent)}
+    .lot-h.c .dot{background:#b54708}
+    html.dark .lot-h.a{color:#7eb0ff}
+    html.dark .lot-h.b{color:#5eead4}
+    html.dark .lot-h.c{color:#f5b056}
+
+    .page{flex:1;min-height:0;padding:18px 22px 14px;display:flex;flex-direction:column}
+
+    .btn{height:var(--h);padding:0 12px;border-radius:var(--r);border:1px solid var(--line-2);background:var(--paper);font-weight:650;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:.12s}
+    .btn:hover{background:var(--hover)}
+    .btn:active{transform:translateY(1px)}
+    .btn.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .btn.pri:hover{filter:brightness(1.06);background:var(--accent)}
+    .btn.save{background:#1238a0;color:#fff;border:none}
+    .btn.on{background:var(--soft);color:var(--accent);border-color:var(--accent)}
+    .ico{width:var(--ico-s);height:var(--ico-s);border-radius:8px;border:1px solid var(--line-2);background:var(--paper);display:grid;place-items:center;color:var(--ink-2)}
+    .ico:hover{background:var(--hover);color:var(--ink)}
+    .ico.del:hover{background:var(--bbg);color:var(--bad)}
+    .search{height:var(--h);display:flex;align-items:center;gap:8px;background:var(--paper);border:1px solid var(--line-2);border-radius:var(--r);padding:0 10px;min-width:180px}
+    .search:focus-within{border-color:var(--accent);box-shadow:var(--focus)}
+    .search input{border:none;outline:none;flex:1;min-width:0;background:none}
+    .inp,.sel,.ta{width:100%;height:var(--h);padding:0 10px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--paper)}
+    .ta{height:auto;min-height:64px;padding:8px 10px;resize:vertical;line-height:1.55}
+    .inp:focus,.sel:focus,.ta:focus{outline:none;border-color:var(--accent);box-shadow:var(--focus)}
+    .lab{display:block;font-size:var(--fs-lab);font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+    .chip{display:inline-flex;align-items:center;height:var(--chip-h);padding:0 8px;border-radius:999px;font-size:var(--fs-chip);font-weight:750;background:var(--soft);color:var(--accent);white-space:nowrap}
+    .chip.ok{background:var(--okbg);color:var(--ok)} .chip.warn{background:var(--wbg);color:var(--warn)} .chip.bad{background:var(--bbg);color:var(--bad)} .chip.pdf{background:var(--pdfbg);color:var(--pdfc)}
+    .card{background:var(--paper);border:1px solid var(--line);border-radius:12px}
+    .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .sp{margin-left:auto;display:flex;gap:8px;align-items:center}
+    .chk{display:inline-flex;align-items:center;gap:6px;font-weight:650;cursor:pointer;white-space:nowrap}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    th{text-align:left;font-size:var(--fs-th);font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);padding:9px 10px;background:var(--wash);border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;z-index:1}
+    td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+    tr:hover td{background:var(--hover)}
+    tr.on td{background:var(--sel)}
+    tr.grp td{background:var(--wash);font-weight:750;color:var(--ink-2);height:32px}
+    .ov{width:100%;height:100%;display:grid;place-items:center;padding:16px;background:rgba(16,24,38,.42)}
+    .screen.on > .ov{flex:1}
+    .modal{background:var(--bg);border-radius:14px;box-shadow:var(--sh);display:flex;flex-direction:column;overflow:hidden;margin:0 auto;max-width:100%;max-height:100%}
+    .modal.md{width:min(560px,96vw);max-height:92vh}
+    .modal.lg{width:min(820px,96vw);max-height:94vh}
+    .modal.xl{width:min(1120px,97vw);height:min(94vh,920px)}
+    .modal.full{width:min(1380px,98vw);height:min(96vh,940px)}
+    .mh{min-height:56px;padding:12px 18px;background:var(--paper);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-shrink:0}
+    .mh > :first-child{flex:1;min-width:0}
+    .mh .ico:last-child{margin-left:4px;flex-shrink:0}
+    .mh h2{font-size:var(--fs-h2);font-weight:800}
+    .mh p{color:var(--ink-3);font-size:12.5px;margin-top:3px}
+    .mb{flex:1;overflow:auto;padding:16px 18px;min-height:0}
+    .mf{min-height:54px;padding:0 18px;background:var(--paper);border-top:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-shrink:0}
+    .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(16px);background:#101826;color:#fff;padding:10px 16px;border-radius:10px;font-weight:650;opacity:0;pointer-events:none;transition:.2s;z-index:300}
+    .toast.on{opacity:1;transform:translateX(-50%)}
+    .lot{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;min-height:34px}
+    .lot > .num{font-weight:800;color:var(--ink)}
+    tr.grp td.num{font-weight:800;color:var(--ink)}
+    .doc-row{display:flex;gap:8px;align-items:end}
+    .doc-row > div{flex:1;min-width:0}
+    .doc-row .lab{margin-bottom:4px}
+    .pdf-lots{display:flex;flex-direction:column;gap:6px}
+    .pdf-lot{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--wash);cursor:pointer}
+    .pdf-lot:has(input:checked){border-color:var(--accent);background:var(--soft)}
+    .pdf-lot b{display:block}
+    .gcol{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .gbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--wash)}
+    .gbox h4{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+    .gbox .chk{display:flex;margin:6px 0}
+    .sig-list{display:flex;flex-direction:column;gap:8px}
+    .sig-row{display:grid;grid-template-columns:28px 120px 1fr 110px 130px 32px;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+    .sig-ord{width:24px;height:24px;border-radius:50%;background:var(--soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:11px}
+    .modal.pdfm{width:min(1180px,96vw);height:min(88vh,820px);overflow:hidden}
+    #pdf .pdf-body{overflow:hidden !important;display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:14px 20px 10px;flex:1;min-height:0}
+    .pdf-col{display:flex;flex-direction:column;gap:12px;min-height:0}
+    .pdf-col h3{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin:0 0 10px}
+    .pdf-pane{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--paper)}
+    .pre{display:flex;gap:8px}
+    .pre button{flex:1;height:auto;padding:10px 12px;border:1px solid var(--line-2);border-radius:10px;background:var(--paper);text-align:left;display:block}
+    .pre button b{display:block;font-size:14px;font-weight:800}
+    .pre button span{display:block;margin-top:3px;font-size:11px;color:var(--ink-3);font-weight:600;line-height:1.3}
+    .pre button.on{border-color:var(--accent);background:var(--soft);color:var(--accent)}
+    .pre button.on span{color:var(--accent)}
+    .pdf-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;min-height:0}
+    .pdf-lots{display:flex;flex-direction:column;gap:2px}
+    .pdf-lot{padding:7px 6px;border:none;background:transparent;border-radius:8px;gap:8px}
+    .pdf-lot:hover{background:var(--hover)}
+    .pdf-lot:has(input:checked){border:none;background:var(--soft)}
+    .pdf-lot .muted{display:inline;font-size:12px;margin:0}
+    .content-grid{display:flex;flex-direction:column;gap:12px}
+    .pdf-body .gbox{border:none;background:none;padding:0;border-radius:0}
+    .sig-grid{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:min-content;gap:10px;flex:1;min-height:0;overflow:auto;align-content:start}
+    .sig-box{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--wash);min-height:0}
+    .sig-box textarea{min-height:88px;height:88px;white-space:pre-wrap;line-height:1.5;resize:vertical}
+    .lot:hover{background:var(--hover)}
+    .lot.on{background:var(--soft)}
+    .muted{color:var(--ink-3)}
+    .seg{display:flex;background:var(--seg);border-radius:8px;padding:3px}
+    .seg button{height:26px;padding:0 11px;border-radius:6px;font-weight:650;color:var(--ink-3)}
+    .seg button.on{background:var(--paper);color:var(--ink);box-shadow:0 1px 2px rgba(16,24,38,.08)}
+    .hidden{display:none !important}
+    .qin{width:72px;height:28px;text-align:right;border:1px solid var(--line-2);border-radius:6px;padding:0 6px;font-weight:650;background:var(--paper);color:var(--ink)}
+    .unit{padding:2px 8px;border-radius:6px;background:var(--wash);border:1px solid var(--line);font-size:11.5px;font-weight:800;color:var(--ink-2)}
+    .st{display:flex;align-items:center;gap:6px;font-weight:650;color:var(--ink-3);font-size:12px}
+    .st .n{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line-2);display:grid;place-items:center;font-size:10px;font-weight:800}
+    .st.now{color:var(--accent)} .st.now .n{background:var(--accent);border-color:var(--accent);color:#fff}
+    .ppl{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:800;color:#fff;margin-left:-6px;border:2px solid var(--paper)}
+    .hl{background:#fde68a;color:#132033;padding:0 3px;border-radius:3px;font-weight:700}
+    html.dark .hl{background:#5b4a12;color:#fde68a}
+    del{background:var(--bbg);color:var(--bad);text-decoration:line-through}
+    ins{background:var(--okbg);color:var(--ok);text-decoration:none}
+    .okc{color:var(--ok)}
+    .sec{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px}
+    .sec h3{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+    .statp{display:flex;gap:8px}
+    .statp span{background:var(--wash);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-weight:750;font-size:12px;white-space:nowrap}
+    .cmp-left{width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;overflow:auto}
+    .cmp-item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--paper);cursor:pointer}
+    .cmp-item.on{border-color:var(--accent);background:var(--soft)}
+    .cmp-right{flex:1;min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;line-height:1.7}
+    .editor{flex:1;min-height:280px;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:14px 16px;line-height:1.65;overflow:auto}
+    .kpi{display:flex;flex-wrap:nowrap;gap:0;border:1px solid var(--line);border-radius:10px;background:var(--paper);overflow:hidden;flex-shrink:0}
+    .kpi > div{flex:1;padding:8px 10px;border-right:1px solid var(--line);min-width:0}
+    .kpi > div:last-child{border-right:none}
+    .kpi .lab{margin:0 0 2px;font-size:10px}
+    .kpi b{font-size:15px}
+    .kpi .on{background:var(--soft)}
+    .cq{display:flex;border:1px solid var(--line);border-radius:10px;background:var(--paper);overflow:hidden;flex-shrink:0}
+    .cq > div{flex:1;min-width:0;padding:8px 10px;border-right:1px solid var(--line);min-height:0;border-radius:0;background:transparent}
+    .cq > div:last-child{border-right:none}
+    .cq .lab{margin:0 0 4px;font-size:10px;display:flex;align-items:center;gap:4px}
+    .cq b{font-size:14px;font-weight:800}
+    .cq .dash{border-style:solid;opacity:.85}
+    .cq .ctr{background:var(--soft);text-align:left}
+    .cq .ctr b{font-size:15px;color:var(--accent)}
+    .pbar{height:3px;background:var(--line);border-radius:99px;margin-top:6px;overflow:hidden}
+    .pbar i{display:block;height:100%;width:100%;background:#e11d48}
+    .ctx{width:236px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;overflow:hidden;padding:10px 12px}
+    .heroq{padding:10px 12px;border-radius:10px;background:var(--soft);border:1px solid #c9dbfc}
+    .heroq .lab{margin:0 0 4px}
+    .heroq b{font-size:20px;color:var(--accent)}
+    .mrow{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--line);font-size:12px;gap:8px}
+    .mrow:last-child{border-bottom:none}
+    .work{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+    .addcol{width:188px;flex-shrink:0;border-right:1px solid var(--line);background:var(--paper);padding:12px;display:flex;flex-direction:column;gap:8px}
+    .sidep .blk{padding:10px 12px;border-bottom:1px solid var(--line)}
+    .sidep .blk:last-child{border-bottom:none}
+    .val4{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+    .val4 span{border-radius:8px;padding:7px 8px;font-size:11px;font-weight:650;background:var(--wash);border:1px solid var(--line)}
+    table.comp th,table.comp td{font-size:11.5px;padding:6px 7px}
+    .src{font-weight:800}
+    .src small{font-weight:600;color:var(--ink-3);margin-left:6px}
+    .kchip{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid var(--line);color:var(--ink-3);background:var(--wash)}
+    .modal.unites{width:min(440px,94vw);height:auto;max-height:min(78vh,560px)}
+    .umap{display:grid;grid-template-columns:1fr 100px;gap:6px;overflow:auto;flex:1;min-height:0;padding-right:2px}
+    .gfn{margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+    .content-grid .gbox{margin-bottom:10px}
+    .cmp-puce{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--paper);display:flex;flex-direction:column;gap:10px}
+    .cmp-puce.on{border-color:var(--accent);box-shadow:0 0 0 3px rgba(21,94,239,.16)}
+    .cmp-puce .txt{font-size:14.5px;line-height:1.65;color:var(--ink-2);min-height:72px}
+    .modal.ded{width:min(1180px,96vw);height:min(88vh,820px);overflow:hidden}
+    .ded-grid{display:grid;grid-template-columns:260px 1fr 280px;gap:14px;flex:1;min-height:0}
+    .ded-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+    .ded-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--paper)}
+    .badge{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:11px;flex-shrink:0}
+    .dims{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .dims label{font-size:10px;font-weight:800;color:var(--ink-3);letter-spacing:.04em}
+    .warnb{background:var(--wbg);color:var(--warn);border-radius:8px;padding:8px 10px;font-size:12px;margin-top:8px}
+    .cap{height:6px;background:var(--line);border-radius:99px;overflow:hidden}
+    .cap i{display:block;height:100%;width:52%;background:#f59e0b}
+    .pill{height:var(--pill-h);padding:0 10px;border-radius:999px;border:1px solid var(--line-2);background:var(--paper);font-weight:650;font-size:var(--fs-pill)}
+    .pill.on{background:var(--soft);color:var(--accent);border-color:var(--accent)}
+    #planpdf .app,#planpdf .main{overflow:hidden;height:100%}
+    #planpdf .pdf-work{flex:1;min-height:0;display:flex;overflow:hidden}
+    .pdf-tools{width:220px;flex-shrink:0;background:var(--paper);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow:auto}
+    .pdf-tools-h{padding:10px 12px 4px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+    .fold{border-bottom:1px solid var(--line);padding:2px 12px 10px}
+    .fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;height:32px;font-weight:750;font-size:13px}
+    .fold>summary::-webkit-details-marker{display:none}
+    .fold>summary::after{content:"▾";margin-left:auto;color:var(--ink-3);font-size:11px}
+    .fold:not([open])>summary::after{content:"▸"}
+    .draw2{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+    .draw2 button{height:32px;justify-content:flex-start;padding:0 8px;gap:7px;font-size:12px}
+    .draw2 button svg{width:15px;height:15px}
+    .pdf-ded{margin:8px 12px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--wash);flex-shrink:0}
+    .pdf-stage{flex:1;min-width:0;min-height:0;position:relative;background:#eef1f5;overflow:hidden}
+    html.dark .pdf-stage{background:#0f1620}
+    .pdf-plan{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:44px 12px 58px}
+    .pdf-plan svg{width:100%;height:100%;max-width:100%;max-height:100%}
+    .hud{position:absolute;z-index:2;display:flex;gap:6px;align-items:center}
+    .hud-tl{top:10px;left:10px}
+    .hud-tr{top:10px;right:10px;flex-wrap:wrap;justify-content:flex-end;max-width:62%}
+    .hud-bot{bottom:12px;left:50%;transform:translateX(-50%);background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:4px 8px;box-shadow:0 10px 28px rgba(16,24,38,.14);white-space:nowrap}
+    .hud-bot .btn,.hud-bot .ico{height:28px}
+    .hud-bot .ico{width:28px}
+    .pdf-insp{width:272px;flex-shrink:0;background:var(--paper);border-left:1px solid var(--line);overflow:auto;padding:10px 12px 14px;display:flex;flex-direction:column;gap:10px}
+    .tri{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+    .tri>div{background:var(--wash);border:1px solid var(--line);border-radius:8px;padding:8px 4px;text-align:center}
+    .tri .lab{margin:0 0 2px;font-size:9px}
+    .tri b{font-size:13px}
+    .mode2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .mode2 button{height:auto;padding:8px 8px;border:1px solid var(--line-2);border-radius:8px;background:var(--paper);display:flex;flex-direction:column;align-items:flex-start;gap:2px;font-weight:750;font-size:12px}
+    .mode2 button small{font-weight:600;color:var(--ink-3);font-size:10px}
+    .mode2 button.on{border-color:var(--accent);background:var(--soft);color:var(--accent)}
+    .snap{display:flex;flex-wrap:wrap;gap:4px}
+    .snap .pill{height:24px;font-size:11px}
+    .pills3{display:flex;flex-wrap:nowrap;gap:4px}
+    .pills3 .pill{flex:1;min-width:0;padding:0 4px;font-size:11px}
+    .lh2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .lg-wrap{flex:1;min-height:0;display:flex;overflow:hidden}
+    .lg-ctrl{width:300px;flex-shrink:0;background:var(--paper);border-right:1px solid var(--line);overflow:auto;padding:14px 14px 24px}
+    .lg-gal{flex:1;min-width:0;overflow:auto;padding:16px 18px 28px;display:flex;flex-direction:column;gap:14px}
+    .lg-sw{display:grid;grid-template-columns:1fr 40px;gap:8px;align-items:center;margin:5px 0}
+    .lg-sw span{font-size:12px;font-weight:650}
+    .lg-sw input[type=color]{width:40px;height:28px;border:1px solid var(--line-2);border-radius:6px;padding:0;background:none;cursor:pointer}
+    .lg-range{display:flex;align-items:center;gap:8px;margin:6px 0}
+    .lg-range input{flex:1}
+    .lg-range b{width:42px;text-align:right;font-variant-numeric:tabular-nums}
+    .lg-sec{padding:14px 16px}
+  </style>
+</head>
+<body>
+<div class="scr">
+  <button class="scr-btn" title="Changer d’écran" onclick="document.getElementById('scrMenu').classList.toggle('open')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+  </button>
+  <div class="rail-menu" id="scrMenu">
+    <b>Écrans V4</b>
+    <button data-go="projets" onclick="go('projets')">Mes projets</button>
+    <button data-go="metre" onclick="go('metre')">Métré — Articles</button>
+    <button data-go="ajouter" onclick="go('ajouter')">Ajouter des articles</button>
+    <button data-go="composants" onclick="go('composants')">Détail quantités / Attachement</button>
+    <button data-go="deductions" onclick="go('deductions')">Gérer les déductions</button>
+    <button data-go="planpdf" onclick="go('planpdf')">Métré PDF</button>
+    <button data-go="pdf" onclick="go('pdf')">Paramètres PDF</button>
+    <button data-go="import" onclick="go('import')">Import quantités</button>
+    <button data-go="unites" onclick="go('unites')">Mappage des unités</button>
+    <button data-go="editer" onclick="go('editer')">Chapitre — Éditer</button>
+    <button data-go="comparer" onclick="go('comparer')">Chapitre — Comparer</button>
+    <button data-go="organiser" onclick="go('organiser')">Chapitre — Organiser</button>
+    <button data-go="legende" onclick="go('legende')">Légende · styles</button>
+  </div>
+  <button class="theme-btn" id="themeBtn" title="Mode sombre" onclick="toggleTheme()">
+    <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 14.5A8.5 8.5 0 1 1 9.5 3 7 7 0 0 0 21 14.5z"/></svg>
+    <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+</div>
+<div class="toast" id="toast">Enregistré</div>
+
+<section class="screen" id="projets">
+  <div class="app">
+    <aside class="rail"><div class="logo"></div><nav class="rn"><button class="ri">▦</button><button class="ri on">☰</button></nav><div class="pro">PRO</div><div class="av">AK</div></aside>
+    <div class="main"><div class="page">
+      <div class="crumb">Projets</div>
+      <div class="row" style="margin:8px 0 14px">
+        <h1 style="font-size:22px;margin-right:auto">Mes projets</h1>
+        <label class="search"><input id="qproj" placeholder="Filtrer les projets…" oninput="filterProj()"/></label>
+        <button class="btn" onclick="this.classList.toggle('on')">Phase ▾</button>
+        <button class="btn pri" onclick="ping('Synchronisation lancée')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7h8l-1-3H9L8 7zM4 7h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"/></svg>Synchro-convert</button>
+        <button class="btn" onclick="this.classList.toggle('on')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Voir</button>
+        <button class="btn" onclick="ping('Liste actualisée')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-15.5 6.3M3 12A9 9 0 0 1 18.5 5.7"/><path d="M21 5v5h-5M3 19v-5h5"/></svg>Rafraîchir</button>
+        <button class="btn save" onclick="ping('Nouveau projet')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nouveau projet</button>
+      </div>
+      <div class="card" style="flex:1;overflow:auto">
+        <table id="ptable">
+          <thead><tr><th>Titre</th><th>Tranche</th><th>Phase</th><th>Adresse</th><th>Client</th><th>Création</th><th>Mise à jour</th><th>Propriétaire</th><th>Ministère</th><th>Délégation</th><th></th></tr></thead>
+          <tbody>
+            <tr onclick="selRow(this)"><td class="nw" style="font-weight:750;max-width:280px">Construction de 3 salles de classe à école el Faleg</td><td>Tranche 1</td><td><span class="chip pdf">DAO / Dossier C</span></td><td class="nw">El Faleg — Agareb</td><td class="nw">CRE Sfax 1</td><td>06/07/2026</td><td>il y a 20 heures</td><td class="nw">Ahmed Kammoun</td><td class="nw">Ministère de l’éducation</td><td>Agareb</td><td><button class="btn" onclick="event.stopPropagation();go('metre')">Ouvrir →</button></td></tr>
+            <tr onclick="selRow(this)"><td class="nw" style="font-weight:750">Réaménagement d’un RDC</td><td>Tranche 1</td><td><span class="chip">APD</span></td><td>Habbena</td><td>Omar Bouni</td><td>04/05/2026</td><td>il y a 2 mois</td><td>Ahmed Kammoun</td><td class="muted">—</td><td>Sfax</td><td><button class="btn" onclick="event.stopPropagation();go('metre')">Ouvrir →</button></td></tr>
+            <tr onclick="selRow(this)"><td class="nw" style="font-weight:750">Réaménagement de bloc sanitaire</td><td>Tranche 1</td><td><span class="chip">APD</span></td><td class="nw">El Faleg — Agareb</td><td>CRE SFAX 1</td><td>07/07/2025</td><td>il y a 2 mois</td><td>Ahmed Kammoun</td><td class="nw">Ministère de l’éducation</td><td>Agareb</td><td><button class="btn" onclick="event.stopPropagation();go('metre')">Ouvrir →</button></td></tr>
+            <tr onclick="selRow(this)"><td class="nw" style="font-weight:750">Construction d’un atelier d’électricité</td><td>Tranche 1</td><td><span class="chip">APD</span></td><td>Megrine</td><td class="nw">Garde nationale</td><td>03/03/2026</td><td>il y a 3 mois</td><td>Ahmed Kammoun</td><td class="nw">Ministère de l’intérieur</td><td>Ben Arous</td><td><button class="btn" onclick="event.stopPropagation();go('metre')">Ouvrir →</button></td></tr>
+            <tr onclick="selRow(this)"><td class="nw" style="font-weight:750">Ahmed — immeuble 5 août</td><td>Tranche 1</td><td><span class="chip warn">Attachement</span></td><td class="nw">5 août, immeuble S</td><td>Kammoun</td><td>15/06/2026</td><td>il y a 3 mois</td><td>Ahmed Kammoun</td><td>eRHG</td><td>QERH</td><td><button class="btn" onclick="event.stopPropagation();go('metre')">Ouvrir →</button></td></tr>
+            <tr onclick="selRow(this)"><td class="nw" style="font-weight:750">Construction d’un mur de clôture</td><td>Tranche 1</td><td><span class="chip pdf">DAO / Dossier C</span></td><td class="nw">El Faleg — Agareb</td><td>CRE SFAX 1</td><td>07/07/2025</td><td>il y a 8 mois</td><td>Ahmed Kammoun</td><td class="nw">Ministère de l’éducation</td><td>Agareb</td><td><button class="btn" onclick="event.stopPropagation();go('metre')">Ouvrir →</button></td></tr>
+            <tr onclick="selRow(this)"><td class="nw" style="font-weight:750">Construction de quatre salles de classe</td><td>Tranche 1</td><td><span class="chip">APD</span></td><td class="nw">El Faleg — Agareb</td><td>CRE SFAX 1</td><td>07/07/2025</td><td>il y a 12 mois</td><td>Ahmed Kammoun</td><td class="nw">Ministère de l’éducation</td><td>CRE SFAX 1</td><td><button class="btn" onclick="event.stopPropagation();go('metre')">Ouvrir →</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="row" style="padding-top:10px;color:var(--ink-2)"><span id="pcnt">7 projets</span><span class="sp">Lignes par page <select class="sel" style="width:64px;height:28px"><option>10</option></select> Page 1 sur 1</span></div>
+    </div></div>
+  </div>
+</section>
+
+<!-- MÉTRÉ COMPLET -->
+<section class="screen" id="metre">
+  <div class="app">
+    <aside class="rail">
+      <div class="logo"></div>
+      <nav class="rn"><button class="ri" title="Accueil">▦</button><button class="ri on">☰</button><button class="ri">⌕</button><button class="ri">↻</button><button class="ri">▶</button><button class="ri">⌖</button><button class="ri">⚙</button></nav>
+      <div class="pro">PRO</div><div class="av">AK</div>
+    </aside>
+    <div class="main">
+      <div class="top">
+        <span class="crumb nw">Projets / Construction de 3 salles de classe à école el Faleg</span>
+        <div class="top-c">
+          <span class="st now"><span class="n">1</span>APD</span>
+          <span class="muted">—</span>
+          <span class="st"><span class="n">2</span>DAO / Dossier C</span>
+          <span class="muted">—</span>
+          <span class="st" style="opacity:.45"><span class="n">3</span>Marché</span>
+          <span class="muted">—</span>
+          <span class="st" style="opacity:.45"><span class="n">4</span>Attachement</span>
+          <button class="btn pri" onclick="ping('Finaliser la phase APD')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            Finaliser la phase
+          </button>
+        </div>
+        <div class="top-r">
+          <button class="btn" onclick="ping('Synchronisé')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-15.5 6.3M3 12A9 9 0 0 1 18.5 5.7"/><path d="M21 5v5h-5M3 19v-5h5"/></svg>
+            Sync
+          </button>
+          <span class="ppl" style="background:#2563eb;margin-left:4px">AI</span>
+          <span class="ppl" style="background:#0f766e">UE</span>
+          <span class="ppl" style="background:#c2410c">AF</span>
+          <button class="btn pri" onclick="this.classList.toggle('on')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3.5"/><path d="M20 8v6M17 11h6"/></svg>
+            Collaboration
+          </button>
+        </div>
+      </div>
+      <div class="tb">
+        <button class="btn tranche">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16"/></svg>
+          Tranche 1
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="seg">
+          <button class="on" onclick="seg(this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            Articles
+          </button>
+          <button onclick="seg(this);ping('Vue Quantités')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12h8M12 8v8"/></svg>
+            Quantités
+          </button>
+          <button onclick="seg(this);go('unites')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20 20 4M8 4h.01M16 20h.01"/></svg>
+            Unités
+          </button>
+        </div>
+        <label class="marge" title="Marge gonflement quantité BIM / manuelle">
+          Marge gonflement qté
+          <input class="qin num" value="5%" style="width:48px;text-align:center;height:24px"/>
+        </label>
+        <label class="search" style="flex:1;min-width:140px">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#6a7b90" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+          <input placeholder="Rechercher…"/>
+        </label>
+        <div class="tb-right">
+          <button class="btn" onclick="go('pdf')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>
+            PDF
+          </button>
+          <button class="btn" onclick="go('ajouter')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+            Tous les articles ▾
+          </button>
+          <button class="ico" title="Paramètres d’affichage">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1.1 1.5 1.2H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          </button>
+          <button class="ico" title="Imprimer" onclick="ping('Impression')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="6"/></svg>
+          </button>
+          <button class="btn save" onclick="ping('Métré enregistré')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+            Enregistrer
+          </button>
+        </div>
+      </div>
+      <div style="flex:1;min-height:0;display:flex;gap:10px;padding:10px">
+        <!-- LOTS -->
+        <div class="card" style="width:236px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0">
+          <div class="lab" style="padding:10px 12px;margin:0;border-bottom:1px solid var(--line)">Liste des lots</div>
+          <div style="flex:1;overflow:auto;padding:6px 8px">
+            <div class="lot-h a nw"><span class="dot"></span>A · LOT GÉNIE CIVIL</div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">1</span><span class="nw" style="flex:1">Structure</span><span class="num">2 245.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">2</span><span class="nw" style="flex:1">Démolition</span><span class="num">1 560.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">3</span><span class="nw" style="flex:1">Maçonnerie et béton</span><span class="num">15 550.000</span><span class="okc">✓</span></div>
+            <div class="lot on" onclick="lotOn(this)"><span class="muted">4</span><span class="nw" style="flex:1">Enduits</span><span class="num">24 420.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">5</span><span class="nw" style="flex:1">Revêtements et sols</span><span class="num">25 390.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">6</span><span class="nw" style="flex:1">Étanchéité et isolation</span><span class="num">29 820.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">7</span><span class="nw" style="flex:1">Ouvrages divers</span><span class="num">2 310.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">8</span><span class="nw" style="flex:1">Menuiserie en bois</span><span class="num">18 750.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">9</span><span class="nw" style="flex:1">Menuiserie en alu</span><span class="num">14 400.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">10</span><span class="nw" style="flex:1">Aménagement extérieur</span><span class="num">6 000.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">11</span><span class="nw" style="flex:1">Peinture</span><span class="num">8 578.000</span><span class="okc">✓</span></div>
+            <div class="lot-h b nw"><span class="dot"></span>B · LOT VRD</div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">1</span><span class="nw" style="flex:1">VRD</span><span class="num">1 397.000</span><span class="okc">✓</span></div>
+            <div class="lot-h c nw"><span class="dot"></span>C · LOT ÉLECTRICITÉ</div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">1</span><span class="nw" style="flex:1">Tableaux de protection</span><span class="num">1.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">2</span><span class="nw" style="flex:1">Lignes d’alimentation</span><span class="num">434.000</span><span class="okc">✓</span></div>
+            <div class="lot" onclick="lotOn(this)"><span class="muted">3</span><span class="nw" style="flex:1">Circuit de terre</span><span class="num">29.000</span><span class="okc">✓</span></div>
+            <div style="margin:10px 4px;padding:10px;border:1px dashed var(--line-2);border-radius:10px;background:var(--wash)">
+              <div class="lab">Lots fusionnés</div>
+              <div class="row"><span class="chip">A</span> Génie civil <span class="sp"><span class="av" style="background:#c2410c">AF</span></span></div>
+            </div>
+          </div>
+          <div class="footbar" style="font-weight:800"><span class="muted">Total</span><span class="num" style="margin-left:auto">151 783.000</span></div>
+        </div>
+        <!-- TABLE -->
+        <div class="card" style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+          <div style="flex:1;overflow:auto">
+            <table class="metre">
+              <thead>
+                <tr>
+                  <th class="artcol">Article</th><th class="u">Unité</th>
+                  <th class="q">Qté man.</th><th class="d">Diff %</th><th class="q">Qté BIM</th><th class="q"># Qté</th>
+                  <th class="q">PU HT</th><th class="n">Total HT</th><th class="slim">Desc</th><th class="slim"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="grp"><td colspan="2" class="nw">▾ Enduit extérieur</td><td></td><td></td><td></td><td></td><td></td><td class="num">11 400.000</td><td class="slim"></td><td class="slim"><input type="checkbox"/></td></tr>
+                <tr onclick="selRow(this);ficheEnduit('1.1','Enduit ciment extérieur','M2','30.000','11 400.000')">
+                  <td class="nw artcol"><span class="chip">1.1</span> Enduit ciment extérieur</td>
+                  <td><span class="unit">M2 ▾</span></td>
+                  <td class="num">380.000</td>
+                  <td><span class="chip bad">16.3%</span></td>
+                  <td class="num muted">326.67</td>
+                  <td><input class="qin num" value="380.000"/></td>
+                  <td><input class="qin num" value="30.000"/></td>
+                  <td class="num" style="font-weight:750">11 400.000</td>
+                  <td class="slim okc">✓</td>
+                  <td class="slim"><input type="checkbox"/></td>
+                </tr>
+                <tr class="grp"><td colspan="2" class="nw">▾ Enduit intérieur</td><td></td><td></td><td></td><td></td><td></td><td class="num">7 140.000</td><td class="slim"></td><td class="slim"><input type="checkbox"/></td></tr>
+                <tr onclick="selRow(this);ficheEnduit('1.2','Enduit ciment intérieur','M2','28.000','7 140.000')">
+                  <td class="nw artcol"><span class="chip">1.2</span> Enduit ciment intérieur</td>
+                  <td><span class="unit">M2 ▾</span></td>
+                  <td class="num">255.000</td>
+                  <td><span class="chip bad">5.3%</span></td>
+                  <td class="num muted">242.26</td>
+                  <td><input class="qin num" value="255.000"/></td>
+                  <td><input class="qin num" value="28.000"/></td>
+                  <td class="num" style="font-weight:750">7 140.000</td>
+                  <td class="slim okc">✓</td>
+                  <td class="slim"><input type="checkbox"/></td>
+                </tr>
+                <tr class="grp"><td colspan="2" class="nw">▾ Enduits sous plafonds</td><td></td><td></td><td></td><td></td><td></td><td class="num">5 880.000</td><td class="slim"></td><td class="slim"><input type="checkbox"/></td></tr>
+                <tr class="on" onclick="selRow(this);ficheEnduit('1.3','Enduit ciment sous plafond','M2','28.000','5 880.000')">
+                  <td class="nw artcol"><span class="chip">1.3</span> Enduit ciment sous plafond</td>
+                  <td><span class="unit">M2 ▾</span></td>
+                  <td class="num">210.000</td>
+                  <td><span class="chip bad">8.1%</span></td>
+                  <td class="num muted">194.24</td>
+                  <td><input class="qin num" value="210.000"/></td>
+                  <td><input class="qin num" value="28.000"/></td>
+                  <td class="num" style="font-weight:750">5 880.000</td>
+                  <td class="slim okc">✓</td>
+                  <td class="slim"><input type="checkbox"/></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="footbar">
+            <span class="muted">Total</span> <b class="num">151 783.000</b>
+            <span class="sp">Lot sélectionné <b class="chip">24 420.000</b></span>
+          </div>
+        </div>
+        <!-- DÉTAILS D'ARTICLE + COMMENTAIRES -->
+        <div style="width:420px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;min-height:0">
+        <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden">
+          <div class="insp-h">Détails d’article</div>
+          <div class="nw" style="padding:8px 14px 10px;font-weight:800;font-size:14px"><span class="chip" id="fc">1.3</span> <span id="fn">Enduit ciment sous plafond</span></div>
+          <div class="itabs">
+            <button class="itab" id="tNom" onclick="tabF('nom')" title="Nom">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H8l-4 5 4 5h12a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+              Nom
+            </button>
+            <button class="itab" id="tSpec" onclick="tabF('spec')" title="Détail">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+              Détail
+            </button>
+            <button class="itab on" id="tDesc" onclick="tabF('desc')" title="Descriptifs">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>
+              Descriptifs
+            </button>
+            <button class="itab" id="tKey" onclick="tabF('key')" title="Mots clés">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 20 20 7a3 3 0 0 0-4-4L3 16v5h5z"/></svg>
+              Mots clés
+            </button>
+            <button class="itab" id="tPrix" onclick="tabF('prix')" title="Base de prix">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+              Base de prix
+            </button>
+          </div>
+          <div id="pSpec" class="hidden" style="padding:12px 14px;overflow:auto;flex:1">
+            <label class="lab">Détail — spécification particulière</label>
+            <textarea class="ta" placeholder="Ajouter une spécification particulière…"></textarea>
+            <label class="lab" style="margin-top:10px">Emplacement</label>
+            <textarea class="ta" placeholder="Zone, local, axe…"></textarea>
+          </div>
+          <div id="pHead" style="padding:10px 14px;display:flex;gap:8px;align-items:center">
+            <button class="ico" title="Éditer le descriptif" onclick="ping('Édition du descriptif')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+            </button>
+            <select class="sel" style="flex:1"><option>Version 01</option></select>
+            <span class="chip">1 version</span>
+          </div>
+          <div id="pDesc" style="flex:1;overflow:auto;padding:0 14px 12px;line-height:1.6;color:var(--ink-2);font-size:12.5px">
+            Les prix d’enduits au m² ci-après s’appliquent à toutes les surfaces droites, ou en talus, sans développement, sur briques, BA, sans plus-value, pour tableaux, feuillures, embrasures, arêtes droites, courbes ou arrondies, chanfreins, solins, angles rentrants et saillants, listels, couronnements des murs, socles, pilastres, moulures, joints, sans plus-value pour arêtes en ciment, ou locaux humides en mortier de ciment, exécution de larmiers, rebouchage des saignées après passage des fourreaux des volets roulants et des canalisations (fluides, électricité, téléphone), y compris grillage 20 × 20 mm aux jonctions maçonnerie / béton armé. Première couche aussi mince que possible, joints nettoyés et surface humidifiée à refus.
+          </div>
+          <div id="pKey" class="hidden" style="padding:12px 14px;flex:1"><span class="chip">enduit</span> <span class="chip">ciment</span> <span class="chip">plafond</span></div>
+          <div id="pNom" class="hidden" style="padding:12px 14px;flex:1">
+            <label class="lab">Nom</label>
+            <input class="inp" id="fnInp" value="Enduit ciment sous plafond"/>
+            <p class="muted" style="margin-top:10px">Unité M2 · PU 28.000 · Total 5 880.000</p>
+          </div>
+          <div id="pPrix" class="hidden" style="padding:12px 14px;flex:1;overflow:auto">
+            <div class="lab">Base de prix — projets récents</div>
+            <div class="lot"><span class="nw" style="flex:1">École el Faleg — T1</span><b class="num">28.000</b></div>
+            <div class="lot"><span class="nw" style="flex:1">Bloc sanitaire Agareb</span><b class="num">26.500</b></div>
+            <div class="lot"><span class="nw" style="flex:1">Atelier Megrine</span><b class="num">30.000</b></div>
+          </div>
+        </div>
+        <div class="card" style="height:210px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden">
+          <div class="insp-h" style="display:flex;align-items:center;gap:8px;padding:8px 12px 6px">
+            Commentaires
+            <span class="chip" id="comCnt">2</span>
+            <button class="ico" style="margin-left:auto" title="Ajouter un commentaire" onclick="addCom()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+          </div>
+          <div id="comList" style="flex:1;overflow:auto;padding:4px 12px 8px">
+            <div class="com-item">
+              <div class="av" style="width:22px;height:22px;font-size:9px;flex-shrink:0">AF</div>
+              <div style="min-width:0;flex:1">
+                <div class="muted" style="font-size:11px">Ahmed Fehri · il y a 2 j</div>
+                <div>Vérifier l’épaisseur au droit des larmiers avant réception.</div>
+              </div>
+            </div>
+            <div class="com-item">
+              <div class="av" style="width:22px;height:22px;font-size:9px;background:#0f766e;flex-shrink:0">SK</div>
+              <div style="min-width:0;flex:1">
+                <div class="muted" style="font-size:11px">Saber Kammoun · hier</div>
+                <div>Prix à rapprocher du marché Agareb (26.500).</div>
+              </div>
+            </div>
+          </div>
+          <div id="comAdd" class="hidden" style="padding:8px 12px 10px;border-top:1px solid var(--line)">
+            <div class="row" style="flex-wrap:nowrap">
+              <input class="inp" id="comInp" placeholder="Écrire un commentaire…"/>
+              <button class="btn pri" onclick="saveCom()">OK</button>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AJOUTER : lots | article = descriptif -->
+<section class="screen" id="ajouter">
+  <div class="ov">
+    <div class="modal full">
+      <div class="mh"><div><h2>Ajouter des articles</h2><p>Cochez les ouvrages, relisez le descriptif, puis enregistrez.</p></div><button class="ico" title="Fermer" onclick="go('metre')">✕</button></div>
+      <div class="mb" style="display:flex;flex-direction:column;gap:10px;height:100%">
+        <div class="row">
+          <label class="search"><input placeholder="Rechercher un lot ou un article…"/></label>
+          <button class="btn pri" onclick="ping('Synchro-convert')">Synchro-convert</button>
+          <button class="btn" onclick="ping('Modèle importé')">Importer le modèle</button>
+          <span class="sp"><button class="btn" onclick="ping('Export')">Exporter *</button><button class="btn" onclick="ping('Import')">Importer *</button></span>
+        </div>
+        <div style="flex:1;display:grid;grid-template-columns:320px 1fr 1fr;gap:10px;min-height:0">
+          <div class="card" style="overflow:auto;padding:8px">
+            <div class="lab">Lots</div>
+            <div class="lot" onclick="lotOn(this)"><span class="nw" style="flex:1">04.00.00 Fondations</span><input type="checkbox"/></div>
+            <div class="lot" onclick="lotOn(this)"><span class="nw" style="flex:1">05.00.00 Structure</span><input type="checkbox"/></div>
+            <div class="lot" onclick="lotOn(this)"><span class="nw" style="flex:1">06.00.00 Charpente métallique</span><input type="checkbox"/></div>
+            <div class="lot on" onclick="lotOn(this)"><span class="nw" style="flex:1">07.00.00 Maçonnerie et briquetage</span><span class="okc">✓</span><input type="checkbox" checked/></div>
+            <div class="lot" onclick="lotOn(this)"><span class="nw" style="flex:1">08.00.00 Plâtrerie et partitions</span><span class="okc">✓</span><input type="checkbox" checked/></div>
+            <div class="lot" onclick="lotOn(this)"><span class="nw" style="flex:1">09.00.00 Enduits</span><span class="okc">✓</span><input type="checkbox" checked/></div>
+            <div class="lot" onclick="lotOn(this)"><span class="nw" style="flex:1">10.00.00 Revêtements et finitions</span><input type="checkbox" checked/></div>
+            <div class="lot" onclick="lotOn(this)"><span class="nw" style="flex:1">13.00.00 Menuiserie en bois</span><input type="checkbox" checked/></div>
+            <div class="lot" onclick="lotOn(this)"><span class="nw" style="flex:1">16.00.00 Peinture</span><input type="checkbox" checked/></div>
+          </div>
+          <div class="card" style="overflow:auto;padding:12px">
+            <div class="lab">Articles</div>
+            <div style="font-weight:800;padding:6px 0" class="nw">07.01.00 Mur en pierre</div>
+            <label class="lot"><span class="nw" style="flex:1">07.01.01 Mur en pierre de 50</span><span class="muted">M2</span><input type="checkbox"/></label>
+            <label class="lot"><span class="nw" style="flex:1">07.01.02 Mur en pierre de 45</span><span class="muted">M2</span><input type="checkbox"/></label>
+            <label class="lot"><span class="nw" style="flex:1">07.01.03 Mur en pierre de 40</span><span class="muted">M2</span><input type="checkbox"/></label>
+            <div style="font-weight:800;padding:10px 0 4px" class="nw">07.02.00 Double cloison</div>
+            <label class="lot"><span class="nw" style="flex:1">07.02.01 Double cloison de 30</span><span class="muted">M2</span><input type="checkbox" checked/></label>
+            <label class="lot"><span class="nw" style="flex:1">07.02.03 Double cloison de 35</span><span class="muted">M2</span><input type="checkbox" checked/></label>
+            <label class="lot"><span class="nw" style="flex:1">07.02.05 Double cloison de 40</span><span class="muted">M2</span><input type="checkbox" checked/></label>
+            <div style="font-weight:800;padding:10px 0 4px" class="nw">07.03.00 Cloisons</div>
+            <label class="lot"><span class="nw" style="flex:1">07.03.01 Cloison de 10</span><span class="muted">M2</span><input type="checkbox"/></label>
+            <label class="lot"><span class="nw" style="flex:1">07.03.04 Cloison de 25</span><span class="muted">M2</span><input type="checkbox" checked/></label>
+            <label class="lot"><span class="nw" style="flex:1">07.04.00 Mur de clôture en brique</span><span class="muted">M2</span><input type="checkbox"/></label>
+            <label class="lot"><span class="nw" style="flex:1">07.80.00 Habillage en brique</span><span class="muted">M2</span><input type="checkbox" checked/></label>
+          </div>
+          <div class="card" style="display:flex;flex-direction:column;overflow:hidden">
+            <div style="padding:10px 14px;border-bottom:1px solid var(--line);font-weight:800">Descriptifs</div>
+            <div style="padding:10px 14px" class="row"><span class="lab" style="margin:0">Mots clés</span><span class="chip">2 versions</span></div>
+            <div style="padding:0 14px 8px"><select class="sel"><option>Version 01</option><option>Version 02</option></select></div>
+            <div style="padding:12px 16px;flex:1;overflow:auto;line-height:1.65;color:var(--ink-2)">
+              Le présent article définit la composition et les prix des ouvrages en maçonnerie destinés aux façades et cloisonnements intérieurs, selon les plans d’architecture.
+              <p style="margin-top:12px">Mortier de pose en ciment de la catégorie <span class="hl">CEM I 42.5</span> dosé à <span class="hl">350 kg/m³</span>, conformément au bordereau de prix et au DTU. Y compris toutes sujétions de calage, d’arases et de reprises au droit des ouvrages voisins.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mf"><span class="muted">4 articles cochés · Maçonnerie et briquetage</span><div class="sp"><button class="btn" onclick="go('metre')">Annuler</button><button class="btn save" onclick="ping('Articles ajoutés');go('metre')">Enregistrer</button></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="composants">
+  <div class="app">
+    <aside class="rail">
+      <div class="logo"></div>
+      <nav class="rn">
+        <button class="ri" title="Projets" onclick="go('projets')">▦</button>
+        <button class="ri" title="Métré" onclick="go('metre')">☰</button>
+        <button class="ri on" title="Composants">▣</button>
+      </nav>
+      <div class="pro">PRO</div><div class="av">AK</div>
+    </aside>
+    <div class="main">
+      <div class="top">
+        <span class="crumb nw">Métré / 02.03.00 Décapage chape et revêtements</span>
+        <div class="top-c"><span class="chip">02.03.00</span><b class="nw">Décapage chape et revêtements</b><span class="unit">M3</span></div>
+        <div class="top-r">
+          <select class="sel" style="width:130px"><option>Architecte</option><option>Ingénieur</option></select>
+          <button class="btn" onclick="ping('Article suivant')">Article ▾</button>
+          <button class="btn save" onclick="ping('Quantités enregistrées')">Enregistrer</button>
+          <button class="ico" title="Fermer" onclick="go('metre')">✕</button>
+        </div>
+      </div>
+      <div style="flex:1;min-height:0;display:flex">
+        <div class="ctx" style="background:var(--paper);border-right:1px solid var(--line)">
+          <div class="heroq">
+            <div class="lab">Qté contractuelle <span class="chip" style="height:16px;font-size:9px">MANUEL</span></div>
+            <b>8,000</b>
+            <div class="muted" style="font-size:11px;margin-top:4px">Unité M3 · article 02.03.00</div>
+          </div>
+          <div>
+            <div class="lab">Sources de quantité</div>
+            <div class="mrow"><span style="color:var(--bim)">Qté maquette (BIM)</span><b class="num">0,000 <small class="muted">0 %</small></b></div>
+            <div class="mrow"><span style="color:var(--man)">Qté manuelle</span><b class="num">5,000 <small class="muted">62 %</small></b></div>
+            <div class="mrow"><span style="color:var(--pdfc)">PDF / DWG</span><b class="num">3,000 <small class="muted">38 %</small></b></div>
+            <div class="mrow"><span class="muted">Arrondissement</span><b class="num">0,000</b></div>
+            <div class="mrow"><span>Qté chantier finale</span><b class="num">8,000</b></div>
+          </div>
+          <div>
+            <div class="lab">Détail de calcul</div>
+            <div class="mrow"><span class="muted">Somme des lignes</span><b class="num">8,000 M3</b></div>
+            <div class="mrow"><span>Maquette (BIM)</span><span class="num muted">0,000 (0 %)</span></div>
+            <div class="mrow"><span>Manuel</span><span class="num" style="color:var(--man)">5,000 (62 %)</span></div>
+            <div class="mrow"><span>PDF / DWG</span><span class="num" style="color:var(--pdfc)">3,000 (38 %)</span></div>
+          </div>
+          <div>
+            <div class="lab">Statut de validation · 2 lignes</div>
+            <div class="val4">
+              <span class="chip ok" style="height:auto">Validés 0</span>
+              <span class="chip warn" style="height:auto">Réserve 0</span>
+              <span class="chip bad" style="height:auto">À refaire 0</span>
+              <span class="chip" style="height:auto">Attente 2</span>
+            </div>
+          </div>
+          <div>
+            <div class="lab">Structure des données</div>
+            <div class="mrow"><span class="muted">Lignes maquette couplées</span><b>0</b></div>
+            <div class="mrow"><span class="muted">Saisies manuelles</span><b>1</b></div>
+            <div class="mrow"><span class="muted">Objets Plan PDF</span><b>1</b></div>
+          </div>
+          <div>
+            <div class="lab">Couverture &amp; avancement</div>
+            <div class="mrow"><span class="muted">Bâtiments actifs</span><b>2</b></div>
+            <div class="mrow"><span class="muted">Niveaux distincts</span><b>2</b></div>
+            <div class="mrow"><span class="muted">Taux de validation</span><b>0 %</b></div>
+          </div>
+        </div>
+        <div class="work">
+          <div class="tb">
+            <button class="btn pri" onclick="ping('Nouveau composant')">＋ Nouveau composant</button>
+            <button class="btn" onclick="ping('Ligne manuelle')">＋ Ligne manuelle</button>
+            <button class="btn">Tous les bâtiments ▾</button>
+            <button class="btn" onclick="ping('Programme')">Programme</button>
+            <span class="chip warn">Verrouillée</span>
+            <label class="search" style="margin-left:auto"><input placeholder="Rechercher un composant…"/></label>
+            <button class="btn save" onclick="ping('Saisie enregistrée')">Saisir</button>
+          </div>
+          <div style="flex:1;overflow:auto">
+            <table class="comp">
+              <thead><tr><th></th><th>Désignation</th><th>Unité</th><th>Qté</th><th>Déductions</th><th>Net</th><th></th></tr></thead>
+              <tbody>
+                <tr class="grp"><td><input type="checkbox" checked onchange="srcOn(this)"/></td><td class="src" style="color:var(--bim)">BIM <small>0 ligne</small></td><td></td><td class="num">0,000</td><td></td><td class="num">0,000</td><td></td></tr>
+                <tr class="grp"><td><input type="checkbox" checked onchange="srcOn(this)"/></td><td class="src" style="color:var(--man)">MANUEL <small>1 ligne</small></td><td></td><td class="num">5,000</td><td class="num">0</td><td class="num">5,000</td><td></td></tr>
+                <tr class="on" onclick="selRow(this)"><td></td><td class="nw">Décapage chape — zone A · RDC</td><td>M3</td><td class="num">5,000</td><td class="num" style="color:var(--accent);cursor:pointer" onclick="event.stopPropagation();go('deductions')">0</td><td class="num">5,000</td><td><button class="ico del" title="Supprimer" onclick="event.stopPropagation();ping('Ligne retirée')">🗑</button></td></tr>
+                <tr class="grp"><td><input type="checkbox" checked onchange="srcOn(this)"/></td><td class="src" style="color:var(--pdfc)">PDF <small>1 ligne</small></td><td></td><td class="num">3,000</td><td class="num">0</td><td class="num">3,000</td><td></td></tr>
+                <tr onclick="selRow(this)"><td></td><td class="nw">Ligne #FA21 · plan RDC · Salon</td><td>M3</td><td class="num">3,000</td><td class="num" style="color:var(--accent);cursor:pointer" onclick="event.stopPropagation();go('planpdf')">0</td><td class="num">3,000</td><td><button class="btn" onclick="event.stopPropagation();go('planpdf')">Plan</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="footbar"><span class="muted">Total net</span><b class="num" style="margin-left:auto">8,000 M3</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="planpdf">
+  <div class="app">
+    <aside class="rail"><div class="logo"></div><nav class="rn"><button class="ri" onclick="go('metre')" title="Métré">☰</button><button class="ri" onclick="go('composants')" title="Composants">▣</button><button class="ri on">▭</button></nav><div class="pro">PRO</div><div class="av">AK</div></aside>
+    <div class="main">
+      <div class="top">
+        <div><div class="crumb nw" style="font-weight:800;color:var(--ink)">Métré PDF</div><div class="muted nw">Saisir des déductions depuis un plan PDF / DWG</div></div>
+        <div class="top-c"><span class="chip ok">● Échelle calibrée</span><span class="muted">Réf. 1 ML</span></div>
+        <div class="top-r">
+          <button class="btn" onclick="ping('Articles de la phase')">Articles de la phase</button>
+          <button class="btn save" onclick="ping('Transféré vers le métré')">Transférer</button>
+          <button class="ico" title="Fermer" onclick="go('composants')">✕</button>
+        </div>
+      </div>
+      <div class="pdf-work">
+        <div class="pdf-tools">
+          <div class="pdf-tools-h">Outils PDF</div>
+          <details class="fold" open>
+            <summary>Formes &amp; tracé</summary>
+            <select class="sel"><option>M2 (Surface)</option><option>ML (Longueur)</option><option>M3 (Volume)</option></select>
+            <p class="muted" style="margin-top:6px">Q × L × W · Surface</p>
+            <div class="lab" style="margin-top:10px">Autres articles</div>
+            <div class="pills3"><button class="pill on" onclick="seg(this)">Masquer</button><button class="pill" onclick="seg(this)">Même unité</button><button class="pill" onclick="seg(this)">Tout</button></div>
+            <div class="dims" style="grid-template-columns:1fr 1fr;margin-top:10px">
+              <div><label class="lab">Hauteur H</label><input class="inp num" value="0,00"/></div>
+              <div><label class="lab">Épaisseur l</label><input class="inp num" value="0,00"/></div>
+            </div>
+          </details>
+          <details class="fold" open>
+            <summary>Navigation</summary>
+            <div class="mode2"><button class="on" onclick="seg(this)">Sélection<small>Modifier</small></button><button onclick="seg(this);ping('Déplacer')">Déplacer<small>Pan</small></button></div>
+          </details>
+          <details class="fold" open>
+            <summary>Dessin</summary>
+            <div class="draw2">
+              <button class="btn on" onclick="seg(this)">Ligne</button>
+              <button class="btn" onclick="seg(this)">Polyligne</button>
+              <button class="btn" onclick="seg(this)">Polygone</button>
+              <button class="btn" onclick="seg(this)">Rectangle</button>
+              <button class="btn" onclick="seg(this)">Cercle</button>
+              <button class="btn" onclick="seg(this)">Arc</button>
+              <button class="btn" onclick="seg(this)">Spline</button>
+            </div>
+          </details>
+          <div class="pdf-ded">
+            <div class="row"><b>Déductions</b><span class="chip">Q = 1</span></div>
+            <p class="muted" style="font-size:12px;margin:6px 0 8px">Sélectionnez un ouvrant puis un segment du plan.</p>
+            <button class="btn pri" style="width:100%" onclick="go('deductions')">＋ Choisir une déduction</button>
+          </div>
+          <details class="fold"><summary>Objets libres</summary><button class="btn" style="width:100%" onclick="ping('Objets libres')">Ouvrir le catalogue ▾</button></details>
+          <details class="fold"><summary>Accrochage (Snap)</summary>
+            <div class="snap">
+              <button class="pill on" onclick="this.classList.toggle('on')">Extrémité</button>
+              <button class="pill on" onclick="this.classList.toggle('on')">Milieu</button>
+              <button class="pill" onclick="this.classList.toggle('on')">Intersection</button>
+            </div>
+          </details>
+        </div>
+        <div class="pdf-stage">
+          <div class="hud hud-tl"><span class="chip">Sélection</span><span class="muted" style="background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:4px 8px">Cliquez un élément</span></div>
+          <div class="hud hud-tr"><span class="kchip">Molette Zoom</span><span class="kchip">Clic droit Déplacer</span><span class="kchip">Ctrl Ortho</span><span class="kchip">Shift Libre</span><span class="kchip">Ctrl+U 15°</span></div>
+          <div class="pdf-plan">
+            <svg viewBox="0 0 860 560" preserveAspectRatio="xMidYMid meet">
+              <rect width="860" height="560" fill="#f7f8fb"/>
+              <g fill="none" stroke="#5d6774" stroke-width="14"><path d="M90 70h620v370H90z"/><path d="M90 210h620"/><path d="M330 210v230"/><path d="M430 210v230"/></g>
+              <text x="400" y="145" text-anchor="middle" fill="#c2410c" font-size="16">Terrasse</text>
+              <text x="210" y="330" text-anchor="middle" fill="#c2410c" font-size="16">Salon</text>
+              <text x="380" y="322" text-anchor="middle" fill="#c2410c" font-size="13">Hall</text>
+              <text x="380" y="340" text-anchor="middle" fill="#c2410c" font-size="13">d’Entrée</text>
+              <text x="570" y="330" text-anchor="middle" fill="#c2410c" font-size="16">Séjour</text>
+              <g stroke="#c2410c" fill="#c2410c" font-size="12">
+                <line x1="90" y1="455" x2="330" y2="455"/><text x="210" y="472" text-anchor="middle">330</text>
+                <line x1="330" y1="455" x2="430" y2="455"/><text x="380" y="472" text-anchor="middle">190</text>
+                <line x1="430" y1="455" x2="710" y2="455"/><text x="570" y="472" text-anchor="middle">395</text>
+              </g>
+              <line x1="220" y1="36" x2="470" y2="168" stroke="#155eef" stroke-width="2.5"/>
+              <circle cx="220" cy="36" r="5" fill="#155eef"/><circle cx="470" cy="168" r="5" fill="#155eef"/>
+              <text x="300" y="78" fill="#027a48" font-size="13" font-weight="700">Net : 4,511 M2</text>
+              <text x="360" y="118" fill="#6a7b90" font-size="11">0,752</text>
+            </svg>
+          </div>
+          <div class="hud hud-bot">
+            <button class="btn" onclick="ping('Zoom 100 %')">100 %</button>
+            <button class="ico" title="Zoom −" onclick="ping('Zoom −')">−</button>
+            <button class="ico" title="Zoom +" onclick="ping('Zoom +')">+</button>
+            <button class="btn" onclick="ping('Page')">‹ 1 / 5 ›</button>
+            <button class="btn" onclick="ping('À savoir')">À savoir</button>
+            <button class="btn" onclick="ping('Changer PDF')">Changer PDF</button>
+            <button class="btn on" onclick="ping('Repère & échelle')">Repère &amp; échelle</button>
+          </div>
+        </div>
+        <div class="pdf-insp">
+          <div class="row"><span class="lab" style="margin:0">Plan · 1 élément</span><button class="ico del" style="margin-left:auto" onclick="ping('Élément supprimé')">🗑</button></div>
+          <div class="lot on"><span class="chip">LIN</span><span class="nw" style="flex:1">Ligne #FA21</span><button class="ico" title="Renommer" onclick="ping('Éditer le nom')" style="width:26px;height:26px">✎</button></div>
+          <div class="mrow"><span>Brut</span><b class="num">4,511</b></div>
+          <div class="mrow"><span>Déd.</span><b class="num" style="color:var(--bad)">−0,000</b></div>
+          <div class="mrow"><span>Net M2</span><b class="num">4,511</b></div>
+          <div class="lab">Mode de mesure</div>
+          <div class="mode2"><button onclick="seg(this)">Surface 2D<small>L × L</small></button><button class="on" onclick="seg(this)">Verticale<small>L × H</small></button></div>
+          <div class="lh2">
+            <div><label class="lab">Long (auto)</label><input class="inp num" value="0,752 ML"/></div>
+            <div><label class="lab">Haut</label><input class="inp num" value="6,000"/></div>
+          </div>
+          <div class="mrow"><span class="muted">L × H</span><b class="num">4,511 M2</b></div>
+          <button class="btn" onclick="ping('Calcul : 0,752 × 6,000 × Q 1 = 4,511 M2')">Voir le calcul</button>
+          <div class="mrow"><span>Qté (Q)</span><input class="qin num" value="1,000"/></div>
+          <div class="lab">Segments (1)</div>
+          <div class="mrow"><span>Seg 1</span><span class="num">L 0,752 · H 6,000</span></div>
+          <button class="btn" onclick="ping('Tracé supprimé')">Supprimer tout le tracé</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="deductions">
+  <div class="ov"><div class="modal ded">
+    <div class="mh">
+      <div><h2>Gérer les déductions</h2><p>Nouveau composant · surface M2 · 1 déduction en cours</p></div>
+      <button class="ico" title="Fermer" onclick="go('composants')">✕</button>
+    </div>
+    <div class="mb" style="display:grid;grid-template-columns:260px 1fr 260px;gap:14px;min-height:0">
+      <div class="pdf-pane" style="display:flex;flex-direction:column;gap:10px;overflow:auto">
+        <h3>Capacité</h3>
+        <div class="mrow"><span class="muted">Brut</span><b class="num">6,000</b></div>
+        <div class="mrow"><span class="muted">Déduit</span><b class="num" style="color:var(--bad)">3,060</b></div>
+        <div class="mrow"><span class="muted">Restant</span><b class="num">2,940</b></div>
+        <div class="cap"><i></i></div>
+        <div class="muted" style="font-size:12px">51,6 % de la capacité utilisée</div>
+        <h3>Déjà posées</h3>
+        <div class="row"><span class="chip">Porte</span><b class="nw" style="flex:1">ded-porte-std</b><button class="ico del" onclick="ping('Retirée')">🗑</button></div>
+        <p class="muted">02.03.00 Décapage chape · M2</p>
+        <select class="sel"><option>Porte</option><option>Fenêtre</option><option>Passage</option><option>Gaine</option></select>
+        <div class="dims">
+          <div><label class="lab">Q</label><input class="inp" value="1,000"/></div>
+          <div><label class="lab">L</label><input class="inp" value="0,900"/></div>
+          <div><label class="lab">W</label><input class="inp" value="0,900"/></div>
+        </div>
+        <div class="mrow"><span class="muted">Valeur</span><b style="color:var(--bad)">−0,810</b><span class="chip warn">13,5 %</span></div>
+      </div>
+      <div class="pdf-pane" style="overflow:auto">
+        <h3>Catalogue · M2 surface</h3>
+        <p class="muted">Q × L × W · l’article courant ne peut pas se déduire de lui-même.</p>
+        <div class="row" style="margin-top:10px;flex-wrap:nowrap">
+          <label class="search" style="flex:1"><input placeholder="Rechercher une déduction…"/></label>
+          <button class="btn pri" onclick="ping('Créer une déduction')">＋ Créer</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="pill on" onclick="seg(this)">Tous</button>
+          <button class="pill" onclick="seg(this)">Porte</button>
+          <button class="pill" onclick="seg(this)">Fenêtre</button>
+          <button class="pill" onclick="seg(this)">Passage</button>
+        </div>
+        <div class="lot" onclick="lotOn(this)"><span class="chip">Porte</span><span class="nw" style="flex:1">Porte intérieure 90</span><b class="num">0,810</b></div>
+        <div class="lot on" onclick="lotOn(this)"><span class="chip">Fenêtre</span><span class="nw" style="flex:1">Fenêtre 120 × 140</span><b class="num">1,680</b></div>
+        <div class="lot" onclick="lotOn(this)"><span class="chip">Passage</span><span class="nw" style="flex:1">Passage 80</span><b class="num">0,640</b></div>
+        <div class="lot" onclick="lotOn(this)"><span class="chip">Gaine</span><span class="nw" style="flex:1">Gaine technique</span><b class="num">0,250</b></div>
+      </div>
+      <div class="pdf-pane" style="overflow:auto">
+        <h3>À ajouter</h3>
+        <p class="muted">Cliquez le catalogue, puis validez.</p>
+        <div class="lot on"><span class="chip">Fenêtre</span><span class="nw" style="flex:1">Fenêtre 120 × 140</span></div>
+        <div class="dims" style="margin-top:8px">
+          <div><label class="lab">Q</label><input class="inp" value="1,000"/></div>
+          <div><label class="lab">L</label><input class="inp" value="1,200"/></div>
+          <div><label class="lab">W</label><input class="inp" value="1,400"/></div>
+        </div>
+        <div class="mrow" style="margin-top:8px"><span class="muted">Valeur</span><b style="color:var(--bad)">−1,680</b></div>
+        <button class="btn pri" style="width:100%;margin-top:10px" onclick="ping('Déduction ajoutée')">Ajouter au composant</button>
+      </div>
+    </div>
+    <div class="mf">
+      <span class="muted">Brut <b class="num">6,000</b> · Net <b class="num">2,940</b></span>
+      <span class="chip ok">Prêt à enregistrer</span>
+      <div class="sp"><button class="btn save" onclick="ping('Déductions enregistrées');go('composants')">Enregistrer</button></div>
+    </div>
+  </div></div>
+</section>
+
+<section class="screen" id="pdf">
+  <div class="ov"><div class="modal pdfm">
+    <div class="mh"><div><h2>Paramètres PDF</h2><p id="pdfHint">Modèle DAO — prix, descriptifs et récaps</p></div><button class="ico" title="Fermer" onclick="go('metre')">✕</button></div>
+    <div class="mb pdf-body">
+      <div class="pdf-col">
+        <div class="pdf-pane">
+          <h3>Modèle d’impression</h3>
+          <div class="pre">
+            <button onclick="pdfPreset('apd',this)"><b>APD</b><span>Avant-projet détaillé</span></button>
+            <button class="on" onclick="pdfPreset('dao',this)"><b>DAO</b><span>Dossier d’appel d’offres</span></button>
+            <button onclick="pdfPreset('dossierc',this)"><b>Dossier C</b><span>Pièce marché</span></button>
+          </div>
+        </div>
+        <div class="pdf-pane">
+          <h3>Document</h3>
+          <div class="doc-row">
+            <div><label class="lab">Police</label><select class="sel"><option>Book Antiqua</option><option>Calibri</option></select></div>
+            <div><label class="lab">Échelle du texte</label><select class="sel"><option>Large</option><option>Normale</option></select></div>
+            <div><label class="lab">Monnaie</label><select class="sel"><option>TND</option><option>EUR</option></select></div>
+          </div>
+        </div>
+        <div class="pdf-split">
+          <div class="pdf-pane">
+            <h3>Lots <span class="muted" id="lotCnt">3 / 3</span></h3>
+            <div class="pdf-lots">
+              <label class="pdf-lot"><input class="plot" type="checkbox" checked onchange="pdfLotCnt()"/> <b>LOT GÉNIE CIVIL</b></label>
+              <label class="pdf-lot"><input class="plot" type="checkbox" checked onchange="pdfLotCnt()"/> <b>LOT VRD</b></label>
+              <label class="pdf-lot"><input class="plot" type="checkbox" checked onchange="pdfLotCnt()"/> <b>LOT ÉLECTRICITÉ</b></label>
+            </div>
+          </div>
+          <div class="pdf-pane">
+            <h3>Contenu</h3>
+            <div class="content-grid">
+              <div class="gbox"><h4>Prix</h4>
+                <label class="chk"><input type="checkbox" id="pdf-pu" checked/> Prix unitaire</label>
+                <label class="chk"><input type="checkbox" id="pdf-let" checked/> Prix en toutes lettres</label>
+              </div>
+              <div class="gbox"><h4>Textes</h4>
+                <label class="chk"><input type="checkbox" id="pdf-desc" checked/> Descriptifs des articles</label>
+                <label class="chk"><input type="checkbox" id="pdf-spec" checked/> Spécification générale</label>
+                <label class="chk"><input type="checkbox" id="pdf-kw" checked/> Mots-clés en surbrillance</label>
+              </div>
+              <div class="gbox"><h4>Tableaux</h4>
+                <label class="chk"><input type="checkbox" id="pdf-lots" checked/> Récapitulatif des lots</label>
+                <label class="chk"><input type="checkbox" id="pdf-phase" checked/> Récapitulatif de phase</label>
+              </div>
+              <div class="gbox"><h4>Mise en page</h4>
+                <label class="chk"><input type="checkbox" id="pdf-hdr" checked/> En-tête et pied de page</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pdf-col">
+        <div class="pdf-pane" style="flex:1;min-height:0;display:flex;flex-direction:column">
+          <div class="row"><h3 style="margin:0">Signatures</h3><button class="btn" style="margin-left:auto;height:28px" onclick="addSig()">＋ Ajouter</button></div>
+          <div class="sig-grid" id="sigList">
+            <div class="sig-box"><label class="chk"><input type="checkbox" checked/> Afficher</label><textarea class="ta">Dressé par l’Architecte
+Ahmed Kammoun</textarea></div>
+            <div class="sig-box"><label class="chk"><input type="checkbox" checked/> Afficher</label><textarea class="ta">DRESSÉ PAR L’INGÉNIEUR CONSEIL
+ANAS FEHRI</textarea></div>
+            <div class="sig-box"><label class="chk"><input type="checkbox" checked/> Afficher</label><textarea class="ta">DRESSÉ PAR L’INGÉNIEUR CONSEIL
+SABER TAKTAK</textarea></div>
+            <div class="sig-box"><label class="chk"><input type="checkbox" checked/> Afficher</label><textarea class="ta">LU ET ACCEPTÉ PAR L’ENTREPRENEUR
+Fait à Sfax, le ………………</textarea></div>
+            <div class="sig-box"><label class="chk"><input type="checkbox"/> Afficher</label><textarea class="ta" placeholder="Signature…"></textarea></div>
+            <div class="sig-box"><label class="chk"><input type="checkbox"/> Afficher</label><textarea class="ta" placeholder="Signature…"></textarea></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><span class="muted">Les signatures s’impriment en bas de page</span><div class="sp"><button class="btn" onclick="go('metre')">Annuler</button><button class="btn save" onclick="ping('Paramètres PDF enregistrés')">Enregistrer</button></div></div>
+  </div></div>
+</section>
+
+<section class="screen" id="import">
+  <div class="ov"><div class="modal md">
+    <div class="mh"><div><h2>Mettre à jour les quantités</h2><p>Excel conforme au modèle, puis un lot unique.</p></div><button class="ico" title="Fermer" onclick="go('metre')">✕</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:16px">
+      <div><label class="lab">Fichiers Excel</label>
+        <div class="row">
+          <button class="btn" onclick="document.getElementById('fn').textContent='quantites_enduits_T1.xlsx'">Choisir des fichiers</button>
+          <span id="fn" class="muted">Aucun fichier n’a été sélectionné</span>
+          <button class="btn" style="margin-left:auto" onclick="ping('Exemple téléchargé')">Télécharger l’exemple</button>
+        </div>
+      </div>
+      <div>
+        <label class="lab">Lot — un seul, par clic</label>
+        <div id="impLots">
+          <div class="lot on" onclick="lotOn(this)"><span class="lot-h a" style="margin:0;padding:0;background:none"><span class="dot"></span>A — LOT GÉNIE CIVIL</span><span class="chip warn" style="margin-left:auto">vide</span></div>
+          <div class="lot" onclick="lotOn(this)"><span class="lot-h b" style="margin:0;padding:0;background:none"><span class="dot"></span>B — LOT VRD</span></div>
+          <div class="lot" onclick="lotOn(this)"><span class="lot-h c" style="margin:0;padding:0;background:none"><span class="dot"></span>C — LOT ÉLECTRICITÉ</span></div>
+        </div>
+      </div>
+      <div class="sec">Seul le créateur du lot peut lancer l’import.</div>
+      <button class="btn" onclick="go('unites')">Mettre à jour le mappage des unités</button>
+      <label class="chk"><input type="checkbox" id="okimp" onchange="document.getElementById('nextimp').disabled=!this.checked"/> Je confirme que les données importées sont correctes.</label>
+    </div>
+    <div class="mf"><div class="sp"><button class="btn pri" id="nextimp" disabled onclick="ping('Étape suivante')">Suivant →</button></div></div>
+  </div></div>
+</section>
+
+<section class="screen" id="unites">
+  <div class="ov"><div class="modal unites">
+    <div class="mh"><div><h2>Mappage des unités</h2><p>12 unités — la fenêtre s’ajuste, le surplus défile.</p></div><button class="ico" title="Fermer" onclick="go('metre')">✕</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:12px;overflow:hidden;min-height:0">
+      <div class="row">
+        <span class="lab" style="margin:0">Système</span>
+        <label class="chk"><input type="radio" name="sys" checked/> Métrique</label>
+        <label class="chk"><input type="radio" name="sys"/> Impérial</label>
+        <button class="btn" style="margin-left:auto;height:28px" onclick="ping('Import Excel')">Importer Excel</button>
+      </div>
+      <div class="umap">
+        <input class="inp" value="Longueur"/><select class="sel"><option>ML</option><option>M</option></select>
+        <input class="inp" value="Surface"/><select class="sel"><option>M2</option></select>
+        <input class="inp" value="Volume"/><select class="sel"><option>M3</option></select>
+        <input class="inp" value="Unité"/><select class="sel"><option>U</option></select>
+        <input class="inp" value="Masse"/><select class="sel"><option>KG</option><option>T</option></select>
+        <input class="inp" value="Temps"/><select class="sel"><option>H</option><option>J</option></select>
+        <input class="inp" value="Forfait"/><select class="sel"><option>F</option></select>
+        <input class="inp" value="Pièce"/><select class="sel"><option>P</option></select>
+        <input class="inp" value="Litre"/><select class="sel"><option>L</option></select>
+        <input class="inp" value="Tonne"/><select class="sel"><option>T</option></select>
+        <input class="inp" value="Sac"/><select class="sel"><option>SC</option></select>
+        <input class="inp" value="Ensemble"/><select class="sel"><option>ENS</option></select>
+      </div>
+    </div>
+    <div class="mf"><div class="sp"><button class="btn" onclick="go('import')">Annuler</button><button class="btn save" onclick="ping('Unités enregistrées');go('import')">Enregistrer</button></div></div>
+  </div></div>
+</section>
+
+<section class="screen" id="editer">
+  <div class="ov"><div class="modal xl" style="height:min(96vh,960px)">
+    <div class="mh"><div><h2>Modifier le chapitre</h2><p>Identité, liaisons BIM, puis descriptif versionné — zone d’écriture agrandie.</p></div><button class="ico" title="Fermer" onclick="go('metre')">✕</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:12px;height:100%">
+      <div style="display:grid;grid-template-columns:150px 1fr 160px;gap:12px">
+        <div><label class="lab">Chapitre ID *</label><input class="inp" value="02.00.00"/></div>
+        <div><label class="lab">Chapitre *</label><input class="inp" value="DÉMOLITION"/></div>
+        <div><label class="lab">Unité</label><select class="sel"><option>Sélectionner</option><option>M3</option><option>M2</option></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:150px 1fr;gap:12px">
+        <div><label class="lab">Étiquette (Revit)</label><input class="inp" placeholder="Ex. Walls — Demolition"/></div>
+        <div><label class="lab">Description (Archicad)</label><textarea class="ta" style="min-height:52px" placeholder="Descriptif lié à l’objet Archicad…"></textarea></div>
+      </div>
+      <div class="card" style="padding:12px;flex:1;display:flex;flex-direction:column;min-height:0">
+        <div class="row">
+          <b>Descriptif</b><span class="chip">3 versions</span>
+          <select class="sel" style="width:150px"><option>Version 3</option><option>Version 2</option><option>Version 1</option></select>
+          <button class="ico" title="Nouvelle version" onclick="ping('Nouvelle version')">＋</button>
+          <button class="ico" title="Éditer">✎</button>
+          <button class="ico del" title="Supprimer">🗑</button>
+          <button class="btn" onclick="ping('Enregistré sous Version 4')">Enregistrer sous*</button>
+          <button class="btn">B</button><button class="btn"><i>I</i></button><button class="btn"><u>U</u></button>
+          <span class="sp">
+            <button class="btn on">Éditer</button>
+            <button class="btn" onclick="go('comparer')">Comparer (3)</button>
+            <button class="btn" onclick="go('organiser')">Organiser</button>
+          </span>
+        </div>
+        <div class="editor" contenteditable="true" style="margin-top:12px">
+          Fourniture et pose d’un enduit extérieur sur mur double cloison, y compris gobetis de mortier de ciment dosé à 600 kg/m³, dressage à la règle et finition peignée. Ouvrage conforme au CCTP, présentation d’échantillon à l’architecte avant exécution. Toutes sujétions de protection des ouvrages voisins, de reprise des arases et de nettoyage en fin de lot.
+        </div>
+      </div>
+    </div>
+    <div class="mf"><span class="muted nw">02.00.00 · DÉMOLITION</span><div class="sp"><button class="btn" onclick="go('metre')">Annuler</button><button class="btn save" onclick="ping('Chapitre enregistré')">Enregistrer</button></div></div>
+  </div></div>
+</section>
+
+<section class="screen" id="comparer">
+  <div class="ov"><div class="modal full">
+    <div class="mh">
+      <div><h2>Modifier le chapitre — Comparer</h2><p class="nw">02.00.00 · DÉMOLITION · choisir le descriptif à adopter</p></div>
+      <span class="sp">
+        <button class="btn" onclick="go('editer')">Éditer</button>
+        <button class="btn on">Comparer (3)</button>
+        <button class="btn" onclick="go('organiser')">Organiser</button>
+      </span>
+      <button class="ico" title="Fermer" onclick="go('editer')">✕</button>
+    </div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:12px;height:100%;overflow:auto">
+      <div class="cmp-puce" onclick="cmpSel(this)">
+        <div class="row"><span class="chip">V1</span><b>Version 1</b><span class="chip bad">−1</span>
+          <button class="btn pri" style="margin-left:auto" onclick="event.stopPropagation();adoptDesc(1)">Sélectionner</button></div>
+        <div class="txt">sss sqdqs qfdf sqdf qsdfsd fsd<br>sqdf qsd fsqfdd f<br>sqdf qsdffsqdfsdfds sssss <del>XXXXXX</del></div>
+      </div>
+      <div class="cmp-puce on" onclick="cmpSel(this)">
+        <div class="row"><span class="chip">V2</span><b>Version 2</b><span class="chip ok">+62</span>
+          <button class="btn pri" style="margin-left:auto" onclick="event.stopPropagation();adoptDesc(2)">Sélectionner</button></div>
+        <div class="txt"><del>sss sqdqs qfdf</del> <ins>Fourniture et pose d’un enduit extérieur sur mur double cloison, y compris gobetis de mortier de ciment dosé à 600 kg/m³, dressage à la règle et finition peignée.</ins> Ouvrage conforme au CCTP. <ins>Toutes sujétions de protection des ouvrages voisins.</ins></div>
+      </div>
+      <div class="cmp-puce" onclick="cmpSel(this)">
+        <div class="row"><span class="chip">Réf.</span><b>Version 3 — référence</b>
+          <button class="btn pri" style="margin-left:auto" onclick="event.stopPropagation();adoptDesc(3)">Sélectionner</button></div>
+        <div class="txt">Fourniture et pose d’un enduit extérieur sur mur double cloison, y compris gobetis de mortier de ciment dosé à 600 kg/m³, dressage à la règle et finition peignée. Ouvrage conforme au CCTP, présentation d’échantillon à l’architecte avant exécution.</div>
+      </div>
+    </div>
+    <div class="mf"><span class="muted">Sélectionner adopte le descriptif pour l’article</span><div class="sp"><button class="btn" onclick="go('editer')">Annuler</button><button class="btn save" onclick="ping('Comparaison enregistrée');go('editer')">Enregistrer</button></div></div>
+  </div></div>
+</section>
+
+<section class="screen" id="organiser">
+  <div class="ov"><div class="modal full">
+    <div class="mh">
+      <div><h2>Organiser la mise en page</h2><p>Nettoyage OCR · Version 2 · 2 espaces = sous-niveau</p></div>
+      <span class="chip ok">Proposition prête</span>
+      <button class="ico" title="Fermer" onclick="go('editer')">✕</button>
+    </div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:10px;height:100%">
+      <div class="row">
+        <b>Règles</b><span class="chip ok">4/4</span>
+        <label class="chk"><input type="checkbox" checked/> Numérotation parasite</label>
+        <label class="chk"><input type="checkbox" checked/> Mots coupés</label>
+        <label class="chk"><input type="checkbox" checked/> Corrections</label>
+        <label class="chk"><input type="checkbox" checked/> Lignes incohérentes</label>
+        <div class="statp" style="margin-left:auto">
+          <span>4 éléments</span>
+          <span style="background:var(--okbg);color:var(--ok)">2 corrections</span>
+          <span style="background:var(--bbg);color:var(--bad)">1 écartée</span>
+        </div>
+        <button class="btn pri" onclick="ping('Proposition régénérée')">Proposer</button>
+      </div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="card" style="display:flex;flex-direction:column;min-height:0;overflow:hidden">
+          <div style="padding:10px 12px;border-bottom:1px solid var(--line);font-weight:750">Texte source <span class="muted">2 lignes</span></div>
+          <div style="padding:12px 14px;flex:1;overflow:auto;line-height:1.65">l’ouvrage où le maître de l’œuvre doivent être gardés sur chantier durant la durée des travaux. Pour le carrelage, le prix comprend en outre le ponçage et le lustrage en couches suffisantes minimum 2.</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;min-height:0;overflow:hidden">
+          <div style="padding:10px 12px;border-bottom:1px solid var(--line);font-weight:750">Proposition · liste numérotée</div>
+          <div style="padding:12px 14px;flex:1;overflow:auto;line-height:1.65">1. L’ouvrage et le maître d’œuvre doivent être gardés sur chantier.<br>2. Pour le carrelage, le prix comprend le ponçage et le lustrage (minimum 2 couches).</div>
+        </div>
+      </div>
+      <div class="card" style="padding:10px 12px;border-color:var(--bad);background:var(--bbg)">
+        <div class="row"><span class="lab" style="margin:0;color:var(--bad)">Quarantaine</span><span class="chip bad">1 ligne</span><span class="nw" style="margin-left:12px">fragment OCR illisible — à reprendre manuellement</span></div>
+      </div>
+    </div>
+    <div class="mf"><span style="color:var(--ok);font-weight:650">● Liste numérotée avec sous-niveaux</span><div class="sp"><button class="btn" onclick="go('editer')">Annuler</button><button class="btn save" onclick="ping('Confirmé vers Version 2');go('editer')">Confirmer vers Version 2</button></div></div>
+  </div></div>
+</section>
+
+<section class="screen on" id="legende">
+  <div class="app">
+    <aside class="rail"><div class="logo"></div><nav class="rn"><button class="ri" onclick="go('metre')">☰</button><button class="ri on">▣</button></nav><div class="pro">PRO</div><div class="av">AK</div></aside>
+    <div class="main">
+      <div class="top">
+        <div><div class="crumb nw" style="font-weight:800;color:var(--ink)">Légende</div><div class="muted">Tous les styles, tailles et graphiques</div></div>
+        <div class="top-c"><span class="chip">Design system V4</span></div>
+        <div class="top-r"><button class="btn" onclick="resetToks()">Réinitialiser</button><button class="ico" title="Fermer" onclick="go('metre')">✕</button></div>
+      </div>
+      <div class="lg-wrap">
+        <aside class="lg-ctrl">
+          <div class="lab">Police</div>
+          <select class="sel" id="lgFont" onchange="tokSet('font', this.value)">
+            <option value='ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif'>Système sans-serif</option>
+            <option value="Inter, ui-sans-serif, sans-serif">Inter</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="ui-monospace, Consolas, monospace">Consolas</option>
+          </select>
+          <div class="lab" style="margin-top:12px">Tailles de texte</div>
+          <div class="lg-range"><span class="muted" style="width:90px">Corps</span><input type="range" min="11" max="16" value="13" oninput="tokPx('fs',this.value,'vFs')"/><b id="vFs">13</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Libellés</span><input type="range" min="9" max="13" value="11" oninput="tokPx('fs-lab',this.value,'vLab')"/><b id="vLab">11</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Titres H2</span><input type="range" min="14" max="22" value="16" oninput="tokPx('fs-h2',this.value,'vH2')"/><b id="vH2">16</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">En-têtes th</span><input type="range" min="9" max="13" value="11" oninput="tokPx('fs-th',this.value,'vTh')"/><b id="vTh">11</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Chips</span><input type="range" min="9" max="14" value="11" oninput="tokPx('fs-chip',this.value,'vChip')"/><b id="vChip">11</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Pilules</span><input type="range" min="10" max="14" value="12" oninput="tokPx('fs-pill',this.value,'vPill')"/><b id="vPill">12</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Fil d’Ariane</span><input type="range" min="11" max="15" value="13" oninput="tokPx('fs-crumb',this.value,'vCr')"/><b id="vCr">13</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Totaux</span><input type="range" min="14" max="22" value="17" oninput="tokPx('fs-foot',this.value,'vFt')"/><b id="vFt">17</b></div>
+          <div class="lab" style="margin-top:12px">Graphique</div>
+          <div class="lg-range"><span class="muted" style="width:90px">Haut. bouton</span><input type="range" min="26" max="40" value="32" oninput="tokPx('h',this.value,'vH')"/><b id="vH">32</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Icône</span><input type="range" min="24" max="40" value="32" oninput="tokPx('ico-s',this.value,'vIco')"/><b id="vIco">32</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Chip H</span><input type="range" min="18" max="28" value="22" oninput="tokPx('chip-h',this.value,'vCh')"/><b id="vCh">22</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Pilule H</span><input type="range" min="22" max="32" value="26" oninput="tokPx('pill-h',this.value,'vPh')"/><b id="vPh">26</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Rayon</span><input type="range" min="4" max="16" value="8" oninput="tokPx('r',this.value,'vR')"/><b id="vR">8</b></div>
+          <div class="lg-range"><span class="muted" style="width:90px">Rail</span><input type="range" min="48" max="72" value="56" oninput="tokPx('rail-w',this.value,'vRw')"/><b id="vRw">56</b></div>
+          <div class="lab" style="margin-top:12px">Couleurs</div>
+          <div id="lgCols"></div>
+        </aside>
+        <div class="lg-gal">
+          <div class="card lg-sec">
+            <h3 class="lab">Boutons</h3>
+            <div class="row">
+              <button class="btn">Secondaire</button>
+              <button class="btn pri">Primaire</button>
+              <button class="btn save">Enregistrer</button>
+              <button class="btn on">Actif</button>
+              <button class="ico">⚙</button>
+              <button class="ico del">🗑</button>
+              <button class="pill">Pilule</button>
+              <button class="pill on">On</button>
+              <button class="scr-btn" style="position:static">▦</button>
+            </div>
+          </div>
+          <div class="card lg-sec">
+            <h3 class="lab">Champs</h3>
+            <div class="row">
+              <input class="inp" style="width:160px" value="Texte"/>
+              <select class="sel" style="width:140px"><option>Liste</option></select>
+              <label class="search" style="width:180px"><input placeholder="Recherche"/></label>
+              <input class="qin num" value="1,000"/>
+              <textarea class="ta" style="width:100%">Zone multiligne</textarea>
+              <label class="chk"><input type="checkbox" checked/> Case</label>
+              <label class="chk"><input type="radio" checked/> Radio</label>
+            </div>
+          </div>
+          <div class="card lg-sec">
+            <h3 class="lab">Chips · statuts · unités</h3>
+            <div class="row">
+              <span class="chip">Neutre</span><span class="chip ok">Succès</span><span class="chip warn">Attention</span><span class="chip bad">Erreur</span><span class="chip pdf">PDF</span>
+              <span class="unit">M2</span><span class="kchip">Ctrl Ortho</span>
+              <span class="ppl" style="background:#2563eb;margin-left:0">AI</span>
+              <span class="av">AK</span>
+            </div>
+          </div>
+          <div class="card lg-sec">
+            <h3 class="lab">Navigation</h3>
+            <div class="row">
+              <div class="seg"><button class="on" onclick="seg(this)">Articles</button><button onclick="seg(this)">Quantités</button><button onclick="seg(this)">Unités</button></div>
+              <div class="itabs" style="border:none;padding:0;width:240px"><button class="itab on">Détail</button><button class="itab">Descriptif</button><button class="itab">Prix</button></div>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <span class="st now"><span class="n">1</span>APD</span>
+              <span class="st"><span class="n">2</span>DAO</span>
+              <span class="st" style="opacity:.45"><span class="n">3</span>Marché</span>
+              <span class="st" style="opacity:.45"><span class="n">4</span>Attachement</span>
+            </div>
+            <div class="mode2" style="margin-top:8px;max-width:280px"><button class="on">Sélection<small>nav</small></button><button>Déplacer<small>pan</small></button></div>
+            <div class="draw2" style="margin-top:8px;max-width:280px"><button class="btn on">Ligne</button><button class="btn">Polygone</button></div>
+          </div>
+          <div class="card lg-sec">
+            <h3 class="lab">Texte</h3>
+            <h2 style="font-size:var(--fs-h2);font-weight:800">Titre H2</h2>
+            <p>Corps · métré, descriptif.</p>
+            <p class="muted">Secondaire</p>
+            <p><span class="hl">Surbrillance</span> <del>suppr.</del> <ins>ajout</ins> <b class="num">4,511</b></p>
+            <div class="insp-h">En-tête inspecteur</div>
+          </div>
+          <div class="card lg-sec">
+            <h3 class="lab">Lots · listes</h3>
+            <div class="lot-h a"><span class="dot"></span>A — GÉNIE CIVIL</div>
+            <div class="lot on"><span class="chip">LIN</span><span class="nw" style="flex:1">Ligne #FA21</span><b class="num">4,511</b></div>
+            <div class="lot-h b"><span class="dot"></span>B — VRD</div>
+            <div class="lot-h c"><span class="dot"></span>C — ÉLECTRICITÉ</div>
+            <div class="pre" style="margin-top:8px"><button class="on"><b>DAO</b><span>preset</span></button><button><b>APD</b><span>preset</span></button></div>
+          </div>
+          <div class="card lg-sec" style="padding:0;overflow:hidden">
+            <h3 class="lab" style="padding:12px 16px 0">Tableau</h3>
+            <table>
+              <thead><tr><th>Article</th><th>U</th><th>Qté</th><th class="slim">✓</th></tr></thead>
+              <tbody>
+                <tr class="grp"><td class="nw">02.00.00 DÉMOLITION</td><td></td><td class="num">8,000</td><td></td></tr>
+                <tr class="on"><td class="nw">02.03.00 Décapage</td><td>M3</td><td class="num">8,000</td><td class="slim">✓</td></tr>
+              </tbody>
+            </table>
+            <div class="footbar"><span class="muted">Total</span><span class="num" style="margin-left:auto">8,000</span></div>
+          </div>
+          <div class="card lg-sec">
+            <h3 class="lab">Mesure · KPI · barres</h3>
+            <div class="heroq"><div class="lab">Qté contractuelle</div><b>8,000 M3</b></div>
+            <div class="mrow"><span>Brut</span><b>4,511</b></div>
+            <div class="cap" style="margin:8px 0"><i></i></div>
+            <div class="pbar"><i></i></div>
+            <div class="kpi" style="margin-top:8px"><div><div class="lab">BIM</div><b>0</b></div><div class="on"><div class="lab">Manuel</div><b>5</b></div><div><div class="lab">PDF</div><b>3</b></div></div>
+          </div>
+          <div class="card lg-sec">
+            <h3 class="lab">Modale</h3>
+            <div class="mh" style="border:1px solid var(--line);border-radius:10px 10px 0 0"><div><h2>Titre fenêtre</h2><p>Sous-titre</p></div><button class="ico">✕</button></div>
+            <div class="mf" style="border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px"><span class="muted">Pied</span><div class="sp"><button class="btn">Annuler</button><button class="btn save">Enregistrer</button></div></div>
+          </div>
+          <div class="card lg-sec">
+            <h3 class="lab">Comparaison · signatures</h3>
+            <div class="cmp-puce on"><div class="txt">Descriptif version <ins>ajoutée</ins>.</div></div>
+            <div class="sig-box" style="margin-top:8px"><label class="chk"><input type="checkbox" checked/> Afficher</label><textarea class="ta">Signature</textarea></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const COLS = [
+    ['bg','Fond'],['paper','Papier'],['chrome','Chrome'],['wash','Lavis'],['stage','Scène'],['rail','Rail'],
+    ['ink','Texte'],['ink-2','Texte 2'],['ink-3','Texte 3'],
+    ['line','Ligne'],['line-2','Ligne 2'],['hover','Survol'],['sel','Sélection'],['seg','Segment'],
+    ['accent','Accent'],['soft','Accent doux'],
+    ['ok','Succès'],['okbg','Succès fond'],['warn','Attention'],['wbg','Attention fond'],['bad','Erreur'],['bbg','Erreur fond'],
+    ['bim','BIM'],['man','Manuel'],['pdfc','PDF'],['pdfbg','PDF fond']
+  ];
+  function tokSet(k,v){ document.documentElement.style.setProperty('--'+k, v); try{ localStorage.setItem('cw-'+k, v); }catch(e){} }
+  function tokPx(k,v,id){ tokSet(k, v+'px'); const el=document.getElementById(id); if(el) el.textContent=v; }
+  function resetToks(){
+    COLS.forEach(([k])=>{ document.documentElement.style.removeProperty('--'+k); try{ localStorage.removeItem('cw-'+k); }catch(e){} });
+    ['font','fs','fs-lab','fs-h2','fs-th','fs-chip','fs-pill','fs-crumb','fs-foot','h','r','ico-s','chip-h','pill-h','rail-w'].forEach(k=>{ document.documentElement.style.removeProperty('--'+k); try{ localStorage.removeItem('cw-'+k); }catch(e){} });
+    fillCols(); ping('Légende réinitialisée');
+  }
+  function fillCols(){
+    const box=document.getElementById('lgCols'); if(!box) return;
+    const cs=getComputedStyle(document.documentElement);
+    box.innerHTML=COLS.map(([k,l])=>{
+      let v=cs.getPropertyValue('--'+k).trim();
+      if(!/^#([0-9a-fA-F]{6})$/.test(v)) v='#888888';
+      return '<label class="lg-sw"><span>'+l+'</span><input type="color" value="'+v+'" oninput="tokSet(\''+k+'\',this.value)"/></label>';
+    }).join('');
+  }
+  function loadToks(){
+    COLS.concat([['font'],['fs'],['fs-lab'],['fs-h2'],['fs-th'],['fs-chip'],['fs-pill'],['fs-crumb'],['fs-foot'],['h'],['r'],['ico-s'],['chip-h'],['pill-h'],['rail-w']]).forEach(([k])=>{
+      try{ const s=localStorage.getItem('cw-'+k); if(s) document.documentElement.style.setProperty('--'+k,s); }catch(e){}
+    });
+    fillCols();
+  }
+  function applyTheme(d){
+    document.documentElement.classList.toggle('dark', d);
+    const moon=document.querySelector('.theme-btn .i-moon');
+    const sun=document.querySelector('.theme-btn .i-sun');
+    if(moon) moon.style.display=d?'none':'block';
+    if(sun) sun.style.display=d?'block':'none';
+    try{ localStorage.setItem('cw-theme', d?'dark':'light'); }catch(e){}
+    fillCols();
+  }
+  function toggleTheme(){ applyTheme(!document.documentElement.classList.contains('dark')); }
+  try{ if(localStorage.getItem('cw-theme')==='dark') applyTheme(true); }catch(e){}
+  function go(id){
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id===id));
+    document.querySelectorAll('#scrMenu button[data-go]').forEach(b => b.classList.toggle('on', b.dataset.go===id));
+    const m=document.getElementById('scrMenu'); if(m) m.classList.remove('open');
+    if(id==='legende') fillCols();
+  }
+  document.addEventListener('click', e => { if (!e.target.closest('.scr')) { const m=document.getElementById('scrMenu'); if(m) m.classList.remove('open'); } });
+  function ping(m){ const t=document.getElementById('toast'); if(!t) return; t.textContent=m; t.classList.add('on'); clearTimeout(window.__tt); window.__tt=setTimeout(()=>t.classList.remove('on'),1800); }
+  function selRow(tr){ tr.parentElement.querySelectorAll('tr').forEach(r=>r.classList.remove('on')); tr.classList.add('on'); }
+  function lotOn(el){ el.parentElement.querySelectorAll('.lot').forEach(l=>l.classList.remove('on')); el.classList.add('on'); }
+  function seg(btn){ btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
+  const DESC = "Les prix d’enduits au m² ci-après s’appliquent à toutes les surfaces droites, ou en talus, sans développement, sur briques, BA, sans plus-value, pour tableaux, feuillures, embrasures, arêtes droites, courbes ou arrondies."
+  function ficheEnduit(c,n){ const a=document.getElementById('fc'); if(a) a.textContent=c; const b=document.getElementById('fn'); if(b) b.textContent=n; const d=document.getElementById('pDesc'); if(d) d.textContent=DESC; const inp=document.getElementById('fnInp'); if(inp) inp.value=n; }
+  function tabF(w){
+    const tabs={spec:'tSpec',desc:'tDesc',key:'tKey',nom:'tNom',prix:'tPrix'};
+    const pans={spec:'pSpec',desc:'pDesc',key:'pKey',nom:'pNom',prix:'pPrix'};
+    Object.keys(tabs).forEach(k => { const el=document.getElementById(tabs[k]); if(el) el.classList.toggle('on', w===k); });
+    Object.keys(pans).forEach(k => { const el=document.getElementById(pans[k]); if(el) el.classList.toggle('hidden', w!==k); });
+    const h=document.getElementById('pHead'); if(h) h.classList.toggle('hidden', w!=='desc');
+  }
+  function addCom(){ const a=document.getElementById('comAdd'); if(a) a.classList.remove('hidden'); }
+  function saveCom(){
+    const inp=document.getElementById('comInp'); if(!inp) return; const t=(inp.value||'').trim(); if(!t) return;
+    const el=document.createElement('div'); el.className='com-item';
+    el.innerHTML='<div class="av" style="width:22px;height:22px;font-size:9px;flex-shrink:0">AF</div><div style="min-width:0;flex:1"><div class="muted" style="font-size:11px">Vous · à l’instant</div><div></div></div>';
+    el.querySelector('div > div:last-child').textContent=t;
+    const list=document.getElementById('comList'); if(list) list.appendChild(el);
+    inp.value=''; const add=document.getElementById('comAdd'); if(add) add.classList.add('hidden');
+    const c=document.getElementById('comCnt'); if(c) c.textContent=document.querySelectorAll('#comList .com-item').length;
+    ping('Commentaire ajouté');
+  }
+  function cmpSel(el){ el.parentElement.querySelectorAll('.cmp-puce').forEach(x=>x.classList.remove('on')); el.classList.add('on'); }
+  function srcOn(cb){ let tr=cb.closest('tr').nextElementSibling; while(tr && !tr.classList.contains('grp')){ tr.style.display=cb.checked?'':'none'; tr=tr.nextElementSibling; } }
+  function adoptDesc(n){ ping('Version '+n+' adoptée'); go('editer'); }
+  function filterProj(){ const q=(document.getElementById('qproj').value||'').toLowerCase(); let n=0; document.querySelectorAll('#ptable tbody tr').forEach(tr=>{ const s=tr.textContent.toLowerCase().includes(q); tr.style.display=s?'':'none'; if(s)n++; }); const el=document.getElementById('pcnt'); if(el) el.textContent=n+' projet'+(n>1?'s':''); }
+  const PDFP={apd:{pu:0,let:0,desc:1,spec:1,kw:0,lots:1,phase:1,hdr:1,hint:'Modèle APD'},dao:{pu:1,let:1,desc:1,spec:1,kw:1,lots:1,phase:1,hdr:1,hint:'Modèle DAO'},dossierc:{pu:1,let:1,desc:1,spec:1,kw:0,lots:1,phase:1,hdr:1,hint:'Modèle Dossier C'}};
+  function pdfPreset(k,btn){ if(btn){ btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); } const p=PDFP[k]; ['pu','let','desc','spec','kw','lots','phase','hdr'].forEach(id=>{ const el=document.getElementById('pdf-'+id); if(el) el.checked=!!p[id]; }); const h=document.getElementById('pdfHint'); if(h) h.textContent=p.hint; }
+  function pdfLotCnt(){ const all=[...document.querySelectorAll('.plot')]; const n=all.filter(c=>c.checked).length; const el=document.getElementById('lotCnt'); if(el) el.textContent=n+' / '+all.length; }
+  function addSig(){ const list=document.getElementById('sigList'); if(!list) return; const box=document.createElement('div'); box.className='sig-box'; box.innerHTML='<label class="chk"><input type="checkbox" checked/> Afficher</label><textarea class="ta" placeholder="Signature…"></textarea>'; list.appendChild(box); ping('Signature ajoutée'); }
+  loadToks();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a42f0e42cb39edd7',t:'MTc5MDcyNzU2Mg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
