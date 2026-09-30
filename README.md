@@ -363,6 +363,10 @@ Bouton **« Matériaux, composites et profils… »** :
   dimensions… — libellé + nom GDL) ; la classe « (aucune) » retire la
   correspondance. Règles enregistrées dans la même bibliothèque
   (type « object ») ;
+- **colonne Type** dans les sélecteurs de paramètres GDL (double
+  vérification) : TOUS les paramètres sont listés avec leur type GDL
+  (longueur, bool, entier, texte…) ; ceux du type attendu apparaissent en
+  tête avec le type en gras ;
 - **Articles hérités** (bouton « Articles hérités » sur la palette) : un
   article hérité naît d'un **paramètre booléen activé** (tablette, seuil,
   volet…), **quel que soit l'objet qui le porte** — le même nom de

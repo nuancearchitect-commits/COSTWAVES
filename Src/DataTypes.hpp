@@ -193,6 +193,20 @@ struct CWKeyEntry {
 	CWKeyEntry () = default;
 };
 
+// --- Paramètre GDL d'un objet de bibliothèque -------------------------------------
+
+// Un paramètre GDL proposé comme valeur clé ou déclencheur : libellé
+// lisible, nom GDL stable (identifiant de la règle) et type GDL
+// (« longueur », « bool », « entier »…) affiché dans la colonne Type du
+// sélecteur — double vérification visuelle par l'utilisateur.
+struct CWGdlParam {
+	GS::UniString	label;	// libellé lisible (ex. « Largeur »)
+	GS::UniString	name;	// nom GDL stable (ex. « A »)
+	GS::UniString	type;	// type GDL (ex. « longueur », « bool »)
+
+	CWGdlParam () = default;
+};
+
 struct CWArticle {
 	GS::UniString	id;		// identifiant CostWaves = id de l'item de classification
 	GS::UniString	name;	// libellé

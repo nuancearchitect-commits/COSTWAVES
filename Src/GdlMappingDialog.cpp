@@ -134,9 +134,12 @@ void GdlMappingDialog::AddRule ()
 		return;
 	}
 
-	GS::Array<GS::Pair<GS::UniString, GS::UniString>> objectItems;
-	for (UIndex o = 0; o < objectNames.GetSize (); ++o)
-		objectItems.Push (GS::Pair<GS::UniString, GS::UniString> (objectNames[o], GS::UniString ()));
+	GS::Array<CWGdlParam> objectItems;
+	for (UIndex o = 0; o < objectNames.GetSize (); ++o) {
+		CWGdlParam object;
+		object.label = objectNames[o];
+		objectItems.Push (object);
+	}
 
 	GdlItemPickerDialog objectPicker (ID_ADDON_DLG_OBJPICKER, FR ("Objet"), FR (""),
 									  objectItems, false);
@@ -174,20 +177,22 @@ void GdlMappingDialog::AddRule ()
 	GS::UniString paramNote;
 	GS::UniString paramAlert;
 	if (articleIndex != 0) {
-		GS::Array<GS::Pair<GS::UniString, GS::UniString>> params;
+		// TOUS les paramètres GDL avec leur type : le sélecteur montre la
+		// colonne Type (double vérification), longueurs en tête et en gras.
+		GS::Array<CWGdlParam> params;
 		if (ModelReader::GetLibraryPartParameters (objectName, params, paramNote, paramAlert)) {
 			if (!paramAlert.IsEmpty ())
 				DG::WarningAlert (FR ("Valeurs clés limitées pour « ") + objectName + FR (" »"),
 								  paramAlert, FR ("OK"));
 			if (!params.IsEmpty ()) {
 				GdlItemPickerDialog paramPicker (ID_ADDON_DLG_PARAMPICKER, FR ("Paramètre"), FR ("Nom GDL"),
-												 params, true);
+												 params, true, FR ("longueur"));
 				paramPicker.Invoke ();
 				if (paramPicker.IsAccepted ()) {
 					const short paramIndex = paramPicker.GetSelectedItemIndex ();
 					if (paramIndex >= 1 && static_cast<UIndex> (paramIndex) <= params.GetSize ()) {
-						keyId = params[static_cast<UIndex> (paramIndex) - 1].second;		// nom GDL stable
-						keyName = params[static_cast<UIndex> (paramIndex) - 1].first;	// libellé lisible
+						keyId = params[static_cast<UIndex> (paramIndex) - 1].name;		// nom GDL stable
+						keyName = params[static_cast<UIndex> (paramIndex) - 1].label;	// libellé lisible
 					}
 				}
 			}

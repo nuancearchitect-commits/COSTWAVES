@@ -146,7 +146,7 @@ const char* GdlParamTypeLabel (API_AddParID typeID)
 
 // Résultat de lecture d'une liste de paramètres GDL.
 struct GdlParamsResult {
-	GS::Array<GS::Pair<GS::UniString, GS::UniString>>	params;		// (libellé, nom GDL) du type recherché
+	GS::Array<CWGdlParam>	params;		// TOUS les paramètres simples, avec leur type
 	USize		totalCount = 0;		// paramètres hors titres/séparateurs
 	USize		matchedCount = 0;	// du type recherché (simples, cachés inclus)
 	USize		arrayExcludedCount = 0;	// du type recherché mais tableaux (exclus)
@@ -197,9 +197,6 @@ void CollectParamsOfType (const API_GetParamsType& getParams, API_AddParID wante
 			continue;
 		++outResult.totalCount;
 
-		// Seuls les paramètres du type recherché sont retenus.
-		if (par.typeID != wantedType)
-			continue;
 		// Tableaux : valeur ambiguë pour une valeur clé -> exclus, mais
 		// COMPTÉS (transparence du diagnostic).
 		if (par.typeMod == API_ParArray) {
@@ -213,9 +210,17 @@ void CollectParamsOfType (const API_GetParamsType& getParams, API_AddParID wante
 
 		if (name.IsEmpty ())
 			continue;
-		outResult.params.Push (GS::Pair<GS::UniString, GS::UniString> (
-			description.IsEmpty () ? name : description, name));
-		++outResult.matchedCount;
+
+		// TOUS les paramètres simples sont retournés, AVEC leur type : le
+		// sélecteur affiche la colonne Type (double vérification) et met
+		// en avant ceux du type recherché (comptés dans matchedCount).
+		CWGdlParam param;
+		param.label = description.IsEmpty () ? name : description;
+		param.name = name;
+		param.type = FR (typeLabel);
+		outResult.params.Push (param);
+		if (par.typeID == wantedType)
+			++outResult.matchedCount;
 	}
 
 	bool firstType = true;
@@ -323,7 +328,7 @@ GS::UniString GdlDiagnosticFilePath ()
 // volet…). Passe 1 : défauts de la bibliothèque ; passe 2 : instance
 // posée (toujours tentée) — la source la plus riche gagne.
 static bool ReadLibPartParamsOfType (const GS::UniString& libPartName, API_AddParID wantedType,
-									 GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
+									 GS::Array<CWGdlParam>& outParams,
 									 GS::UniString& outNote, GS::UniString& outAlert)
 {
 	outParams.Clear ();
@@ -471,7 +476,7 @@ static bool ReadLibPartParamsOfType (const GS::UniString& libPartName, API_AddPa
 
 
 bool ModelReader::GetLibraryPartParameters (const GS::UniString& libPartName,
-											GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
+											GS::Array<CWGdlParam>& outParams,
 											GS::UniString& outNote, GS::UniString& outAlert)
 {
 	return ReadLibPartParamsOfType (libPartName, APIParT_Length, outParams, outNote, outAlert);
@@ -479,7 +484,7 @@ bool ModelReader::GetLibraryPartParameters (const GS::UniString& libPartName,
 
 
 bool ModelReader::GetLibraryPartBooleanParameters (const GS::UniString& libPartName,
-												   GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
+												   GS::Array<CWGdlParam>& outParams,
 												   GS::UniString& outNote, GS::UniString& outAlert)
 {
 	return ReadLibPartParamsOfType (libPartName, APIParT_Boolean, outParams, outNote, outAlert);

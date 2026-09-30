@@ -117,26 +117,23 @@ public:
 	static GS::UniString	GetBuildingMaterialName (API_AttributeIndex index);
 
 	// Paramètres GDL d'un objet de bibliothèque, par nom d'attribut
-	// (valeurs clés de la correspondance objets GDL). Seules les
-	// variables de TYPE LONGUEUR sont retournées (épaisseur, hauteur,
-	// dimensions…), hors tableaux — les paramètres cachés (flag GDL
-	// « hidden ») sont INCLUS : ils ont une valeur par instance et
-	// différencient tout aussi bien les articles. Paires
-	// (libellé lisible, nom GDL stable). outNote : comptage (paramètres
-	// lus, du type, tableaux exclus, source). outAlert : non vide si la
-	// liste est vide ou réduite aux paramètres fixes — répartition réelle des
-	// types + premiers paramètres (à AFFICHER). Diagnostic complet (avec
-	// flags) dans <Documents>/CostWaves-diagnostic.txt.
+	// (valeurs clés de la correspondance objets GDL). TOUS les paramètres
+	// simples sont retournés avec leur TYPE (CWGdlParam.type : « longueur »,
+	// « bool »…) — le sélecteur affiche la colonne Type pour double
+	// vérification et met en avant le type demandé. Les tableaux sont
+	// exclus (comptés dans la note). outNote : comptage (paramètres lus,
+	// du type demandé, tableaux exclus, source). outAlert : non vide si le
+	// type demandé est absent ou réduit aux paramètres fixes. Diagnostic
+	// complet (avec flags) dans <Documents>/CostWaves-diagnostic.txt.
 	static bool	GetLibraryPartParameters (const GS::UniString& libPartName,
-										 GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
+										 GS::Array<CWGdlParam>& outParams,
 										 GS::UniString& outNote, GS::UniString& outAlert);
 
-	// Paramètres GDL BOOLÉENS d'un objet (articles hérités : tablette,
-	// seuil, volet…). Même contrat que GetLibraryPartParameters
-	// (comptage dans outNote, explication dans outAlert, diagnostic dans
-	// CostWaves-diagnostic.txt).
+	// Paramètres GDL d'un objet, type demandé = BOOLÉEN (articles hérités :
+	// tablette, seuil, volet…). Même contrat : TOUS les paramètres avec
+	// leur type ; le dialogue filtre les booléens (déclencheur).
 	static bool	GetLibraryPartBooleanParameters (const GS::UniString& libPartName,
-												   GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
+												   GS::Array<CWGdlParam>& outParams,
 												   GS::UniString& outNote, GS::UniString& outAlert);
 
 private:

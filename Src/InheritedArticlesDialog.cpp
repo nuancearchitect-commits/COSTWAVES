@@ -143,9 +143,12 @@ void InheritedArticlesDialog::AddRule ()
 		return;
 	}
 
-	GS::Array<GS::Pair<GS::UniString, GS::UniString>> objectItems;
-	for (UIndex o = 0; o < objectNames.GetSize (); ++o)
-		objectItems.Push (GS::Pair<GS::UniString, GS::UniString> (objectNames[o], GS::UniString ()));
+	GS::Array<CWGdlParam> objectItems;
+	for (UIndex o = 0; o < objectNames.GetSize (); ++o) {
+		CWGdlParam object;
+		object.label = objectNames[o];
+		objectItems.Push (object);
+	}
 
 	GdlItemPickerDialog objectPicker (ID_ADDON_DLG_OBJPICKER, FR ("Objet (pour lister ses paramètres)"), FR (""),
 									  objectItems, false);
@@ -159,24 +162,32 @@ void InheritedArticlesDialog::AddRule ()
 	const GS::UniString objectName = objectNames[static_cast<UIndex> (objectIndex) - 1];
 
 	// 2) Le paramètre BOOLÉEN de l'objet — celui dont l'activation fait
-	//    naître l'article hérité (tablette, seuil, volet…).
-	GS::Array<GS::Pair<GS::UniString, GS::UniString>> params;
+	//    naître l'article hérité (tablette, seuil, volet…). Le lecteur
+	//    renvoie TOUS les paramètres avec leur type ; le DÉCLENCHEUR doit
+	//    être un booléen -> filtre côté dialogue (colonne Type visible).
+	GS::Array<CWGdlParam> allParams;
 	GS::UniString paramNote;
 	GS::UniString paramAlert;
-	if (!ModelReader::GetLibraryPartBooleanParameters (objectName, params, paramNote, paramAlert)) {
+	if (!ModelReader::GetLibraryPartBooleanParameters (objectName, allParams, paramNote, paramAlert)) {
 		SetStatus (FR ("« ") + objectName + FR (" » : ") + paramNote);
 		return;
 	}
 	if (!paramAlert.IsEmpty ())
 		DG::WarningAlert (FR ("Paramètres booléens limités pour « ") + objectName + FR (" »"),
 						  paramAlert, FR ("OK"));
+
+	GS::Array<CWGdlParam> params;
+	for (UIndex p = 0; p < allParams.GetSize (); ++p) {
+		if (allParams[p].type == FR ("bool"))
+			params.Push (allParams[p]);
+	}
 	if (params.IsEmpty ()) {
-		SetStatus (FR ("« ") + objectName + FR (" » : ") + paramNote);
+		SetStatus (FR ("« ") + objectName + FR (" » : aucun paramètre booléen (") + paramNote + FR (")"));
 		return;
 	}
 
 	GdlItemPickerDialog paramPicker (ID_ADDON_DLG_PARAMPICKER, FR ("Paramètre booléen"), FR ("Nom GDL"),
-									 params, false);
+									 params, false, FR ("bool"));
 	paramPicker.Invoke ();
 	if (!paramPicker.IsAccepted ())
 		return;
@@ -184,8 +195,8 @@ void InheritedArticlesDialog::AddRule ()
 	const short paramIndex = paramPicker.GetSelectedItemIndex ();
 	if (paramIndex < 1 || static_cast<UIndex> (paramIndex) > params.GetSize ())
 		return;
-	const GS::UniString paramName = params[static_cast<UIndex> (paramIndex) - 1].second;		// nom GDL stable
-	const GS::UniString paramLabel = params[static_cast<UIndex> (paramIndex) - 1].first;	// libellé lisible
+	const GS::UniString paramName = params[static_cast<UIndex> (paramIndex) - 1].name;		// nom GDL stable
+	const GS::UniString paramLabel = params[static_cast<UIndex> (paramIndex) - 1].label;	// libellé lisible
 	const GS::UniString boolKey = FR (kBoolKeyPrefix) + paramName;
 
 	// 3) L'article hérité — « (aucune) » retire la règle.
@@ -208,7 +219,9 @@ void InheritedArticlesDialog::AddRule ()
 	GS::UniString valueKeyId;
 	GS::UniString valueKeyName;
 	if (articleIndex != 0) {
-		GS::Array<GS::Pair<GS::UniString, GS::UniString>> lengthParams;
+		// TOUS les paramètres GDL avec leur type (colonne Type, double
+		// vérification), longueurs en tête et en gras.
+		GS::Array<CWGdlParam> lengthParams;
 		GS::UniString lengthNote;
 		GS::UniString lengthAlert;
 		if (ModelReader::GetLibraryPartParameters (objectName, lengthParams, lengthNote, lengthAlert)) {
@@ -217,13 +230,13 @@ void InheritedArticlesDialog::AddRule ()
 								  lengthAlert, FR ("OK"));
 			if (!lengthParams.IsEmpty ()) {
 				GdlItemPickerDialog valuePicker (ID_ADDON_DLG_PARAMPICKER, FR ("Valeur clé"), FR ("Nom GDL"),
-												 lengthParams, true);
+												 lengthParams, true, FR ("longueur"));
 				valuePicker.Invoke ();
 				if (valuePicker.IsAccepted ()) {
 					const short valueIndex = valuePicker.GetSelectedItemIndex ();
 					if (valueIndex >= 1 && static_cast<UIndex> (valueIndex) <= lengthParams.GetSize ()) {
-						valueKeyId = lengthParams[static_cast<UIndex> (valueIndex) - 1].second;		// nom GDL stable
-						valueKeyName = lengthParams[static_cast<UIndex> (valueIndex) - 1].first;	// libellé lisible
+						valueKeyId = lengthParams[static_cast<UIndex> (valueIndex) - 1].name;		// nom GDL stable
+						valueKeyName = lengthParams[static_cast<UIndex> (valueIndex) - 1].label;	// libellé lisible
 					}
 				}
 			}

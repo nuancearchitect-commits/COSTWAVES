@@ -58,8 +58,8 @@
 /* [  5] */ PopupControl               345   47  345   22 80 3
 /* [  6] */ MultiSelList                10   80  680  380 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
 /* [  7] */ LeftText                    10  472  680   36 SmallPlain vTop | noTrunc Default ""
-/* [  8] */ Button                     430  580  130   23 LargePlain "Enregistrer"
-/* [  9] */ Button                     560  580  130   23 LargePlain "Fermer"
+/* [  8] */ Button                     560  580  130   23 LargePlain "Enregistrer"
+/* [  9] */ Button                     430  580  130   23 LargePlain "Fermer"
 }
 
 'DLGH' ID_ADDON_DLG_MAPPING DLG_Mapping {
@@ -96,8 +96,8 @@
 /* [  1] */	LeftText                    10   12  540   30 LargePlain vTop | noTrunc Default ""
 /* [  2] */	MultiSelList                10   78  540  310 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
 /* [  3] */	LeftText                    10  392  540   28 SmallPlain vTop | noTrunc Default ""
-/* [  4] */	Button                      10  436  130   23 LargePlain "Ajouter…"
-/* [  5] */	Button                     450  436  100   23 LargePlain "Fermer"
+/* [  4] */	Button                     420  436  130   23 LargePlain "Ajouter…"
+/* [  5] */	Button                      10  436  100   23 LargePlain "Fermer"
 /* [  6] */	LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
 /* [  7] */	PopupControl               125   47  425   22 80 3
 }
@@ -144,8 +144,8 @@
 /* [  1] */	LeftText                    10   12  540   30 LargePlain vTop | noTrunc Default ""
 /* [  2] */	MultiSelList                10   78  540  310 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
 /* [  3] */	LeftText                    10  392  540   28 SmallPlain vTop | noTrunc Default ""
-/* [  4] */	Button                      10  436  130   23 LargePlain "Ajouter…"
-/* [  5] */	Button                     450  436  100   23 LargePlain "Fermer"
+/* [  4] */	Button                     420  436  130   23 LargePlain "Ajouter…"
+/* [  5] */	Button                      10  436  100   23 LargePlain "Fermer"
 /* [  6] */	LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
 /* [  7] */	PopupControl               125   47  425   22 80 3
 }
