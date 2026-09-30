@@ -2414,20 +2414,22 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 
 		// LE MOTEUR SUIT LA CORRESPONDANCE : pour chaque élément il cherche
 		// la règle dans la bibliothèque (fenêtre Matériaux, composites et
-		// profils). Un COMPOSITE/PROFIL avec article est calculé POUR
-		// LUI-MÊME (mode Élément de la règle) ou PAR SES COUCHES (mode
-		// Composants — articles des règles matériaux). Un composite/profil
-		// SANS article est « quantifié par matériau décomposé » -> ses
-		// couches uniquement. Jamais l'élément ET ses couches à la fois.
+		// profils). La correspondance décide SANS repli : règle avec article
+		// en mode Élément -> l'élément LUI-MÊME ; tout le reste (règle mode
+		// Composants, article vide, aucune règle) -> « quantifié par matériau
+		// décomposé » : SES COUCHES, facturées sur les articles des règles
+		// matériaux. Le repli classification ne s'applique PAS aux
+		// structures : la fenêtre de correspondance promet la décomposition
+		// (« composite/profil sans classe = quantifié par ses matériaux »).
+		// Jamais l'élément ET ses couches à la fois.
 		const bool isStructureRow = ((row.structureType == CWStructureType::Composite
 									   || row.structureType == CWStructureType::Profile)
 									  && !row.structureName.IsEmpty ());
 		bool billElementItself;
 		if (isStructureRow) {
-			if (row.hasRule && !row.ruleArticleId.IsEmpty ())
-				billElementItself = (row.ruleMode == CWQuantMode::Element);
-			else
-				billElementItself = !row.classItemId.IsEmpty ();	// repli classification
+			billElementItself = (row.hasRule
+								 && !row.ruleArticleId.IsEmpty ()
+								 && row.ruleMode == CWQuantMode::Element);
 		} else {
 			billElementItself = (globalMode != CWQuantMode::Component) || row.is2D;
 		}

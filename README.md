@@ -427,13 +427,15 @@ classification) :
 
 - **Moteur aligné sur la correspondance** : pour chaque élément, le moteur
   cherche la règle dans la bibliothèque (fenêtre « Matériaux, composites et
-  profils »). Un **composite/profil avec article** est calculé **pour
-  lui-même** (mode Élément de la règle) ou **par ses couches** (mode
-  Composants — chaque couche est facturée sur l'article de la règle de son
-  matériau) ; un **composite/profil sans article** est « quantifié par
-  matériau décomposé » → ses couches uniquement ; un **objet GDL** est
-  calculé pour lui-même. **Jamais l'élément ET ses couches à la fois.** La
-  traçabilité (clic Source) affiche le mode de la règle (« calculé pour
+  profils »). Pour un **composite/profil**, la correspondance décide SANS
+  repli (la classification de l'élément ne l'emporte plus) :
+  - **article assigné** (mode Élément) → calculé **pour lui-même** ;
+  - **« (aucune) »** (ou règle JSON `"mode": "component"`) → « quantifié
+    par **matériau décomposé** » : **ses couches**, chacune facturée sur
+    l'article de la **règle de son matériau** ;
+  - un **objet GDL** est calculé pour lui-même. **Jamais l'élément ET ses
+    couches à la fois.**
+  La traçabilité (clic Source) affiche le mode de la règle (« calculé pour
   lui-même ») et, pour une couche, le composite d'où elle vient (« via
   MUR_EXT_30 ») ;
 - **Mode de calcul** (panneau du bas, article sélectionné) :
