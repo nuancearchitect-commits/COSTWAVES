@@ -356,11 +356,13 @@ Bouton **« Correspondance matériaux »** :
   correspondance. Règles enregistrées dans la même bibliothèque
   (type « object ») ;
 - **Articles hérités** (bouton « Articles hérités » sur la palette) : un
-  article hérité naît d'un objet GDL dont un **paramètre booléen** est
-  activé (tablette, seuil, volet…) ; « Ajouter… » : l'objet, son
-  paramètre booléen, puis l'article CostWaves hérité ; « (aucune) »
-  retire la règle. Exemples : descente eau pluviale Ø125/Ø160, plinthe
-  marbre H8/H12 — deux articles issus d'un seul objet grâce à la valeur
+  article hérité naît d'un **paramètre booléen activé** (tablette, seuil,
+  volet…), **quel que soit l'objet qui le porte** — le même nom de
+  paramètre se répète entre objets, la règle est donc globale
+  (booléen → article, sans lien d'objet ; l'objet du flux « Ajouter… »
+  sert uniquement à lister les paramètres) ; « (aucune) » retire la
+  règle. Exemples : descente eau pluviale Ø125/Ø160, plinthe marbre
+  H8/H12 — deux articles issus d'un seul objet grâce à la valeur
   clé ;
 - **Tableau des matériaux** du projet (Matériau | Classe) ;
 - **clic sur un matériau** → ouvre la fenêtre de choix de la classe :

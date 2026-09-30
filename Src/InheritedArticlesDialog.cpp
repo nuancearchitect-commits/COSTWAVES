@@ -36,9 +36,10 @@ InheritedArticlesDialog::InheritedArticlesDialog ()
 		systemLabel (GetReference (), SystemLabelId),
 		systemPopup (GetReference (), SystemPopupId)
 {
-	infoText.SetText (FR ("Un article hérité naît d'un paramètre BOOLÉEN activé d'un objet")
-					  + FR (" (tablette, seuil, volet…). « Ajouter… » : l'objet,")
-					  + FR (" son paramètre booléen, puis l'article hérité."));
+	infoText.SetText (FR ("Un article hérité naît d'un paramètre BOOLÉEN activé (tablette, seuil,")
+					  + FR (" volet…), quel que soit l'objet qui le porte. « Ajouter… » :")
+					  + FR (" choisir un objet pour lister ses paramètres, puis le booléen,")
+					  + FR (" puis l'article."));
 
 	// Système de classification (les classes = articles proposés).
 	systems = ModelReader::GetClassificationSystems ();
@@ -83,14 +84,13 @@ void InheritedArticlesDialog::FillList ()
 {
 	isFilling = true;
 
-	const short columnCount = 3;
+	const short columnCount = 2;
 	list.SetHeaderItemCount (columnCount);
 	list.SetTabFieldCount (columnCount);
-	list.SetHeaderItemText (1, FR ("Objet"));
-	list.SetHeaderItemText (2, FR ("Paramètre (booléen)"));
-	list.SetHeaderItemText (3, FR ("Article hérité"));
+	list.SetHeaderItemText (1, FR ("Paramètre (booléen)"));
+	list.SetHeaderItemText (2, FR ("Article hérité"));
 
-	const short widths[3] = { 200, 170, 170 };
+	const short widths[2] = { 230, 310 };
 	short position = 0;
 	for (short i = 1; i <= columnCount; ++i) {
 		list.SetHeaderItemSize (i, widths[i - 1]);
@@ -111,14 +111,11 @@ void InheritedArticlesDialog::FillList ()
 
 		list.AppendItem ();
 		const short item = list.GetItemCount ();
-		list.SetTabItemText (item, 1, rules[r].structureName);
-
-		GS::UniString paramLabel = rules[r].keyName;
-		list.SetTabItemText (item, 2, paramLabel.IsEmpty ()
-			? rules[r].keyId : paramLabel);
+		list.SetTabItemText (item, 1, rules[r].keyName.IsEmpty ()
+			? rules[r].keyId : rules[r].keyName);
 
 		const CWArticle* article = ArticleManager::FindArticle (articles, rules[r].articleId);
-		list.SetTabItemText (item, 3, article != nullptr
+		list.SetTabItemText (item, 2, article != nullptr
 			? rules[r].articleId + FR (" — ") + article->name
 			: rules[r].articleId);
 	}
@@ -132,7 +129,9 @@ void InheritedArticlesDialog::FillList ()
 
 void InheritedArticlesDialog::AddRule ()
 {
-	// 1) L'objet de bibliothèque (objets .gsm posables chargés).
+	// 1) Un objet de bibliothèque — SIMPLE NAVIGATEUR pour découvrir les
+	//    noms de booléens : la règle finale est GLOBALE (le même booléen
+	//    se répète dans plusieurs objets).
 	GS::Array<GS::UniString> objectNames;
 	RuleLibrary::CollectAvailableStructures (CWStructureType::LibraryPart, objectNames);
 	if (objectNames.IsEmpty ()) {
@@ -144,7 +143,7 @@ void InheritedArticlesDialog::AddRule ()
 	for (UIndex o = 0; o < objectNames.GetSize (); ++o)
 		objectItems.Push (GS::Pair<GS::UniString, GS::UniString> (objectNames[o], GS::UniString ()));
 
-	GdlItemPickerDialog objectPicker (ID_ADDON_DLG_OBJPICKER, FR ("Objet"), FR (""),
+	GdlItemPickerDialog objectPicker (ID_ADDON_DLG_OBJPICKER, FR ("Objet (pour lister ses paramètres)"), FR (""),
 									  objectItems, false);
 	objectPicker.Invoke ();
 	if (!objectPicker.IsAccepted ())
@@ -201,28 +200,28 @@ void InheritedArticlesDialog::AddRule ()
 	if (articleIndex == 0) {
 		for (UIndex r = 0; r < rules.GetSize (); ++r) {
 			if (rules[r].structureType == CWStructureType::LibraryPartBool
-				&& rules[r].structureName == objectName
 				&& rules[r].keyId == boolKey) {
 				rules.Delete (r);
 				break;
 			}
 		}
-		SetStatus (FR ("« ") + objectName + FR (" » / ") + paramLabel + FR (" » : article hérité retiré."));
+		SetStatus (FR ("« ") + paramLabel + FR (" » : article hérité retiré."));
 	} else {
 		const CWArticle& article = articles[static_cast<UIndex> (articleIndex) - 1];
 
 		CWMapRule rule;
 		rule.structureType = CWStructureType::LibraryPartBool;
-		rule.structureName = objectName;
+		rule.structureName = objectName;	// documentaire seulement : la règle est GLOBALE
 		rule.articleId = article.id;
 		rule.mode = CWQuantMode::Element;
 		rule.keyId = boolKey;
 		rule.keyName = paramLabel;
 
+		// Règle unique par booléen, quel que soit l'objet où il a été
+		// découvert : l'appariement ignore structureName.
 		bool replaced = false;
 		for (UIndex r = 0; r < rules.GetSize (); ++r) {
 			if (rules[r].structureType == CWStructureType::LibraryPartBool
-				&& rules[r].structureName == objectName
 				&& rules[r].keyId == boolKey) {
 				rules[r] = rule;
 				replaced = true;
@@ -232,8 +231,8 @@ void InheritedArticlesDialog::AddRule ()
 		if (!replaced)
 			rules.Push (rule);
 
-		SetStatus (FR ("« ") + objectName + FR (" » + ") + paramLabel
-				   + FR (" activé → ") + article.id + FR (" — ") + article.name);
+		SetStatus (FR ("« ") + paramLabel + FR (" » activé → ") + article.id + FR (" — ") + article.name
+				   + FR (" — tout objet ayant ce paramètre"));
 	}
 
 	FillList ();
