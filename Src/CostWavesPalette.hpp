@@ -9,20 +9,30 @@
 namespace CostWaves {
 
 // Palette CostWaves (menu NUANCE BIM > COSTWAVES) : point d'entrée de
-// l'add-on. Deux boutons : « Correspondance matériaux » (fenêtre des
-// correspondances attributs Archicad -> articles) et « Correspondance
-// objets GDL » (objets de bibliothèque -> article + valeur clé GDL).
+// l'add-on, dans l'esprit de la maquette CostWaves V4 — titre, sous-titre,
+// label de section, boutons avec description, ligne d'état. Trois actions :
+//  - « Matériaux, composites et profils… » : fenêtre des correspondances
+//    attributs Archicad -> articles (classes) + valeurs clés ;
+//  - « Objets GDL… » : correspondances objet de bibliothèque -> article
+//    + valeur clé (paramètre GDL longueur) ;
+//  - « Articles hérités… » : booléen activé (global) -> article
+//    + valeur clé.
 class CostWavesPalette final :	public DG::Palette,
 								public DG::PanelObserver,
 								public DG::ButtonItemObserver
 {
 public:
 	enum ItemIds {
-		InfoTextId		= 1,
-		MappingButtonId	= 2,
-		StatusTextId	= 3,
-		GdlButtonId		= 4,
-		InheritedButtonId = 5
+		TitleId				= 1,
+		SubtitleId			= 2,
+		SectionLabelId		= 3,
+		MappingButtonId		= 4,
+		MappingDescId		= 5,
+		GdlButtonId			= 6,
+		GdlDescId			= 7,
+		InheritedButtonId	= 8,
+		InheritedDescId		= 9,
+		StatusTextId		= 10
 	};
 
 	// Singleton : la palette vit aussi longtemps que l'add-on.
@@ -47,10 +57,15 @@ private:
 
 	static GSErrCode	PaletteControlCallBack (Int32 paletteId, API_PaletteMessageID messageID, GS::IntPtr param);
 
-	DG::LeftText	infoText;
+	DG::LeftText	titleText;
+	DG::LeftText	subtitleText;
+	DG::LeftText	sectionLabel;
 	DG::Button		mappingButton;
+	DG::LeftText	mappingDesc;
 	DG::Button		gdlButton;
+	DG::LeftText	gdlDesc;
 	DG::Button		inheritedButton;
+	DG::LeftText	inheritedDesc;
 	DG::LeftText	statusText;
 
 	static GS::Ref<CostWavesPalette>	instance;

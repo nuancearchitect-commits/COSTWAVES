@@ -326,10 +326,19 @@ pas un choix.
    (`CostWaves-calcul.json`, section `formulas`) et partent dans le payload
    API (`calcFormula`).
 
-### Étape courante — NUANCE BIM > COSTWAVES > Correspondances matériaux
+### Étape courante — NUANCE BIM > COSTWAVES > palette des correspondances
 
-Menu **NUANCE BIM** (barre de menus) → **COSTWAVES…** ouvre la palette.
-Bouton **« Correspondance matériaux »** :
+Menu **NUANCE BIM** (barre de menus) → **COSTWAVES…** ouvre la **palette**
+(inspirée de la maquette CostWaves V4 : titre, sous-titre, section
+CORRESPONDANCES, boutons avec description, ligne d'état) :
+
+- **Matériaux, composites et profils…** : fenêtre des correspondances
+  attributs → articles ;
+- **Objets GDL…** : correspondances objet de bibliothèque → article
+  + valeur clé ;
+- **Articles hérités…** : booléen activé (global) → article + valeur clé.
+
+Bouton **« Matériaux, composites et profils… »** :
 
 - **Filtre Type** : Matériau / Composite / Profil complexe ;
 - **Filtre Classification** : système dont les classes sont les articles ;
@@ -347,8 +356,7 @@ Bouton **« Correspondance matériaux »** :
   matériau, position de la couche, nombre de couches) ; « — (aucune) »
   retire la clé. La valeur de la clé sera exploitée au métré
   (différenciation des articles — étape suivante) ;
-- **Objets GDL** (bouton « Correspondance objets GDL » sur la palette, sous
-  « Correspondance matériaux ») : fenêtre autonome avec son système de
+- **Objets GDL** (bouton « Objets GDL… » sur la palette) : fenêtre autonome avec son système de
   classification ; « Ajouter… » enchaîne : choix de l'objet (.gsm posables
   chargés, recherche), sa classe (article), puis sa valeur clé parmi les
   **variables GDL de type longueur** de l'objet (épaisseur, hauteur,

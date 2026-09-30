@@ -96,10 +96,15 @@ void CostWavesPalette::HidePalette ()
 
 CostWavesPalette::CostWavesPalette ()
 	:	DG::Palette (ACAPI_GetOwnResModule (), ID_ADDON_DLG, ACAPI_GetOwnResModule (), paletteGuid),
-		infoText (GetReference (), InfoTextId),
+		titleText (GetReference (), TitleId),
+		subtitleText (GetReference (), SubtitleId),
+		sectionLabel (GetReference (), SectionLabelId),
 		mappingButton (GetReference (), MappingButtonId),
+		mappingDesc (GetReference (), MappingDescId),
 		gdlButton (GetReference (), GdlButtonId),
+		gdlDesc (GetReference (), GdlDescId),
 		inheritedButton (GetReference (), InheritedButtonId),
+		inheritedDesc (GetReference (), InheritedDescId),
 		statusText (GetReference (), StatusTextId)
 {
 	Attach (*this);					// PanelObserver
@@ -107,9 +112,15 @@ CostWavesPalette::CostWavesPalette ()
 	gdlButton.Attach (*this);
 	inheritedButton.Attach (*this);
 
-	infoText.SetText (FR ("CostWaves — correspondances entre les attributs Archicad ")
-					  + FR ("et les articles CostWaves."));
-	statusText.SetText (FR ("Ouvrez « Correspondance » pour préparer les règles."));
+	// Esprit maquette V4 : titre, sous-titre, section, boutons décrits.
+	titleText.SetText (FR ("COSTWAVES"));
+	subtitleText.SetText (FR ("Correspondances entre les attributs Archicad")
+						  + FR (" et les articles CostWaves."));
+	sectionLabel.SetText (FR ("CORRESPONDANCES"));
+	mappingDesc.SetText (FR ("Règles par attribut + valeur clé"));
+	gdlDesc.SetText (FR ("Règles par objet + paramètre de longueur"));
+	inheritedDesc.SetText (FR ("Booléen activé → article + valeur clé"));
+	statusText.SetText (FR ("Ouvrez une correspondance pour préparer les règles."));
 
 	// Active la distribution des événements aux observers attachés — SANS cet
 	// appel, les clics sur les contrôles de la palette ne déclenchent RIEN.

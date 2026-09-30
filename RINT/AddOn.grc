@@ -10,20 +10,30 @@
 /* [  1] */		"COSTWAVES... ^E3 ^ES ^EE ^EI ^ED ^ET ^10001"
 }
 
-'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  320 210  "CostWaves" {
-/* [  1] */ LeftText                     10   14  300   30 LargePlain vTop | noTrunc Default ""
-/* [  2] */ Button                        10   50  300   23 LargePlain "Correspondance matériaux"
-/* [  3] */ LeftText                     10  145  300   40 SmallPlain vTop | noTrunc Default ""
-/* [  4] */ Button                        10   78  300   23 LargePlain "Correspondance objets GDL"
-/* [  5] */ Button                        10  106  300   23 LargePlain "Articles hérités"
+'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  360 330  "CostWaves" {
+/* [  1] */ LeftText                     10   12  340   26 LargePlain vTop | noTrunc Default ""
+/* [  2] */ LeftText                     10   40  340   30 SmallPlain vTop | noTrunc Default ""
+/* [  3] */ LeftText                     10   84  340   16 SmallPlain vTop | noTrunc Default ""
+/* [  4] */ Button                        10  104  340   24 LargePlain "Matériaux, composites et profils…"
+/* [  5] */ LeftText                     10  130  340   16 SmallPlain vTop | noTrunc Default ""
+/* [  6] */ Button                        10  152  340   24 LargePlain "Objets GDL…"
+/* [  7] */ LeftText                     10  178  340   16 SmallPlain vTop | noTrunc Default ""
+/* [  8] */ Button                        10  200  340   24 LargePlain "Articles hérités…"
+/* [  9] */ LeftText                     10  226  340   16 SmallPlain vTop | noTrunc Default ""
+/* [ 10] */ LeftText                     10  258  340   60 SmallPlain vTop | noTrunc Default ""
 }
 
 'DLGH' ID_ADDON_DLG DLG_CostWaves_Palette {
 1    ""        LeftText_0
-2    ""        Button_0
-3    ""        LeftText_1
-4    ""        Button_1
-5    ""        Button_2
+2    ""        LeftText_1
+3    ""        LeftText_2
+4    ""        Button_0
+5    ""        LeftText_3
+6    ""        Button_1
+7    ""        LeftText_4
+8    ""        Button_2
+9    ""        LeftText_5
+10   ""        LeftText_6
 }
 
 'GDLG' ID_ADDON_DLG_PICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir une classe" {
@@ -48,7 +58,7 @@
 /* [  5] */ PopupControl               345   47  345   22 80 3
 /* [  6] */ MultiSelList                10   80  680  380 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
 /* [  7] */ LeftText                    10  472  680   36 SmallPlain vTop | noTrunc Default ""
-/* [  8] */ Button                      10  580  130   23 LargePlain "Enregistrer"
+/* [  8] */ Button                     430  580  130   23 LargePlain "Enregistrer"
 /* [  9] */ Button                     560  580  130   23 LargePlain "Fermer"
 }
 
