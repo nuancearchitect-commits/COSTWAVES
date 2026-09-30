@@ -22,20 +22,19 @@ namespace CostWaves {
 //    (Article → Mapping → Source Archicad → Paramètres → Mode de calcul →
 //    Quantité calculée / retenue) — comprendre POURQUOI une quantité a été
 //    obtenue avant de l'envoyer ;
-//  - panneau de calcul de l'article sélectionné : unité (modifiable — le
-//    changement adapte les paramètres disponibles), mode Brute /
-//    Conditionnelle / Nette (UNIQUEMENT pour les unités géométriques
-//    m²/ml/m³), déductions (surface : ouvertures, trous), quantité retenue
-//    (correction manuelle — la quantité calculée d'origine est TOUJOURS
-//    conservée et affichée) ;
-//  - « Recalculer » relit la maquette ; les réglages (unité, mode,
-//    déductions) et les corrections manuelles sont conservés par article.
+//  - les RÉGLAGES DE CALCUL (unité, mode Brute/Conditionnelle/Nette,
+//    déductions) se règlent désormais dans les FENÊTRES DE CORRESPONDANCE
+//    (colonnes éditables de la ligne, tous les types) — le panneau du
+//    Quantitatif les AFFICHE en lecture seule ;
+//  - la quantité retenue reste corrigible manuellement (« Retenir » /
+//    « Réinitialiser ») — la quantité calculée d'origine est TOUJOURS
+//    conservée et affichée ;
+//  - « Recalculer » relit la maquette ; les corrections manuelles sont
+//    conservées par article.
 class QuantitiesDialog final :	public DG::ModalDialog,
 					public DG::ButtonItemObserver,
 					public DG::ListBoxObserver,
-					public DG::PopUpObserver,
-					public DG::RadioItemObserver,
-					public DG::CheckItemObserver
+					public DG::PopUpObserver
 {
 public:
 	enum ItemIds {
@@ -43,23 +42,16 @@ public:
 		SystemLabelId		= 2,
 		SystemPopupId		= 3,
 		ListId				= 4,
-		ModeLabelId			= 5,
-		BruteRadioId		= 6,
-		CondRadioId			= 7,
-		NetteRadioId		= 8,
-		UnitLabelId			= 9,
-		UnitPopupId			= 10,
-		OpeningsCheckId		= 11,
-		HolesCheckId		= 12,
-		CalcLabelId			= 13,
-		CalcValueTextId		= 14,
-		RetainedLabelId		= 15,
-		RetainedEditId		= 16,
-		ApplyRetainedId		= 17,
-		ResetRetainedId		= 18,
-		HintTextId			= 19,
-		RecalcButtonId		= 20,
-		CloseButtonId		= 21
+		SettingsTextId		= 5,
+		CalcLabelId			= 6,
+		CalcValueTextId		= 7,
+		RetainedLabelId		= 8,
+		RetainedEditId		= 9,
+		ApplyRetainedId		= 10,
+		ResetRetainedId		= 11,
+		HintTextId			= 12,
+		RecalcButtonId		= 13,
+		CloseButtonId		= 14
 	};
 
 	QuantitiesDialog ();
@@ -74,12 +66,6 @@ private:
 
 	// DG::PopUpObserver
 	virtual void	PopUpChanged (const DG::PopUpChangeEvent& ev) override;
-
-	// DG::RadioItemObserver
-	virtual void	RadioItemChanged (const DG::RadioItemChangeEvent& ev) override;
-
-	// DG::CheckItemObserver
-	virtual void	CheckItemChanged (const DG::CheckItemChangeEvent& ev) override;
 
 	// Lecture de la maquette (scan complet, règles appliquées).
 	void	RunScan ();
@@ -102,14 +88,7 @@ private:
 	DG::LeftText		systemLabel;
 	DG::PopUp			systemPopup;
 	DG::MultiSelListBox	list;
-	DG::LeftText		modeLabel;
-	DG::RadioButton		bruteRadio;
-	DG::RadioButton		condRadio;
-	DG::RadioButton		netteRadio;
-	DG::LeftText		unitLabel;
-	DG::PopUp			unitPopup;
-	DG::CheckBox		openingsCheck;
-	DG::CheckBox		holesCheck;
+	DG::LeftText		settingsText;	// réglages de la correspondance (lecture seule)
 	DG::LeftText		calcLabel;
 	DG::LeftText		calcValueText;
 	DG::LeftText		retainedLabel;

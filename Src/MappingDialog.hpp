@@ -61,6 +61,9 @@ private:
 	void	FillList ();
 	void	OpenPickerForSelection ();	// clic sur un matériau -> liste des classes
 	void	OpenKeyPickerForSelection ();	// clic « Valeur clé » -> catalogue de clés
+	// Colonnes de réglages (Unité / Mode calcul / Déduit fenêtres / Déduit
+	// trous) : clic dans la ligne -> valeur suivante du cycle / bascule.
+	void	EditRuleCalcSetting (short setting);
 	void	SetStatus (const GS::UniString& message);
 
 	DG::LeftText		infoText;

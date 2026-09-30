@@ -96,14 +96,15 @@
 6    ""        Button_1
 }
 
-'GDLG' ID_ADDON_DLG_GDL Modal |noGrow   60   60  560 470  "CostWaves — Correspondances objets GDL" {
-/* [  1] */	LeftText                    10   12  540   30 LargePlain vTop | noTrunc Default ""
-/* [  2] */	MultiSelList                10   78  540  310 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  3] */	LeftText                    10  392  540   28 SmallPlain vTop | noTrunc Default ""
-/* [  4] */	Button                     420  436  130   23 LargePlain "Ajouter…"
+'GDLG' ID_ADDON_DLG_GDL Modal |noGrow   60   60  780 470  "CostWaves — Correspondances objets GDL" {
+/* [  1] */	LeftText                    10   12  760   30 LargePlain vTop | noTrunc Default ""
+/* [  2] */	MultiSelList                10   78  760  310 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	LeftText                    10  392  760   28 SmallPlain vTop | noTrunc Default ""
+/* [  4] */	Button                     640  436  130   23 LargePlain "Ajouter…"
 /* [  5] */	Button                      10  436  100   23 LargePlain "Fermer"
 /* [  6] */	LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
 /* [  7] */	PopupControl               125   47  425   22 80 3
+/* [  8] */	Button                     300  436  110   23 LargePlain "Supprimer"
 }
 
 'DLGH' ID_ADDON_DLG_GDL DLG_Gdl_Mapping {
@@ -114,6 +115,7 @@
 5    ""        Button_1
 6    ""        LeftText_2
 7    ""        PopupControl_0
+8    ""        Button_2
 }
 
 'GDLG' ID_ADDON_DLG_OBJPICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir l'objet" {
@@ -166,14 +168,15 @@
 15   ""        RadioButton_10
 }
 
-'GDLG' ID_ADDON_DLG_INHERITED Modal |noGrow   60   60  560 470  "CostWaves — Articles hérités" {
-/* [  1] */	LeftText                    10   12  540   30 LargePlain vTop | noTrunc Default ""
-/* [  2] */	MultiSelList                10   78  540  310 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  3] */	LeftText                    10  392  540   28 SmallPlain vTop | noTrunc Default ""
-/* [  4] */	Button                     420  436  130   23 LargePlain "Ajouter…"
+'GDLG' ID_ADDON_DLG_INHERITED Modal |noGrow   60   60  780 470  "CostWaves — Articles hérités" {
+/* [  1] */	LeftText                    10   12  760   30 LargePlain vTop | noTrunc Default ""
+/* [  2] */	MultiSelList                10   78  760  310 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	LeftText                    10  392  760   28 SmallPlain vTop | noTrunc Default ""
+/* [  4] */	Button                     640  436  130   23 LargePlain "Ajouter…"
 /* [  5] */	Button                      10  436  100   23 LargePlain "Fermer"
 /* [  6] */	LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
 /* [  7] */	PopupControl               125   47  425   22 80 3
+/* [  8] */	Button                     300  436  110   23 LargePlain "Supprimer"
 }
 
 'DLGH' ID_ADDON_DLG_INHERITED DLG_Inherited_Articles {
@@ -184,30 +187,24 @@
 5    ""        Button_1
 6    ""        LeftText_2
 7    ""        PopupControl_0
+8    ""        Button_2
 }
 
-'GDLG' ID_ADDON_DLG_QUANTITIES Modal |noGrow   60   60  780 592  "CostWaves — Quantitatif" {
+'GDLG' ID_ADDON_DLG_QUANTITIES Modal |noGrow   60   60  780 560  "CostWaves — Quantitatif" {
 /* [  1] */ LeftText                    10   12  760   28 SmallPlain vTop | noTrunc Default ""
 /* [  2] */ LeftText                    10   48  110   18 LargePlain vTop | noTrunc Default "Classification :"
 /* [  3] */ PopupControl               125   45  300   22 80 3
-/* [  4] */ MultiSelList                10   76  760  336 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  5] */ LeftText                    10  428  120   18 LargePlain vTop | noTrunc Default "Mode de calcul :"
-/* [  6] */ RadioButton                135  425   70   18 LargePlain 1 "Brute"
-/* [  7] */ RadioButton                210  425  120   18 LargePlain 1 "Conditionnelle"
-/* [  8] */ RadioButton                335  425   70   18 LargePlain 1 "Nette"
-/* [  9] */ LeftText                   420  428   50   18 LargePlain vTop | noTrunc Default "Unité :"
-/* [ 10] */ PopupControl               475  425   90   22 80 3
-/* [ 11] */ CheckBox                    10  452  300   20 LargePlain "Déduire les ouvertures (fenêtres, portes)"
-/* [ 12] */ CheckBox                   320  452  200   20 LargePlain "Déduire les trous"
-/* [ 13] */ LeftText                    10  484  130   18 LargePlain vTop | noTrunc Default "Quantité calculée :"
-/* [ 14] */ LeftText                   145  484  210   18 LargePlain vTop | noTrunc Default ""
-/* [ 15] */ LeftText                   360  484  120   18 LargePlain vTop | noTrunc Default "Quantité retenue :"
-/* [ 16] */ TextEdit                   485  481  100   23 LargePlain 32
-/* [ 17] */ Button                     595  480   80   23 LargePlain "Retenir"
-/* [ 18] */ Button                     685  480   85   23 LargePlain "Réinitialiser"
-/* [ 19] */ LeftText                    10  514  760   30 SmallPlain vTop | noTrunc Default ""
-/* [ 20] */ Button                     640  560  130   23 LargePlain "Recalculer"
-/* [ 21] */ Button                      10  560  100   23 LargePlain "Fermer"
+/* [  4] */ MultiSelList                10   76  760  360 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  5] */ LeftText                    10  446  760   18 LargePlain vTop | noTrunc Default ""
+/* [  6] */ LeftText                    10  474  130   18 LargePlain vTop | noTrunc Default "Quantité calculée :"
+/* [  7] */ LeftText                   145  474  240   18 LargePlain vTop | noTrunc Default ""
+/* [  8] */ LeftText                   390  474  120   18 LargePlain vTop | noTrunc Default "Quantité retenue :"
+/* [  9] */ TextEdit                   515  471   80   23 LargePlain 32
+/* [ 10] */ Button                     600  470   65   23 LargePlain "Retenir"
+/* [ 11] */ Button                     670  470  105   23 LargePlain "Réinitialiser"
+/* [ 12] */ LeftText                    10  504  760   30 SmallPlain vTop | noTrunc Default ""
+/* [ 13] */ Button                     640  532  130   23 LargePlain "Recalculer"
+/* [ 14] */ Button                      10  532  100   23 LargePlain "Fermer"
 }
 
 'DLGH' ID_ADDON_DLG_QUANTITIES DLG_Quantities {
@@ -216,20 +213,14 @@
 3    ""        PopupControl_0
 4    ""        MultiSelList_0
 5    ""        LeftText_2
-6    ""        RadioButton_0
-7    ""        RadioButton_1
-8    ""        RadioButton_2
-9    ""        LeftText_3
-10   ""        PopupControl_1
-11   ""        CheckBox_0
-12   ""        CheckBox_1
-13   ""        LeftText_4
-14   ""        LeftText_5
-15   ""        LeftText_6
-16   ""        TextEdit_0
-17   ""        Button_0
-18   ""        Button_1
-19   ""        LeftText_7
-20   ""        Button_2
-21   ""        Button_3
+6    ""        LeftText_3
+7    ""        LeftText_4
+8    ""        LeftText_5
+9    ""        TextEdit_0
+10   ""        Button_0
+11   ""        Button_1
+12   ""        LeftText_6
+13   ""        Button_2
+14   ""        Button_3
 }
+

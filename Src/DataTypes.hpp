@@ -148,6 +148,56 @@ struct CWSystemInfo {
 // --- Article CostWaves (phase 2) -------------------------------------------------
 
 // --- Règles de correspondance (nouvelle architecture) ----------------------------
+// Mode de calcul d'une quantité (unités géométriques m²/ml/m³) — réglé dans
+// la colonne « Mode calcul » de la fenêtre de correspondance (tous types)
+// et appliqué par le moteur du Quantitatif.
+enum class CWCalcMode {
+	Brute = 0,			// géométrie principale de l'élément
+	Conditionnelle = 1,	// conditions de l'article (ex. volume conditionné)
+	Nette = 2			// après déductions (ouvertures, trous)
+};
+
+// Libellé d'affichage (colonne « Mode calcul », traçabilité).
+inline const char* CWCalcModeLabel (CWCalcMode mode)
+{
+	switch (mode) {
+		case CWCalcMode::Brute:			return "Brute";
+		case CWCalcMode::Conditionnelle:	return "Conditionnelle";
+		case CWCalcMode::Nette:			return "Nette";
+	}
+	return "Brute";
+}
+
+// Clé JSON du mode (CostWaves-regles.json, champ « calcMode »).
+inline const char* CWCalcModeKey (CWCalcMode mode)
+{
+	switch (mode) {
+		case CWCalcMode::Brute:			return "brute";
+		case CWCalcMode::Conditionnelle:	return "conditionnelle";
+		case CWCalcMode::Nette:			return "nette";
+	}
+	return "brute";
+}
+
+// Cycle des unités de la colonne « Unité » (vide = auto : l'unité de
+// l'article de la base CostWaves).
+inline GS::UniString CWNextUnit (const GS::UniString& current)
+{
+	static const char* kCycle[] = { "", "m²", "ml", "m³", "u", "kg" };
+	const int kCount = 6;
+	for (int i = 0; i < kCount; ++i) {
+		if (GS::UniString (kCycle[i], CC_UTF8) == current)
+			return GS::UniString (kCycle[(i + 1) % kCount], CC_UTF8);
+	}
+	return GS::UniString ("m²", CC_UTF8);
+}
+
+// Affichage d'une unité de règle (« (auto) » = celle de l'article).
+inline GS::UniString CWUnitDisplay (const GS::UniString& unit)
+{
+	return unit.IsEmpty () ? GS::UniString ("(auto)", CC_UTF8) : unit;
+}
+
 // Une règle relie une structure native Archicad à un article CostWaves :
 //  - COMPOSITE ou PROFIL : mode Element = « lui-même » (1 article, quantités
 //    de l'élément) ; mode Component = « ses couches » (article vide — le métré
@@ -176,6 +226,14 @@ struct CWMapRule {
 	// clé GDL de type longueur différencie ses variantes (Ø125/Ø160…).
 	GS::UniString	valueKeyId;		// nom GDL stable (vide = aucune)
 	GS::UniString	valueKeyName;	// libellé d'affichage
+
+	// Réglages de calcul de la règle — édités DANS la ligne des fenêtres de
+	// correspondance (tous types) et appliqués par le moteur du Quantitatif.
+	GS::UniString	unit;				// "" = auto (unité de l'article CostWaves)
+	CWCalcMode		calcMode = CWCalcMode::Brute;	// Brute / Conditionnelle / Nette
+	bool			deductOpenings = true;	// déduire les ouvertures (surfaces)
+	bool			deductHoles = true;		// déduire les trous (surfaces)
+
 	bool		ignored = false;		// structure exclue du métré
 
 	CWMapRule () = default;
@@ -255,13 +313,6 @@ struct CWArticleSummary {
 };
 
 // --- Fenêtre « Quantitatif » (contrôle avant export) ------------------------------
-
-// Mode de calcul d'une quantité (unités géométriques m²/ml/m³).
-enum class CWCalcMode {
-	Brute = 0,			// géométrie principale de l'élément
-	Conditionnelle = 1,	// conditions de l'article (ex. volume conditionné)
-	Nette = 2			// après déductions (ouvertures, trous)
-};
 
 // Dimension portée par une unité — détermine les paramètres de calcul
 // disponibles (fenêtre Quantitatif).

@@ -31,7 +31,8 @@ GdlMappingDialog::GdlMappingDialog ()
 		addButton (GetReference (), AddButtonId),
 		closeButton (GetReference (), CloseButtonId),
 		systemLabel (GetReference (), SystemLabelId),
-		systemPopup (GetReference (), SystemPopupId)
+		systemPopup (GetReference (), SystemPopupId),
+		deleteButton (GetReference (), DeleteButtonId)
 {
 	infoText.SetText (FR ("Choisissez le système de classification, puis « Ajouter… » :")
 					  + FR (" l'objet de bibliothèque, sa classe (article) et sa valeur clé")
@@ -66,6 +67,8 @@ GdlMappingDialog::GdlMappingDialog ()
 	addButton.Attach (*this);
 	closeButton.Attach (*this);
 	systemPopup.Attach (*this);
+	list.Attach (*this);
+	deleteButton.Attach (*this);
 }
 
 
@@ -83,14 +86,20 @@ void GdlMappingDialog::FillList ()
 {
 	isFilling = true;
 
-	const short columnCount = 3;
+	// Colonnes : Objet | Article | Valeur clé | Unité | Mode calcul |
+	// Déduit fenêtres | Déduit trous — réglages éditables DANS la ligne.
+	const short columnCount = 7;
 	list.SetHeaderItemCount (columnCount);
 	list.SetTabFieldCount (columnCount);
 	list.SetHeaderItemText (1, FR ("Objet"));
 	list.SetHeaderItemText (2, FR ("Article"));
 	list.SetHeaderItemText (3, FR ("Valeur clé"));
+	list.SetHeaderItemText (4, FR ("Unité"));
+	list.SetHeaderItemText (5, FR ("Mode calcul"));
+	list.SetHeaderItemText (6, FR ("Déduit fen."));
+	list.SetHeaderItemText (7, FR ("Déduit trou"));
 
-	const short widths[3] = { 200, 170, 170 };
+	const short widths[7] = { 150, 160, 110, 56, 86, 60, 60 };
 	short position = 0;
 	for (short i = 1; i <= columnCount; ++i) {
 		list.SetHeaderItemSize (i, widths[i - 1]);
@@ -102,6 +111,7 @@ void GdlMappingDialog::FillList ()
 
 	while (list.GetItemCount () > 0)
 		list.DeleteItem (1);
+	visibleRules.Clear ();
 
 	USize count = 0;
 	for (UIndex r = 0; r < rules.GetSize (); ++r) {
@@ -124,7 +134,21 @@ void GdlMappingDialog::FillList ()
 			CostWavesStyle::CellMuted (list, item, 3);
 		else
 			CostWavesStyle::CellOk (list, item, 3);
+
+		list.SetTabItemText (item, 4, CWUnitDisplay (rules[r].unit));
+		list.SetTabItemText (item, 5, FR (CWCalcModeLabel (rules[r].calcMode)));
+		list.SetTabItemIcon (item, 6, DG::Icon (SysResModule,
+			static_cast<short> (rules[r].deductOpenings ? DG::ListBox::CheckedIcon : DG::ListBox::UncheckedIcon)));
+		list.SetTabItemIcon (item, 7, DG::Icon (SysResModule,
+			static_cast<short> (rules[r].deductHoles ? DG::ListBox::CheckedIcon : DG::ListBox::UncheckedIcon)));
+
+		visibleRules.Push (r + 1);
 	}
+
+	if (selectedRule < 1 || static_cast<UIndex> (selectedRule) > visibleRules.GetSize ())
+		selectedRule = visibleRules.GetSize () > 0 ? 1 : 0;
+	if (selectedRule >= 1)
+		list.SelectItem (selectedRule);
 
 	isFilling = false;
 
@@ -270,12 +294,198 @@ void GdlMappingDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 {
 	if (ev.GetSource () == &addButton) {
 		AddRule ();
+	} else if (ev.GetSource () == &deleteButton) {
+		DeleteSelectedRule ();
 	} else if (ev.GetSource () == &closeButton) {
 		// Fermer enregistre la bibliothèque (best effort).
 		GS::UniString error;
 		RuleLibrary::SaveRules (rules, error);
 		PostCloseRequest (DG::ModalDialog::Accept);
 	}
+}
+
+
+// Index 0-based de la règle affichée à la ligne sélectionnée (-1 si aucun).
+static short GdlSelectedRuleIndex (const GS::Array<UIndex>& visibleRules, short selectedRule)
+{
+	if (selectedRule < 1 || static_cast<UIndex> (selectedRule) > visibleRules.GetSize ())
+		return -1;
+	return static_cast<short> (visibleRules[static_cast<UIndex> (selectedRule) - 1] - 1);
+}
+
+
+void GdlMappingDialog::ListBoxClicked (const DG::ListBoxClickEvent& ev)
+{
+	if (ev.GetSource () != &list || isFilling)
+		return;
+
+	const short clicked = ev.GetListItem ();
+	if (clicked < 1 || static_cast<UIndex> (clicked) > visibleRules.GetSize ())
+		return;
+
+	selectedRule = clicked;
+	const short ruleIndex = GdlSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0)
+		return;
+
+	// Édition DANS la ligne : Article -> change (0 = supprime) ; Valeur clé
+	// -> paramètre de l'objet ; Unité / Mode -> valeur suivante ; cases
+	// Déduit fenêtres / Déduit trous -> bascule.
+	switch (ev.GetTabFieldIndex ()) {
+		case 2:
+			EditSelectedArticle ();
+			return;
+		case 3:
+			EditSelectedKey ();
+			return;
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+			EditSelectedCalcSetting (static_cast<short> (ev.GetTabFieldIndex () - 4));
+			return;
+		default:
+			break;
+	}
+}
+
+
+void GdlMappingDialog::EditSelectedArticle ()
+{
+	const short ruleIndex = GdlSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0)
+		return;
+	CWMapRule& rule = rules[ruleIndex];
+
+	if (articles.IsEmpty ()) {
+		SetStatus (FR ("Aucune classe — choisissez un système de classification."));
+		return;
+	}
+
+	ArticlePickerDialog articlePicker (articles);
+	articlePicker.Invoke ();
+	if (!articlePicker.IsAccepted ())
+		return;
+
+	const short articleIndex = articlePicker.GetSelectedArticleIndex ();
+	if (articleIndex == 0) {
+		// « (aucune) » : SUPPRIME la correspondance.
+		const GS::UniString objectName = rule.structureName;
+		rules.Delete (static_cast<UIndex> (ruleIndex));
+		selectedRule = 0;
+		FillList ();
+		SetStatus (FR ("Correspondance de « ") + objectName + FR (" » supprimée."));
+		return;
+	}
+	if (articleIndex >= 1 && static_cast<UIndex> (articleIndex) <= articles.GetSize ()) {
+		rule.articleId = articles[static_cast<UIndex> (articleIndex) - 1].id;
+		FillList ();
+		SetStatus (FR ("« ") + rule.structureName + FR (" » → ") + rule.articleId);
+	}
+}
+
+
+void GdlMappingDialog::EditSelectedKey ()
+{
+	const short ruleIndex = GdlSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0)
+		return;
+	CWMapRule& rule = rules[ruleIndex];
+
+	// TOUS les paramètres GDL avec leur type (colonne Type, double
+	// vérification), longueurs en tête et en gras.
+	GS::Array<CWGdlParam> params;
+	GS::UniString note;
+	GS::UniString alert;
+	if (!ModelReader::GetLibraryPartParameters (rule.structureName, params, note, alert)) {
+		SetStatus (FR ("« ") + rule.structureName + FR (" » : ") + note);
+		return;
+	}
+	if (!alert.IsEmpty ())
+		DG::WarningAlert (FR ("Valeurs clés limitées pour « ") + rule.structureName + FR (" »"),
+						  alert, FR ("OK"));
+	if (params.IsEmpty ()) {
+		SetStatus (FR ("« ") + rule.structureName + FR (" » : aucun paramètre (") + note + FR (")"));
+		return;
+	}
+
+	GdlItemPickerDialog paramPicker (ID_ADDON_DLG_PARAMPICKER, FR ("Valeur clé"), FR ("Nom GDL"),
+									 params, true, FR ("longueur"));
+	paramPicker.Invoke ();
+	if (!paramPicker.IsAccepted ())
+		return;
+
+	const short paramIndex = paramPicker.GetSelectedItemIndex ();
+	if (paramIndex == 0) {
+		rule.keyId.Clear ();
+		rule.keyName.Clear ();
+	} else if (paramIndex >= 1 && static_cast<UIndex> (paramIndex) <= params.GetSize ()) {
+		rule.keyId = params[static_cast<UIndex> (paramIndex) - 1].name;
+		rule.keyName = params[static_cast<UIndex> (paramIndex) - 1].label;
+	}
+
+	FillList ();
+	SetStatus (FR ("« ") + rule.structureName
+			   + (rule.keyName.IsEmpty () ? FR (" » : valeur clé retirée.")
+										  : FR (" » — valeur clé : ") + rule.keyName));
+}
+
+
+void GdlMappingDialog::EditSelectedCalcSetting (short setting)
+{
+	const short ruleIndex = GdlSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0)
+		return;
+	CWMapRule& rule = rules[ruleIndex];
+
+	switch (setting) {
+		case 0:
+			rule.unit = CWNextUnit (rule.unit);
+			SetStatus (FR ("« ") + rule.structureName + FR (" » — unité : ") + CWUnitDisplay (rule.unit));
+			break;
+		case 1:
+			rule.calcMode = static_cast<CWCalcMode> ((static_cast<int> (rule.calcMode) + 1) % 3);
+			SetStatus (FR ("« ") + rule.structureName + FR (" » — mode de calcul : ")
+					   + FR (CWCalcModeLabel (rule.calcMode)));
+			break;
+		case 2:
+			rule.deductOpenings = !rule.deductOpenings;
+			SetStatus (FR ("« ") + rule.structureName + FR (" » — déduire les ouvertures : ")
+					   + (rule.deductOpenings ? FR ("oui") : FR ("non")));
+			break;
+		default:
+			rule.deductHoles = !rule.deductHoles;
+			SetStatus (FR ("« ") + rule.structureName + FR (" » — déduire les trous : ")
+					   + (rule.deductHoles ? FR ("oui") : FR ("non")));
+			break;
+	}
+
+	FillList ();
+	isFilling = true;
+	if (selectedRule >= 1 && selectedRule <= list.GetItemCount ())
+		list.SelectItem (selectedRule);
+	isFilling = false;
+}
+
+
+void GdlMappingDialog::DeleteSelectedRule ()
+{
+	const short ruleIndex = GdlSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0) {
+		SetStatus (FR ("Sélectionnez une correspondance à supprimer."));
+		return;
+	}
+	const CWMapRule& rule = rules[ruleIndex];
+
+	if (DG::WarningAlert (FR ("Supprimer la correspondance de « ") + rule.structureName + FR (" » ?"),
+						  FR ("Article : ") + rule.articleId, FR ("Supprimer"), FR ("Annuler"))
+			!= DG::AlertResponse::Accept)
+		return;
+
+	rules.Delete (static_cast<UIndex> (ruleIndex));
+	selectedRule = 0;
+	FillList ();
+	SetStatus (FR ("Correspondance supprimée."));
 }
 
 } // namespace CostWaves

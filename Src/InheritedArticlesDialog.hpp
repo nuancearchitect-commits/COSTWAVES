@@ -29,6 +29,7 @@ namespace CostWaves {
 // d'origine n'est conservé qu'à titre documentaire. « Fermer » enregistre.
 class InheritedArticlesDialog final :	public DG::ModalDialog,
 										public DG::ButtonItemObserver,
+										public DG::ListBoxObserver,
 										public DG::PopUpObserver
 {
 public:
@@ -39,7 +40,8 @@ public:
 		AddButtonId		= 4,
 		CloseButtonId	= 5,
 		SystemLabelId	= 6,
-		SystemPopupId	= 7
+		SystemPopupId	= 7,
+		DeleteButtonId	= 8
 	};
 
 	InheritedArticlesDialog ();
@@ -48,12 +50,19 @@ private:
 	// DG::ButtonItemObserver
 	virtual void	ButtonClicked (const DG::ButtonClickEvent& ev) override;
 
+	// DG::ListBoxObserver
+	virtual void	ListBoxClicked (const DG::ListBoxClickEvent& ev) override;
+
 	// DG::PopUpObserver
 	virtual void	PopUpChanged (const DG::PopUpChangeEvent& ev) override;
 
 	void	RefreshArticles ();		// classes du système choisi
 	void	FillList ();
 	void	AddRule ();				// objet -> paramètre booléen -> article
+	void	EditSelectedArticle ();	// clic cellule Article hérité
+	void	EditSelectedValueKey ();	// clic cellule Valeur clé (objet -> paramètre)
+	void	EditSelectedCalcSetting (short setting);	// Unité / Mode / Déductions
+	void	DeleteSelectedRule ();	// bouton « Supprimer »
 	void	SetStatus (const GS::UniString& message);
 
 	DG::LeftText		infoText;
@@ -63,11 +72,14 @@ private:
 	DG::Button			closeButton;
 	DG::LeftText		systemLabel;
 	DG::PopUp			systemPopup;
+	DG::Button			deleteButton;
 
 	GS::Array<CWSystemInfo>	systems;		// systèmes de classification du projet
 	GS::Array<CWArticle>	articles;		// classes du système sélectionné
 	GS::Array<CWMapRule>	rules;			// bibliothèque de travail
+	GS::Array<UIndex>		visibleRules;	// index 1-based des règles affichées
 
+	short	selectedRule = 0;
 	bool	isFilling = false;
 };
 

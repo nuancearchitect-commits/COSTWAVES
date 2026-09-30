@@ -11,19 +11,25 @@ namespace CostWaves {
 
 // Fenêtre « Correspondances objets GDL » (bouton « Correspondance objets
 // GDL » de la palette) : liste des correspondances objet de bibliothèque
-// -> article + valeur clé (paramètre GDL). Autonome : système de
-// classification choisi dans son popup, règles chargées/enregistrées
+// -> article + valeur clé (paramètre GDL) + réglages de calcul (unité,
+// mode, déductions — colonnes éditables DANS la ligne). Autonome : système
+// de classification choisi dans son popup, règles chargées/enregistrées
 // dans la bibliothèque partagée (Documents/CostWaves-regles.json).
 // « Ajouter… » enchaîne trois choix :
 //  1) l'objet de bibliothèque (objets .gsm posables chargés, recherche) ;
 //  2) sa classe (article, système sélectionné) ;
 //  3) sa valeur clé : une variable GDL de TYPE LONGUEUR de l'objet
 //     (épaisseur, hauteur, dimensions…), ou « (aucune) ».
-// La classe « (aucune) » RETIRE la correspondance de l'objet.
+// ÉDITION dans la ligne : clic sur la cellule Article -> change l'article
+// (« (aucune) » supprime la correspondance) ; clic sur Valeur clé -> choix
+// du paramètre ; clic sur Unité / Mode calcul -> valeur suivante ; clic
+// sur les cases Déduit fenêtres / Déduit trous -> bascule.
+// « Supprimer » retire la correspondance sélectionnée (confirmation).
 // « Fermer » enregistre la bibliothèque (best effort).
 class GdlMappingDialog final :	public DG::ModalDialog,
-								public DG::ButtonItemObserver,
-								public DG::PopUpObserver
+					public DG::ButtonItemObserver,
+					public DG::ListBoxObserver,
+					public DG::PopUpObserver
 {
 public:
 	enum ItemIds {
@@ -33,7 +39,8 @@ public:
 		AddButtonId		= 4,
 		CloseButtonId	= 5,
 		SystemLabelId	= 6,
-		SystemPopupId	= 7
+		SystemPopupId	= 7,
+		DeleteButtonId	= 8
 	};
 
 	GdlMappingDialog ();
@@ -42,12 +49,19 @@ private:
 	// DG::ButtonItemObserver
 	virtual void	ButtonClicked (const DG::ButtonClickEvent& ev) override;
 
+	// DG::ListBoxObserver
+	virtual void	ListBoxClicked (const DG::ListBoxClickEvent& ev) override;
+
 	// DG::PopUpObserver
 	virtual void	PopUpChanged (const DG::PopUpChangeEvent& ev) override;
 
 	void	RefreshArticles ();		// classes du système choisi
 	void	FillList ();
 	void	AddRule ();				// objet -> article -> paramètre GDL
+	void	EditSelectedArticle ();	// clic cellule Article
+	void	EditSelectedKey ();		// clic cellule Valeur clé
+	void	EditSelectedCalcSetting (short setting);	// Unité / Mode / Déductions
+	void	DeleteSelectedRule ();	// bouton « Supprimer »
 	void	SetStatus (const GS::UniString& message);
 
 	DG::LeftText		infoText;
@@ -57,11 +71,14 @@ private:
 	DG::Button			closeButton;
 	DG::LeftText		systemLabel;
 	DG::PopUp			systemPopup;
+	DG::Button			deleteButton;
 
 	GS::Array<CWSystemInfo>	systems;		// systèmes de classification du projet
 	GS::Array<CWArticle>	articles;		// classes du système sélectionné
 	GS::Array<CWMapRule>	rules;			// bibliothèque de travail
+	GS::Array<UIndex>		visibleRules;	// index 1-based des règles affichées
 
+	short	selectedRule = 0;
 	bool	isFilling = false;
 };
 

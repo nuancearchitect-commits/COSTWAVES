@@ -382,6 +382,20 @@ bool RuleLibrary::LoadRules (GS::Array<CWMapRule>& outRules, GS::UniString& outE
 			&& JsonFieldText (entry, "mode") == US ("component"))
 			rule.mode = CWQuantMode::Component;
 
+		// Réglages de calcul (fenêtre de correspondance, tous types).
+		rule.unit = JsonFieldText (entry, "unit");
+		const GS::UniString calcModeKey = JsonFieldText (entry, "calcMode");
+		if (calcModeKey == US ("conditionnelle"))
+			rule.calcMode = CWCalcMode::Conditionnelle;
+		else if (calcModeKey == US ("nette"))
+			rule.calcMode = CWCalcMode::Nette;
+		const RuleJsonValue* openingsField = entry.Find ("deductOpenings");
+		if (openingsField != nullptr && openingsField->type == RuleJsonValue::Type::Bool)
+			rule.deductOpenings = openingsField->boolValue;
+		const RuleJsonValue* holesField = entry.Find ("deductHoles");
+		if (holesField != nullptr && holesField->type == RuleJsonValue::Type::Bool)
+			rule.deductHoles = holesField->boolValue;
+
 		const RuleJsonValue* ignoredField = entry.Find ("ignored");
 		if (ignoredField != nullptr && ignoredField->type == RuleJsonValue::Type::Bool)
 			rule.ignored = ignoredField->boolValue;
@@ -416,6 +430,10 @@ bool RuleLibrary::SaveRules (const GS::Array<CWMapRule>& rules, GS::UniString& o
 			+ US (", \"keyName\": ") + EscapeRuleText (rule.keyName)
 			+ US (", \"valueKey\": ") + EscapeRuleText (rule.valueKeyId)
 			+ US (", \"valueKeyName\": ") + EscapeRuleText (rule.valueKeyName)
+			+ US (", \"unit\": ") + EscapeRuleText (rule.unit)
+			+ US (", \"calcMode\": \"") + US (CWCalcModeKey (rule.calcMode))
+			+ US ("\", \"deductOpenings\": ") + US (rule.deductOpenings ? "true" : "false")
+			+ US (", \"deductHoles\": ") + US (rule.deductHoles ? "true" : "false")
 			+ US (", \"ignored\": ") + US (rule.ignored ? "true" : "false")
 			+ US (" }");
 		if (r + 1 < rules.GetSize ())

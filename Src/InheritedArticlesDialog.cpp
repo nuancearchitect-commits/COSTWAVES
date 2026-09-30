@@ -35,7 +35,8 @@ InheritedArticlesDialog::InheritedArticlesDialog ()
 		addButton (GetReference (), AddButtonId),
 		closeButton (GetReference (), CloseButtonId),
 		systemLabel (GetReference (), SystemLabelId),
-		systemPopup (GetReference (), SystemPopupId)
+		systemPopup (GetReference (), SystemPopupId),
+		deleteButton (GetReference (), DeleteButtonId)
 {
 	infoText.SetText (FR ("Un article hérité naît d'un paramètre BOOLÉEN activé (tablette, seuil,")
 					  + FR (" volet…), quel que soit l'objet qui le porte. « Ajouter… » :")
@@ -71,6 +72,8 @@ InheritedArticlesDialog::InheritedArticlesDialog ()
 	addButton.Attach (*this);
 	closeButton.Attach (*this);
 	systemPopup.Attach (*this);
+	list.Attach (*this);
+	deleteButton.Attach (*this);
 }
 
 
@@ -88,14 +91,20 @@ void InheritedArticlesDialog::FillList ()
 {
 	isFilling = true;
 
-	const short columnCount = 3;
+	// Colonnes : Paramètre (booléen) | Article hérité | Valeur clé | Unité |
+	// Mode calcul | Déduit fenêtres | Déduit trous — éditables DANS la ligne.
+	const short columnCount = 7;
 	list.SetHeaderItemCount (columnCount);
 	list.SetTabFieldCount (columnCount);
 	list.SetHeaderItemText (1, FR ("Paramètre (booléen)"));
 	list.SetHeaderItemText (2, FR ("Article hérité"));
 	list.SetHeaderItemText (3, FR ("Valeur clé"));
+	list.SetHeaderItemText (4, FR ("Unité"));
+	list.SetHeaderItemText (5, FR ("Mode calcul"));
+	list.SetHeaderItemText (6, FR ("Déduit fen."));
+	list.SetHeaderItemText (7, FR ("Déduit trou"));
 
-	const short widths[3] = { 200, 170, 170 };
+	const short widths[7] = { 150, 160, 110, 56, 86, 60, 60 };
 	short position = 0;
 	for (short i = 1; i <= columnCount; ++i) {
 		list.SetHeaderItemSize (i, widths[i - 1]);
@@ -107,6 +116,7 @@ void InheritedArticlesDialog::FillList ()
 
 	while (list.GetItemCount () > 0)
 		list.DeleteItem (1);
+	visibleRules.Clear ();
 
 	USize count = 0;
 	for (UIndex r = 0; r < rules.GetSize (); ++r) {
@@ -131,7 +141,21 @@ void InheritedArticlesDialog::FillList ()
 			CostWavesStyle::CellMuted (list, item, 3);
 		else
 			CostWavesStyle::CellOk (list, item, 3);
+
+		list.SetTabItemText (item, 4, CWUnitDisplay (rules[r].unit));
+		list.SetTabItemText (item, 5, FR (CWCalcModeLabel (rules[r].calcMode)));
+		list.SetTabItemIcon (item, 6, DG::Icon (SysResModule,
+			static_cast<short> (rules[r].deductOpenings ? DG::ListBox::CheckedIcon : DG::ListBox::UncheckedIcon)));
+		list.SetTabItemIcon (item, 7, DG::Icon (SysResModule,
+			static_cast<short> (rules[r].deductHoles ? DG::ListBox::CheckedIcon : DG::ListBox::UncheckedIcon)));
+
+		visibleRules.Push (r + 1);
 	}
+
+	if (selectedRule < 1 || static_cast<UIndex> (selectedRule) > visibleRules.GetSize ())
+		selectedRule = visibleRules.GetSize () > 0 ? 1 : 0;
+	if (selectedRule >= 1)
+		list.SelectItem (selectedRule);
 
 	isFilling = false;
 
@@ -317,12 +341,226 @@ void InheritedArticlesDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
 {
 	if (ev.GetSource () == &addButton) {
 		AddRule ();
+	} else if (ev.GetSource () == &deleteButton) {
+		DeleteSelectedRule ();
 	} else if (ev.GetSource () == &closeButton) {
 		// Fermer enregistre la bibliothèque (best effort).
 		GS::UniString error;
 		RuleLibrary::SaveRules (rules, error);
 		PostCloseRequest (DG::ModalDialog::Accept);
 	}
+}
+
+
+// Index 0-based de la règle affichée à la ligne sélectionnée (-1 si aucun).
+static short InheritedSelectedRuleIndex (const GS::Array<UIndex>& visibleRules, short selectedRule)
+{
+	if (selectedRule < 1 || static_cast<UIndex> (selectedRule) > visibleRules.GetSize ())
+		return -1;
+	return static_cast<short> (visibleRules[static_cast<UIndex> (selectedRule) - 1] - 1);
+}
+
+
+void InheritedArticlesDialog::ListBoxClicked (const DG::ListBoxClickEvent& ev)
+{
+	if (ev.GetSource () != &list || isFilling)
+		return;
+
+	const short clicked = ev.GetListItem ();
+	if (clicked < 1 || static_cast<UIndex> (clicked) > visibleRules.GetSize ())
+		return;
+
+	selectedRule = clicked;
+	const short ruleIndex = InheritedSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0)
+		return;
+
+	// Édition DANS la ligne : Article hérité -> change (0 = supprime) ;
+	// Valeur clé -> objet puis paramètre longueur ; Unité / Mode ->
+	// valeur suivante ; cases Déduit fenêtres / Déduit trous -> bascule.
+	switch (ev.GetTabFieldIndex ()) {
+		case 2:
+			EditSelectedArticle ();
+			return;
+		case 3:
+			EditSelectedValueKey ();
+			return;
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+			EditSelectedCalcSetting (static_cast<short> (ev.GetTabFieldIndex () - 4));
+			return;
+		default:
+			break;
+	}
+}
+
+
+void InheritedArticlesDialog::EditSelectedArticle ()
+{
+	const short ruleIndex = InheritedSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0)
+		return;
+	CWMapRule& rule = rules[ruleIndex];
+
+	if (articles.IsEmpty ()) {
+		SetStatus (FR ("Aucune classe — choisissez un système de classification."));
+		return;
+	}
+
+	ArticlePickerDialog articlePicker (articles);
+	articlePicker.Invoke ();
+	if (!articlePicker.IsAccepted ())
+		return;
+
+	const short articleIndex = articlePicker.GetSelectedArticleIndex ();
+	if (articleIndex == 0) {
+		// « (aucune) » : SUPPRIME la règle.
+		const GS::UniString boolName = rule.keyName.IsEmpty () ? rule.keyId : rule.keyName;
+		rules.Delete (static_cast<UIndex> (ruleIndex));
+		selectedRule = 0;
+		FillList ();
+		SetStatus (FR ("Règle du booléen « ") + boolName + FR (" » supprimée."));
+		return;
+	}
+	if (articleIndex >= 1 && static_cast<UIndex> (articleIndex) <= articles.GetSize ()) {
+		rule.articleId = articles[static_cast<UIndex> (articleIndex) - 1].id;
+		FillList ();
+		SetStatus (FR ("« ") + (rule.keyName.IsEmpty () ? rule.keyId : rule.keyName)
+				   + FR (" » → ") + rule.articleId);
+	}
+}
+
+
+void InheritedArticlesDialog::EditSelectedValueKey ()
+{
+	const short ruleIndex = InheritedSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0)
+		return;
+	CWMapRule& rule = rules[ruleIndex];
+
+	// La valeur clé se choisit depuis un objet : navigateur d'objets puis
+	// paramètre de type longueur (le booléen, lui, reste inchangé).
+	GS::Array<GS::UniString> objectNames;
+	RuleLibrary::CollectAvailableStructures (CWStructureType::LibraryPart, objectNames);
+	if (objectNames.IsEmpty ()) {
+		SetStatus (FR ("Aucun objet de bibliothèque posable n'est chargé."));
+		return;
+	}
+
+	GS::Array<CWGdlParam> objectItems;
+	for (UIndex o = 0; o < objectNames.GetSize (); ++o) {
+		CWGdlParam object;
+		object.label = objectNames[o];
+		objectItems.Push (object);
+	}
+
+	GdlItemPickerDialog objectPicker (ID_ADDON_DLG_OBJPICKER, FR ("Objet (pour lister ses paramètres)"), FR (""),
+									 objectItems, false);
+	objectPicker.Invoke ();
+	if (!objectPicker.IsAccepted ())
+		return;
+
+	const short objectIndex = objectPicker.GetSelectedItemIndex ();
+	if (objectIndex < 1 || static_cast<UIndex> (objectIndex) > objectNames.GetSize ())
+		return;
+	const GS::UniString objectName = objectNames[static_cast<UIndex> (objectIndex) - 1];
+
+	GS::Array<CWGdlParam> lengthParams;
+	GS::UniString lengthNote;
+	GS::UniString lengthAlert;
+	if (!ModelReader::GetLibraryPartParameters (objectName, lengthParams, lengthNote, lengthAlert)) {
+		SetStatus (FR ("« ") + objectName + FR (" » : ") + lengthNote);
+		return;
+	}
+	if (!lengthAlert.IsEmpty ())
+		DG::WarningAlert (FR ("Valeurs clés limitées pour « ") + objectName + FR (" »"),
+						  lengthAlert, FR ("OK"));
+	if (lengthParams.IsEmpty ()) {
+		SetStatus (FR ("« ") + objectName + FR (" » : aucun paramètre (") + lengthNote + FR (")"));
+		return;
+	}
+
+	GdlItemPickerDialog valuePicker (ID_ADDON_DLG_PARAMPICKER, FR ("Valeur clé"), FR ("Nom GDL"),
+									 lengthParams, true, FR ("longueur"));
+	valuePicker.Invoke ();
+	if (!valuePicker.IsAccepted ())
+		return;
+
+	const short valueIndex = valuePicker.GetSelectedItemIndex ();
+	if (valueIndex == 0) {
+		rule.valueKeyId.Clear ();
+		rule.valueKeyName.Clear ();
+	} else if (valueIndex >= 1 && static_cast<UIndex> (valueIndex) <= lengthParams.GetSize ()) {
+		rule.valueKeyId = lengthParams[static_cast<UIndex> (valueIndex) - 1].name;
+		rule.valueKeyName = lengthParams[static_cast<UIndex> (valueIndex) - 1].label;
+	}
+
+	FillList ();
+	SetStatus (FR ("« ") + (rule.keyName.IsEmpty () ? rule.keyId : rule.keyName)
+			   + (rule.valueKeyName.IsEmpty () ? FR (" » : valeur clé retirée.")
+											   : FR (" » — valeur clé : ") + rule.valueKeyName));
+}
+
+
+void InheritedArticlesDialog::EditSelectedCalcSetting (short setting)
+{
+	const short ruleIndex = InheritedSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0)
+		return;
+	CWMapRule& rule = rules[ruleIndex];
+	const GS::UniString boolName = rule.keyName.IsEmpty () ? rule.keyId : rule.keyName;
+
+	switch (setting) {
+		case 0:
+			rule.unit = CWNextUnit (rule.unit);
+			SetStatus (FR ("« ") + boolName + FR (" » — unité : ") + CWUnitDisplay (rule.unit));
+			break;
+		case 1:
+			rule.calcMode = static_cast<CWCalcMode> ((static_cast<int> (rule.calcMode) + 1) % 3);
+			SetStatus (FR ("« ") + boolName + FR (" » — mode de calcul : ")
+					   + FR (CWCalcModeLabel (rule.calcMode)));
+			break;
+		case 2:
+			rule.deductOpenings = !rule.deductOpenings;
+			SetStatus (FR ("« ") + boolName + FR (" » — déduire les ouvertures : ")
+					   + (rule.deductOpenings ? FR ("oui") : FR ("non")));
+			break;
+		default:
+			rule.deductHoles = !rule.deductHoles;
+			SetStatus (FR ("« ") + boolName + FR (" » — déduire les trous : ")
+					   + (rule.deductHoles ? FR ("oui") : FR ("non")));
+			break;
+	}
+
+	FillList ();
+	isFilling = true;
+	if (selectedRule >= 1 && selectedRule <= list.GetItemCount ())
+		list.SelectItem (selectedRule);
+	isFilling = false;
+}
+
+
+void InheritedArticlesDialog::DeleteSelectedRule ()
+{
+	const short ruleIndex = InheritedSelectedRuleIndex (visibleRules, selectedRule);
+	if (ruleIndex < 0) {
+		SetStatus (FR ("Sélectionnez une règle à supprimer."));
+		return;
+	}
+	const CWMapRule& rule = rules[ruleIndex];
+	const GS::UniString boolName = rule.keyName.IsEmpty () ? rule.keyId : rule.keyName;
+
+	if (DG::WarningAlert (FR ("Supprimer la règle du booléen « ") + boolName + FR (" » ?"),
+						  FR ("Article hérité : ") + rule.articleId, FR ("Supprimer"), FR ("Annuler"))
+			!= DG::AlertResponse::Accept)
+		return;
+
+	rules.Delete (static_cast<UIndex> (ruleIndex));
+	selectedRule = 0;
+	FillList ();
+	SetStatus (FR ("Règle supprimée."));
 }
 
 } // namespace CostWaves

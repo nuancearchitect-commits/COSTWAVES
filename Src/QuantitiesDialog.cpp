@@ -30,16 +30,8 @@ GS::UniString FormatQuantity (double value)
 // Libellé du mode de calcul (colonne « Mode calcul »).
 GS::UniString CalcModeLabel (const CWQuantityLine& line)
 {
-	switch (line.calcMode) {
-		case CWCalcMode::Brute:			return FR ("Brute");
-		case CWCalcMode::Conditionnelle:	return FR ("Conditionnelle");
-		case CWCalcMode::Nette:			return FR ("Nette");
-	}
-	return FR ("—");
+	return FR (CWCalcModeLabel (line.calcMode));
 }
-
-// Unités proposées en changement (l'unité CostWaves reste la valeur par défaut).
-const char* kStandardUnits[] = { "m²", "ml", "m³", "u", "kg" };
 
 } // namespace
 
@@ -50,14 +42,7 @@ QuantitiesDialog::QuantitiesDialog ()
 		systemLabel (GetReference (), SystemLabelId),
 		systemPopup (GetReference (), SystemPopupId),
 		list (GetReference (), ListId),
-		modeLabel (GetReference (), ModeLabelId),
-		bruteRadio (GetReference (), BruteRadioId),
-		condRadio (GetReference (), CondRadioId),
-		netteRadio (GetReference (), NetteRadioId),
-		unitLabel (GetReference (), UnitLabelId),
-		unitPopup (GetReference (), UnitPopupId),
-		openingsCheck (GetReference (), OpeningsCheckId),
-		holesCheck (GetReference (), HolesCheckId),
+		settingsText (GetReference (), SettingsTextId),
 		calcLabel (GetReference (), CalcLabelId),
 		calcValueText (GetReference (), CalcValueTextId),
 		retainedLabel (GetReference (), RetainedLabelId),
@@ -101,13 +86,7 @@ QuantitiesDialog::QuantitiesDialog ()
 	applyRetainedButton.Attach (*this);
 	resetRetainedButton.Attach (*this);
 	systemPopup.Attach (*this);
-	unitPopup.Attach (*this);
 	list.Attach (*this);
-	bruteRadio.Attach (*this);
-	condRadio.Attach (*this);
-	netteRadio.Attach (*this);
-	openingsCheck.Attach (*this);
-	holesCheck.Attach (*this);
 }
 
 
@@ -247,65 +226,30 @@ void QuantitiesDialog::FillTable ()
 
 void QuantitiesDialog::UpdateDetailPanel ()
 {
-	isFilling = true;
-
 	const CWQuantityLine* line = SelectedLine ();
 
 	if (line == nullptr) {
+		settingsText.SetText (GS::UniString ());
 		calcValueText.SetText (FR ("—"));
 		retainedEdit.SetText (GS::UniString ());
 		hintText.SetText (FR ("Aucun article quantifié — vérifiez les correspondances")
 						  + FR (" et la classification du projet."));
-		isFilling = false;
 		return;
 	}
 
-	// Mode de calcul : trois boutons radio UNIQUEMENT pour les unités
-	// géométriques (m², ml, m³) — les autres articles sont comptés.
-	const bool geometric = line->dimension != CWQtyDimension::Unitary;
-	const bool surface = line->dimension == CWQtyDimension::Surface;
-
-	if (geometric) {
-		modeLabel.SetText (FR ("Mode de calcul :"));
-		modeLabel.Show ();
-		bruteRadio.Show ();
-		condRadio.Show ();
-		netteRadio.Show ();
-		switch (line->calcMode) {
-			case CWCalcMode::Brute:			bruteRadio.Select ();	break;
-			case CWCalcMode::Conditionnelle:	condRadio.Select ();	break;
-			case CWCalcMode::Nette:			netteRadio.Select ();	break;
-		}
-	} else {
-		modeLabel.Hide ();
-		bruteRadio.Hide ();
-		condRadio.Hide ();
-		netteRadio.Hide ();
-	}
-
-	// Unité : liste limitée à l'unité courante + les unités standard.
-	while (unitPopup.GetItemCount () > 0)
-		unitPopup.DeleteItem (1);
-	unitPopup.AppendItem ();
-	unitPopup.SetItemText (1, line->unit);
-	for (int u = 0; u < 5; ++u) {
-		if (FR (kStandardUnits[u]) == line->unit)
-			continue;
-		unitPopup.AppendItem ();
-		unitPopup.SetItemText (unitPopup.GetItemCount (), FR (kStandardUnits[u]));
-	}
-	unitPopup.SelectItem (1);
-
-	// Paramètres de calcul (surface) : déductions visibles et contrôlables.
-	if (surface) {
-		openingsCheck.Show ();
-		holesCheck.Show ();
-		openingsCheck.SetState (line->deductOpenings);
-		holesCheck.SetState (line->deductHoles);
-	} else {
-		openingsCheck.Hide ();
-		holesCheck.Hide ();
-	}
+	// Réglages de calcul : ils viennent de la CORRESPONDANCE (colonnes
+	// Unité / Mode calcul / Déduit fenêtres / Déduit trous de la ligne,
+	// fenêtres Matériaux, objets GDL, articles hérités) — affichage en
+	// lecture seule ici.
+	GS::UniString settings = FR ("Réglages de la correspondance — unité : ") + line->unit
+		+ FR (" · mode : ") + FR (CWCalcModeLabel (line->calcMode));
+	if (line->dimension == CWQtyDimension::Surface)
+		settings += FR (" · déduit fenêtres : ") + (line->deductOpenings ? FR ("oui") : FR ("non"))
+				 + FR (" · déduit trous : ") + (line->deductHoles ? FR ("oui") : FR ("non"));
+	else if (line->dimension != CWQtyDimension::Unitary)
+		settings += FR (" · déductions : surfaces uniquement");
+	settingsText.SetText (settings);
+	CostWavesStyle::ApplyHelp (settingsText);
 
 	// Quantité calculée (jamais perdue) + note du mode courant.
 	GS::UniString calc = FormatQuantity (line->calculatedQuantity) + FR (" ") + line->unit;
@@ -321,8 +265,6 @@ void QuantitiesDialog::UpdateDetailPanel ()
 					  + GS::ToUniString (std::to_wstring (static_cast<int> (line->elementCount)))
 					  + FR (" élément(s) pour la sélection · cliquez la colonne")
 					  + FR (" « Source » pour la traçabilité complète."));
-
-	isFilling = false;
 }
 
 
@@ -467,64 +409,8 @@ void QuantitiesDialog::PopUpChanged (const DG::PopUpChangeEvent& ev)
 		RunScan ();
 		RebuildLines ();
 		FillTable ();
-	} else if (ev.GetSource () == &unitPopup) {
-		// Unité modifiée : adapte la dimension et les paramètres disponibles,
-		// puis recalcule la quantité.
-		CWQuantityLine* line = SelectedLine ();
-		if (line == nullptr)
-			return;
-		const short selection = unitPopup.GetSelectedItem ();
-		if (selection >= 1 && selection <= unitPopup.GetItemCount ())
-			line->unit = unitPopup.GetItemText (selection);
-		RebuildLines ();
-		FillTable ();
 	}
 }
 
-
-void QuantitiesDialog::RadioItemChanged (const DG::RadioItemChangeEvent& /*ev*/)
-{
-	if (isFilling)
-		return;
-
-	CWQuantityLine* line = SelectedLine ();
-	if (line == nullptr)
-		return;
-
-	// Mode de calcul : la quantité est recalculée automatiquement.
-	if (bruteRadio.IsSelected ())
-		line->calcMode = CWCalcMode::Brute;
-	else if (condRadio.IsSelected ())
-		line->calcMode = CWCalcMode::Conditionnelle;
-	else if (netteRadio.IsSelected ())
-		line->calcMode = CWCalcMode::Nette;
-	else
-		return;
-
-	RebuildLines ();
-	FillTable ();
-}
-
-
-void QuantitiesDialog::CheckItemChanged (const DG::CheckItemChangeEvent& ev)
-{
-	if (isFilling)
-		return;
-
-	CWQuantityLine* line = SelectedLine ();
-	if (line == nullptr)
-		return;
-
-	// Paramètre de calcul modifié : recalcul automatique.
-	if (ev.GetSource () == &openingsCheck)
-		line->deductOpenings = openingsCheck.IsChecked ();
-	else if (ev.GetSource () == &holesCheck)
-		line->deductHoles = holesCheck.IsChecked ();
-	else
-		return;
-
-	RebuildLines ();
-	FillTable ();
-}
 
 } // namespace CostWaves

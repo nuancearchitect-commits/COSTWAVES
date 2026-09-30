@@ -356,6 +356,16 @@ Bouton **« Matériaux, composites et profils… »** :
   matériau, position de la couche, nombre de couches) ; « — (aucune) »
   retire la clé. La valeur de la clé sera exploitée au métré
   (différenciation des articles — étape suivante) ;
+- **Réglages de calcul dans la ligne** (colonne Classe remplie) :
+  - **Unité** — le clic fait tourner `auto → m² → ml → m³ → u → kg` ;
+    « (auto) » = l'unité de l'article de la base CostWaves ;
+  - **Mode calcul** — le clic fait tourner `Brute → Conditionnelle →
+    Nette` (liste déroulante dans la ligne, pas de boutons radio) ;
+  - **Déduit fen. / Déduit trou** — cases à cocher (le clic bascule) :
+    déduire les ouvertures / les trous des surfaces nettes.
+  Ces réglages sont enregistrés dans la bibliothèque (fichiers `unit`,
+  `calcMode`, `deductOpenings`, `deductHoles` du JSON) et **appliqués par le
+  moteur du Quantitatif** ;
 - **Objets GDL** (bouton « Objets GDL… » sur la palette) : fenêtre autonome avec son système de
   classification ; « Ajouter… » enchaîne : choix de l'objet (.gsm posables
   chargés, recherche), sa classe (article), puis sa valeur clé parmi les
@@ -363,6 +373,15 @@ Bouton **« Matériaux, composites et profils… »** :
   dimensions… — libellé + nom GDL) ; la classe « (aucune) » retire la
   correspondance. Règles enregistrées dans la même bibliothèque
   (type « object ») ;
+- **édition DANS la ligne** (fenêtres Objets GDL et Articles hérités) : clic
+  sur la colonne **Article** → changement (choix « (aucune) » = suppression
+  de la règle) ; clic sur **Valeur clé** → re-choix du paramètre longueur
+  de l'objet ; les colonnes Unité / Mode calcul / Déduit fen. / Déduit trou
+  fonctionnent comme dans la fenêtre des matériaux ;
+- **bouton Supprimer** (fenêtres Objets GDL et Articles hérités) : supprime
+  la correspondance sélectionnée après confirmation ; dans la fenêtre
+  Matériaux, composites et profils, la colonne Classe « (aucune) » retire
+  déjà la règle ;
 - **colonne Type** dans les sélecteurs de paramètres GDL (double
   vérification) : TOUS les paramètres sont listés avec leur type GDL
   (longueur, bool, entier, texte…) ; ceux du type attendu apparaissent en
@@ -421,8 +440,8 @@ classification) :
 |---|---|
 | **Article** | `id — libellé` de la base CostWaves |
 | **Source** | origine Archicad (cliquable — voir traçabilité) : « Matériau — Béton 25 », « Composite — MUR_EXT_30 », « Objet GDL — Fenêtre PVC »… ; « (+N) » si l'article a plusieurs origines |
-| **Unité** | unité de l'article, **modifiable** (m², ml, m³, u, kg) — le changement adapte la dimension et les paramètres de calcul |
-| **Mode calcul** | **Brute / Conditionnelle / Nette** pour les unités géométriques (m², ml, m³) ; les unités non géométriques (u, kg…) sont comptées (pas de boutons radio affichés) |
+| **Unité** | unité retenue : celle imposée par la **règle de correspondance** si elle en fixe une, sinon celle de l'article CostWaves |
+| **Mode calcul** | **Brute / Conditionnelle / Nette** — réglé dans la **colonne de la règle** (fenêtre de correspondance) ; les unités non géométriques (u, kg…) sont comptées |
 | **Quantité** | quantité retenue ; « * » = corrigée manuellement |
 
 - **Moteur aligné sur la correspondance** : pour chaque élément, le moteur
@@ -438,17 +457,14 @@ classification) :
   La traçabilité (clic Source) affiche le mode de la règle (« calculé pour
   lui-même ») et, pour une couche, le composite d'où elle vient (« via
   MUR_EXT_30 ») ;
-- **Mode de calcul** (panneau du bas, article sélectionné) :
-  - **Brute** — géométrie principale de l'élément (surface de référence,
-    volume, longueur) ;
-  - **Conditionnelle** — conditions de l'article : le **volume conditionné**
-    des connexions pour le m³ (note « aucune condition disponible » sinon) ;
-  - **Nette** — après déductions : **surface brute − ouvertures − exclusions** ;
-    les déductions sont des **paramètres visibles et contrôlables**
-    (cases « Déduire les ouvertures (fenêtres, portes) », « Déduire les
-    trous ») ;
-  - la quantité est **recalculée automatiquement** à chaque changement de
-    mode, d'unité ou de paramètre.
+- **Réglages pilotés par la correspondance** : l'unité, le mode de calcul
+  (**Brute** — géométrie principale ; **Conditionnelle** — volume conditionné
+  des connexions pour le m³ ; **Nette** — après déductions ouvertures/trous)
+  et les déductions viennent des **colonnes de la règle** dans les fenêtres
+  de correspondance (tous types) — le panneau du bas du Quantitatif les
+  **affiche en lecture seule** (plus de boutons radio ni cases ici) ;
+  modifier un réglage = ouvrir la fenêtre de correspondance, cliquer la
+  cellule de la ligne, puis « Recalculer ».
 - **Quantité retenue vs calculée** : correction manuelle possible (« Retenir »)
   ; « Réinitialiser » revient à la valeur calculée ; **la quantité calculée
   d'origine n'est jamais perdue** (affichée en permanence dans le panneau).
@@ -457,9 +473,11 @@ classification) :
   source et valeur clé) → Mode de calcul → Paramètres → Quantité calculée /
   retenue* — comprendre **pourquoi** une quantité a été obtenue avant de
   l'envoyer.
-- **Recalculer** relit la maquette ; les réglages (unité, mode, déductions)
-  et les corrections manuelles sont conservés par article pendant la
-  session (persistance sur fichier : prochaine étape).
+- **Recalculer** relit la maquette en ré-appliquant les réglages des règles
+  (unité, mode, déductions — persistés dans la bibliothèque de
+  correspondances) ; les corrections manuelles de quantité sont conservées
+  par article pendant la session (persistance sur fichier : prochaine
+  étape).
 
 *Limites actuelles (incrément 1)* : les **articles hérités** (booléens) ne
 sont pas encore comptés dans la lecture (ils le seront dès que le lecteur

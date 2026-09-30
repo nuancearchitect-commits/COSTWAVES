@@ -2314,9 +2314,11 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 	};
 
 	// Contribution d'une quantité (élément ou skin) à un article : crée la
-	// ligne au premier passage, conserve les réglages de l'affichage
-	// précédent (unité, mode, déductions, correction manuelle).
-	auto addContribution = [&] (const CWArticle& article, const GS::UniString& ruleQuantity,
+	// ligne au premier passage. Les RÉGLAGES DE CALCUL (unité, mode,
+	// déductions) viennent de la RÈGLE de correspondance (fenêtres
+	// Matériaux / objets GDL / articles hérités) ; seule la correction
+	// manuelle de la quantité est conservée de l'affichage précédent.
+	auto addContribution = [&] (const CWArticle& article, const CWMapRule* rule,
 								const GS::Array<CWQuantity>& quantities,
 								CWSourceType sourceType, const GS::UniString& sourceText,
 								const GS::UniString& sourceDetail) {
@@ -2331,13 +2333,18 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 			CWQuantityLine line;
 			line.articleId = article.id;
 			line.articleName = article.name;
-			line.unit = article.unit.IsEmpty () ? FR ("u") : article.unit;
+			// Unité : celle de la RÈGLE si elle en impose une, sinon l'article.
+			if (rule != nullptr && !rule->unit.IsEmpty ())
+				line.unit = rule->unit;
+			else
+				line.unit = article.unit.IsEmpty () ? FR ("u") : article.unit;
+			if (rule != nullptr) {
+				line.calcMode = rule->calcMode;
+				line.deductOpenings = rule->deductOpenings;
+				line.deductHoles = rule->deductHoles;
+			}
 			for (UIndex p = 0; p < previousLines.GetSize (); ++p) {
 				if (previousLines[p].articleId == article.id) {
-					line.unit = previousLines[p].unit;
-					line.calcMode = previousLines[p].calcMode;
-					line.deductOpenings = previousLines[p].deductOpenings;
-					line.deductHoles = previousLines[p].deductHoles;
 					line.manualOverride = previousLines[p].manualOverride;
 					line.retainedQuantity = previousLines[p].retainedQuantity;
 					break;
@@ -2361,8 +2368,8 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 		} else {
 			CWArticle effective = article;
 			effective.unit = line.unit;
-			if (!ruleQuantity.IsEmpty ())
-				effective.calcQuantity = ruleQuantity;
+			if (rule != nullptr && !rule->quantity.IsEmpty ())
+				effective.calcQuantity = rule->quantity;
 			const double base = QuantityForArticle (effective, quantities);
 			quantity = QuantityByMode (line.dimension, line.calcMode,
 									   line.deductOpenings, line.deductHoles,
@@ -2443,7 +2450,10 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 				GS::UniString sourceText;
 				GS::UniString sourceDetail;
 				SourceForRow (row, rules, sourceType, sourceText, sourceDetail);
-				addContribution (*article, row.ruleQuantity, row.quantities,
+				const CWMapRule* rowRule = row.hasRule
+					? RuleLibrary::FindRule (rules, row.structureType, row.structureName)
+					: nullptr;
+				addContribution (*article, rowRule, row.quantities,
 								 sourceType, sourceText, sourceDetail);
 			}
 		}
@@ -2468,7 +2478,10 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 			if (!component.compositeName.IsEmpty ())
 				skinDetail = FR ("via ") + component.compositeName;
 
-			addContribution (*skinArticle, component.ruleQuantity, component.quantities,
+			const CWMapRule* materialRule = RuleLibrary::FindRule (rules,
+																	 CWStructureType::BuildingMaterial,
+																	 component.label);
+			addContribution (*skinArticle, materialRule, component.quantities,
 							 CWSourceType::MaterialRule,
 							 FR ("Matériau — ") + component.label, skinDetail);
 		}

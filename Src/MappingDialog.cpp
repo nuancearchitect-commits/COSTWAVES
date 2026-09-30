@@ -137,9 +137,11 @@ void MappingDialog::FillList ()
 
 	const bool materialMode = IsMaterialMode ();
 	const CWStructureType structureType = CurrentType ();
-	// Matériau : Matériau | Classe | Valeur clé.
-	// Composite/profil : Composite | case à cocher | Article | Valeur clé.
-	const short columnCount = materialMode ? 3 : 4;
+	// Matériau : Matériau | Classe | Unité | Mode | Déduit | Déduit | Clé.
+	// Composite/profil : Composite | case | Article | Unité | Mode | Déduit |
+	// Déduit | Clé. Les réglages de calcul (tous types) se changent DANS la
+	// ligne : Unité et Mode au clic (cycle), déductions par case à cocher.
+	const short columnCount = materialMode ? 7 : 8;
 
 	list.SetHeaderItemCount (columnCount);
 	list.SetTabFieldCount (columnCount);
@@ -152,17 +154,22 @@ void MappingDialog::FillList ()
 		list.SetHeaderItemText (2, FR (""));
 		list.SetHeaderItemText (3, FR ("Article"));
 	}
+	const short unitColumn = materialMode ? 3 : 4;
+	list.SetHeaderItemText (unitColumn, FR ("Unité"));
+	list.SetHeaderItemText (static_cast<short> (unitColumn + 1), FR ("Mode calcul"));
+	list.SetHeaderItemText (static_cast<short> (unitColumn + 2), FR ("Déduit fen."));
+	list.SetHeaderItemText (static_cast<short> (unitColumn + 3), FR ("Déduit trou"));
 	list.SetHeaderItemText (columnCount, FR ("Valeur clé"));
 
-	const short widthsMaterial[3] = { 200, 210, 250 };
-	const short widthsStructure[4] = { 170, 50, 200, 240 };
+	const short widthsMaterial[7] = { 150, 150, 56, 86, 60, 60, 118 };
+	const short widthsStructure[8] = { 130, 32, 140, 56, 86, 60, 60, 116 };
 	short position = 0;
 	for (short i = 1; i <= columnCount; ++i) {
 		const short width = materialMode ? widthsMaterial[i - 1] : widthsStructure[i - 1];
 		list.SetHeaderItemSize (i, width);
 		list.SetHeaderItemSizeableFlag (i, true);
 		list.SetTabFieldProperties (i, position, static_cast<short> (position + width),
-									 DG::ListBox::Left, DG::ListBox::MiddleTruncate, i > 1);
+									DG::ListBox::Left, DG::ListBox::MiddleTruncate, i > 1);
 		position = static_cast<short> (position + width);
 	}
 
@@ -214,9 +221,24 @@ void MappingDialog::FillList ()
 			}
 		}
 
+		// Colonnes de réglages de calcul (tous types) : Unité / Mode /
+		// Déduit fenêtres / Déduit trous — éditables au clic dans la ligne.
+		if (rule != nullptr && !rule->articleId.IsEmpty ()) {
+			list.SetTabItemText (item, unitColumn, CWUnitDisplay (rule->unit));
+			list.SetTabItemText (item, static_cast<short> (unitColumn + 1),
+								 FR (CWCalcModeLabel (rule->calcMode)));
+			list.SetTabItemIcon (item, static_cast<short> (unitColumn + 2), DG::Icon (SysResModule,
+				static_cast<short> (rule->deductOpenings ? DG::ListBox::CheckedIcon : DG::ListBox::UncheckedIcon)));
+			list.SetTabItemIcon (item, static_cast<short> (unitColumn + 3), DG::Icon (SysResModule,
+				static_cast<short> (rule->deductHoles ? DG::ListBox::CheckedIcon : DG::ListBox::UncheckedIcon)));
+		} else {
+			list.SetTabItemText (item, unitColumn, FR ("—"));
+			list.SetTabItemText (item, static_cast<short> (unitColumn + 1), FR ("—"));
+		}
+
 		// Dernière colonne : « Valeur clé » — paramètre différenciant les
 		// articles d'une même classe (ex. épaisseur). « — » = aucun.
-		const short keyColumn = materialMode ? 3 : 4;
+		const short keyColumn = columnCount;
 		if (rule != nullptr && !rule->keyName.IsEmpty ()) {
 			++withKey;
 			list.SetTabItemText (item, keyColumn, rule->keyName);
@@ -400,14 +422,73 @@ void MappingDialog::ListBoxClicked (const DG::ListBoxClickEvent& ev)
 	selectedMaterial = clicked;
 
 	// Colonne « Valeur clé » -> catalogue des paramètres différenciants
-	// (clés calculées + propriétés Archicad) ; le reste de la ligne ->
-	// classe (article). Matériau, composite et profil suivent le même
-	// schéma.
-	const short keyColumn = IsMaterialMode () ? 3 : 4;
-	if (ev.GetTabFieldIndex () == keyColumn)
+	// (clés calculées + propriétés Archicad) ; colonnes de réglages
+	// (Unité / Mode calcul / Déduit fenêtre / Déduit trou) -> changement
+	// DANS la ligne ; le reste de la ligne -> classe (article). Matériau,
+	// composite et profil suivent le même schéma.
+	const short keyColumn = IsMaterialMode () ? 7 : 8;
+	const short unitColumn = IsMaterialMode () ? 3 : 4;
+	const short tab = ev.GetTabFieldIndex ();
+	if (tab == keyColumn)
 		OpenKeyPickerForSelection ();
+	else if (tab >= unitColumn && tab <= static_cast<short> (unitColumn + 3))
+		EditRuleCalcSetting (static_cast<short> (tab - unitColumn));
 	else
 		OpenPickerForSelection ();
+}
+
+
+void MappingDialog::EditRuleCalcSetting (short setting)
+{
+	if (selectedMaterial < 1 || static_cast<UIndex> (selectedMaterial) > materials.GetSize ())
+		return;
+
+	const CWStructureType structureType = CurrentType ();
+	const GS::UniString materialName = materials[static_cast<UIndex> (selectedMaterial) - 1];
+
+	for (UIndex r = 0; r < rules.GetSize (); ++r) {
+		if (rules[r].structureType != structureType || rules[r].structureName != materialName)
+			continue;
+		if (rules[r].articleId.IsEmpty ()) {
+			SetStatus (FR ("« ") + materialName + FR (" » : choisissez d'abord sa classe (article)."));
+			return;
+		}
+
+		// Cycle Unité (auto -> m² -> ml -> m³ -> u -> kg) / Mode calcul
+		// (Brute -> Conditionnelle -> Nette) / bascule des déductions.
+		GS::UniString message;
+		switch (setting) {
+			case 0:
+				rules[r].unit = CWNextUnit (rules[r].unit);
+				message = FR ("« ") + materialName + FR (" » — unité : ") + CWUnitDisplay (rules[r].unit);
+				break;
+			case 1:
+				rules[r].calcMode = static_cast<CWCalcMode> ((static_cast<int> (rules[r].calcMode) + 1) % 3);
+				message = FR ("« ") + materialName + FR (" » — mode de calcul : ")
+					+ FR (CWCalcModeLabel (rules[r].calcMode));
+				break;
+			case 2:
+				rules[r].deductOpenings = !rules[r].deductOpenings;
+				message = FR ("« ") + materialName + FR (" » — déduire les ouvertures : ")
+					+ (rules[r].deductOpenings ? FR ("oui") : FR ("non"));
+				break;
+			default:
+				rules[r].deductHoles = !rules[r].deductHoles;
+				message = FR ("« ") + materialName + FR (" » — déduire les trous : ")
+					+ (rules[r].deductHoles ? FR ("oui") : FR ("non"));
+				break;
+		}
+
+		FillList ();
+		SetStatus (message);
+		isFilling = true;
+		if (selectedMaterial >= 1 && selectedMaterial <= list.GetItemCount ())
+			list.SelectItem (selectedMaterial);
+		isFilling = false;
+		return;
+	}
+
+	SetStatus (FR ("« ") + materialName + FR (" » : choisissez d'abord sa classe (article)."));
 }
 
 
