@@ -1,0 +1,26 @@
+# Build outputs
+Build/
+build*/
+out/
+cmake-build-*/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+
+# Compiled add-on
+*.apx
+*.bundle
+*.pdb
+*.rsr
+*.res
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,248 @@
+#include "ResourceIds.hpp"
+
+'STR#' ID_ADDON_INFO "Add-on Name and Description" {
+/* [  1] */		"CostWaves"
+/* [  2] */		"Correspondances materiaux Archicad - articles CostWaves"
+}
+
+'STR#' ID_ADDON_MENU "Add-On Menu" {
+/* [   ] */		"NUANCE BIM"
+/* [  1] */		"COSTWAVES... ^E3 ^ES ^EE ^EI ^ED ^ET ^10001"
+}
+
+'GDLG' ID_ADDON_DLG Palette | grow | close   40   40  360 372  "CostWaves" {
+/* [  1] */ LeftText                     0    0  360   40 LargePlain noTrunc Default ""
+/* [  2] */ LeftText                    10   50  340   30 SmallPlain vTop | noTrunc Default ""
+/* [  3] */ LeftText                    10   90  340   16 SmallPlain vTop | noTrunc Default ""
+/* [  4] */ Button                       10  110  340   24 LargePlain "Matériaux, composites et profils…"
+/* [  5] */ LeftText                    10  136  340   16 SmallPlain vTop | noTrunc Default ""
+/* [  6] */ Button                       10  158  340   24 LargePlain "Objets GDL…"
+/* [  7] */ LeftText                    10  184  340   16 SmallPlain vTop | noTrunc Default ""
+/* [  8] */ Button                       10  206  340   24 LargePlain "Articles hérités…"
+/* [  9] */ LeftText                    10  232  340   16 SmallPlain vTop | noTrunc Default ""
+/* [ 10] */ LeftText                    10  310  340   48 SmallPlain noTrunc Default ""
+/* [ 11] */ Button                       10  254  340   24 LargePlain "Quantitatif…"
+/* [ 12] */ LeftText                    10  280  340   16 SmallPlain vTop | noTrunc Default ""
+}
+
+'DLGH' ID_ADDON_DLG DLG_CostWaves_Palette {
+1    ""        LeftText_0
+2    ""        LeftText_1
+3    ""        LeftText_2
+4    ""        Button_0
+5    ""        LeftText_3
+6    ""        Button_1
+7    ""        LeftText_4
+8    ""        Button_2
+9    ""        LeftText_5
+10   ""        LeftText_6
+11   ""        Button_3
+12   ""        LeftText_7
+}
+
+'GDLG' ID_ADDON_DLG_PICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir une classe" {
+/* [  1] */ SearchEdit                   10   12  540   22 LargePlain frame | update | absolute | editable 60
+/* [  2] */ MultiSelList                10   44  540  330 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */ Button                      350  390  100   23 LargePlain "Choisir"
+/* [  4] */ Button                     450  390  100   23 LargePlain "Annuler"
+}
+
+'DLGH' ID_ADDON_DLG_PICKER DLG_Article_Picker {
+1    ""        SearchEdit_0
+2    ""        MultiSelList_0
+3    ""        Button_0
+4    ""        Button_1
+}
+
+'GDLG' ID_ADDON_DLG_MAPPING Modal |noGrow   60   60  700 620  "CostWaves — Correspondances matériaux" {
+/* [  1] */ LeftText                    10   12  680   30 LargePlain vTop | noTrunc Default ""
+/* [  2] */ LeftText                    10   50   50   18 LargePlain vTop | noTrunc Default "Type :"
+/* [  3] */ PopupControl                65   47  150   22 80 3
+/* [  4] */ LeftText                   230   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
+/* [  5] */ PopupControl               345   47  345   22 80 3
+/* [  6] */ MultiSelList                10   80  680  380 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  7] */ LeftText                    10  472  680   36 SmallPlain vTop | noTrunc Default ""
+/* [  8] */ Button                     560  580  130   23 LargePlain "Enregistrer"
+/* [  9] */ Button                     430  580  130   23 LargePlain "Fermer"
+}
+
+'DLGH' ID_ADDON_DLG_MAPPING DLG_Mapping {
+1    ""        LeftText_0
+2    ""        LeftText_1
+3    ""        PopupControl_0
+4    ""        LeftText_2
+5    ""        PopupControl_1
+6    ""        MultiSelList_0
+7    ""        LeftText_3
+8    ""        Button_0
+9    ""        Button_1
+}
+
+'GDLG' ID_ADDON_DLG_KEYPICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir la valeur clé" {
+/* [  1] */	SearchEdit                   10   12  540   22 LargePlain frame | update | absolute | editable 60
+/* [  2] */	LeftText                    10   44   60   18 LargePlain vTop | noTrunc Default "Groupe :"
+/* [  3] */	PopupControl                75   41  475   22 80 3
+/* [  4] */	MultiSelList                10   72  540  302 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  5] */	Button                      350  390  100   23 LargePlain "Choisir"
+/* [  6] */	Button                     450  390  100   23 LargePlain "Annuler"
+}
+
+'DLGH' ID_ADDON_DLG_KEYPICKER DLG_Key_Picker {
+1    ""        SearchEdit_0
+2    ""        LeftText_0
+3    ""        PopupControl_0
+4    ""        MultiSelList_0
+5    ""        Button_0
+6    ""        Button_1
+}
+
+'GDLG' ID_ADDON_DLG_GDL Modal |noGrow   60   60  780 470  "CostWaves — Correspondances objets GDL" {
+/* [  1] */	LeftText                    10   12  760   30 LargePlain vTop | noTrunc Default ""
+/* [  2] */	MultiSelList                10   78  760  310 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	LeftText                    10  392  760   28 SmallPlain vTop | noTrunc Default ""
+/* [  4] */	Button                     640  436  130   23 LargePlain "Ajouter…"
+/* [  5] */	Button                      10  436  100   23 LargePlain "Fermer"
+/* [  6] */	LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
+/* [  7] */	PopupControl               125   47  425   22 80 3
+/* [  8] */	Button                     300  436  110   23 LargePlain "Supprimer"
+}
+
+'DLGH' ID_ADDON_DLG_GDL DLG_Gdl_Mapping {
+1    ""        LeftText_0
+2    ""        MultiSelList_0
+3    ""        LeftText_1
+4    ""        Button_0
+5    ""        Button_1
+6    ""        LeftText_2
+7    ""        PopupControl_0
+8    ""        Button_2
+}
+
+'GDLG' ID_ADDON_DLG_OBJPICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir l'objet" {
+/* [  1] */	SearchEdit                   10   12  540   22 LargePlain frame | update | absolute | editable 60
+/* [  2] */	MultiSelList                10   44  540  330 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	Button                      350  390  100   23 LargePlain "Choisir"
+/* [  4] */	Button                     450  390  100   23 LargePlain "Annuler"
+}
+
+'DLGH' ID_ADDON_DLG_OBJPICKER DLG_Object_Picker {
+1    ""        SearchEdit_0
+2    ""        MultiSelList_0
+3    ""        Button_0
+4    ""        Button_1
+}
+
+'GDLG' ID_ADDON_DLG_PARAMPICKER Modal |noGrow   60   60  660  460  "CostWaves — Choisir le paramètre GDL" {
+/* [  1] */	SearchEdit                   10   12  640   22 LargePlain frame | update | absolute | editable 60
+/* [  2] */	MultiSelList                10   62  640  312 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	Button                      450  390  100   23 LargePlain "Choisir"
+/* [  4] */	Button                      550  390  100   23 LargePlain "Annuler"
+/* [  5] */	RadioButton                 10   40   56   18 LargePlain 1 "Tous"
+/* [  6] */	RadioButton                 68   40   56   18 LargePlain 1 ""
+/* [  7] */	RadioButton                126   40   56   18 LargePlain 1 ""
+/* [  8] */	RadioButton                184   40   56   18 LargePlain 1 ""
+/* [  9] */	RadioButton                242   40   56   18 LargePlain 1 ""
+/* [ 10] */	RadioButton                300   40   56   18 LargePlain 1 ""
+/* [ 11] */	RadioButton                358   40   56   18 LargePlain 1 ""
+/* [ 12] */	RadioButton                416   40   56   18 LargePlain 1 ""
+/* [ 13] */	RadioButton                474   40   56   18 LargePlain 1 ""
+/* [ 14] */	RadioButton                532   40   56   18 LargePlain 1 ""
+/* [ 15] */	RadioButton                590   40   56   18 LargePlain 1 ""
+}
+
+'DLGH' ID_ADDON_DLG_PARAMPICKER DLG_Param_Picker {
+1    ""        SearchEdit_0
+2    ""        MultiSelList_0
+3    ""        Button_0
+4    ""        Button_1
+5    ""        RadioButton_0
+6    ""        RadioButton_1
+7    ""        RadioButton_2
+8    ""        RadioButton_3
+9    ""        RadioButton_4
+10   ""        RadioButton_5
+11   ""        RadioButton_6
+12   ""        RadioButton_7
+13   ""        RadioButton_8
+14   ""        RadioButton_9
+15   ""        RadioButton_10
+}
+
+'GDLG' ID_ADDON_DLG_INHERITED Modal |noGrow   60   60  780 470  "CostWaves — Articles hérités" {
+/* [  1] */	LeftText                    10   12  760   30 LargePlain vTop | noTrunc Default ""
+/* [  2] */	MultiSelList                10   78  760  310 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	LeftText                    10  392  760   28 SmallPlain vTop | noTrunc Default ""
+/* [  4] */	Button                     640  436  130   23 LargePlain "Ajouter…"
+/* [  5] */	Button                      10  436  100   23 LargePlain "Fermer"
+/* [  6] */	LeftText                    10   50  110   18 LargePlain vTop | noTrunc Default "Classification :"
+/* [  7] */	PopupControl               125   47  425   22 80 3
+/* [  8] */	Button                     300  436  110   23 LargePlain "Supprimer"
+}
+
+'DLGH' ID_ADDON_DLG_INHERITED DLG_Inherited_Articles {
+1    ""        LeftText_0
+2    ""        MultiSelList_0
+3    ""        LeftText_1
+4    ""        Button_0
+5    ""        Button_1
+6    ""        LeftText_2
+7    ""        PopupControl_0
+8    ""        Button_2
+}
+
+'GDLG' ID_ADDON_DLG_QUANTITIES Modal |noGrow   60   60  780 560  "CostWaves — Quantitatif" {
+/* [  1] */ LeftText                    10   12  760   28 SmallPlain vTop | noTrunc Default ""
+/* [  2] */ LeftText                    10   48  110   18 LargePlain vTop | noTrunc Default "Classification :"
+/* [  3] */ PopupControl               125   45  300   22 80 3
+/* [  4] */ MultiSelList                10   76  760  360 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  5] */ LeftText                    10  446  760   18 LargePlain vTop | noTrunc Default ""
+/* [  6] */ LeftText                    10  474  130   18 LargePlain vTop | noTrunc Default "Quantité calculée :"
+/* [  7] */ LeftText                   145  474  240   18 LargePlain vTop | noTrunc Default ""
+/* [  8] */ LeftText                   390  474  120   18 LargePlain vTop | noTrunc Default "Quantité retenue :"
+/* [  9] */ TextEdit                   515  471   80   23 LargePlain 32
+/* [ 10] */ Button                     600  470   65   23 LargePlain "Retenir"
+/* [ 11] */ Button                     670  470  105   23 LargePlain "Réinitialiser"
+/* [ 12] */ LeftText                    10  504  760   30 SmallPlain vTop | noTrunc Default ""
+/* [ 13] */ Button                     640  532  130   23 LargePlain "Recalculer"
+/* [ 14] */ Button                      10  532  100   23 LargePlain "Fermer"
+}
+
+'DLGH' ID_ADDON_DLG_QUANTITIES DLG_Quantities {
+1    ""        LeftText_0
+2    ""        LeftText_1
+3    ""        PopupControl_0
+4    ""        MultiSelList_0
+5    ""        LeftText_2
+6    ""        LeftText_3
+7    ""        LeftText_4
+8    ""        LeftText_5
+9    ""        TextEdit_0
+10   ""        Button_0
+11   ""        Button_1
+12   ""        LeftText_6
+13   ""        Button_2
+14   ""        Button_3
+}
+
+'GDLG' ID_ADDON_DLG_FORMULA Modal |noGrow   60   60  560 460  "CostWaves — Formule de quantité" {
+/* [  1] */ LeftText                    10   12  540   44 SmallPlain vTop | noTrunc Default ""
+/* [  2] */ LeftText                    10   62  540   16 LargePlain vTop | noTrunc Default "Formule :"
+/* [  3] */ TextEdit                    10   84  540   23 LargePlain 256
+/* [  4] */ LeftText                    10  116  540   16 LargePlain vTop | noTrunc Default "Variables disponibles (double-clic = insérer) :"
+/* [  5] */ MultiSelList                10  140  540  250 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  6] */ Button                      10  424  110   23 LargePlain "Vider"
+/* [  7] */ Button                     310  424  110   23 LargePlain "Annuler"
+/* [  8] */ Button                     440  424  110   23 LargePlain "OK"
+}
+
+'DLGH' ID_ADDON_DLG_FORMULA DLG_Formula_Editor {
+1    ""        LeftText_0
+2    ""        LeftText_1
+3    ""        TextEdit_0
+4    ""        LeftText_2
+5    ""        MultiSelList_0
+6    ""        Button_0
+7    ""        Button_1
+8    ""        Button_2
+}
+

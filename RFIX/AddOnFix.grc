@@ -1,0 +1,12 @@
+/* CostWaves Add-On identifier.
+   MDID: Developer ID / Local ID pair delivered by Graphisoft
+   (https://archicadapi.graphisoft.com/profile/add-ons). */
+
+'MDID' 32500 "CostWaves Add-On Identifier" {
+	944130148 /* Developer ID */
+	396703700 /* Local ID */
+}
+
+'GICN' 10001 "AddOnIcon" {
+	"AddOnIcon"
+}
