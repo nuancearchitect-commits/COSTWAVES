@@ -875,3 +875,18 @@ Les choix définitifs de contenu des phases suivantes seront revalidés avant co
   handle du marquee à libérer).
 - MDID fournis par Graphisoft (https://archicadapi.graphisoft.com/profile/add-ons) —
   le build « distribution » doit être fait avec `AC_ADDON_FOR_DISTRIBUTION=ON`.
+
+## 8. Continuité web — COSTWAVES-IFC
+
+Le prototype **[COSTWAVES-IFC](https://github.com/nuancearchitect-commits/COSTWAVES-IFC)**
+(déclinaison navigateur du métré : chargement d'un IFC → éléments / quantités / Psets →
+**même `CostWaves-regles.json`** → métré avec variantes par valeur clé, formules
+[port JS du `FormulaEvaluator`] et quantités retenues) est publié en parallèle de ce add-on :
+
+- page : https://nuancearchitect-commits.github.io/COSTWAVES-IFC/
+- parsing 100 % client (web-ifc WASM), aucune donnée envoyée ;
+- le format de règles est commun : toute évolution faite ici (`quantityFormula`,
+  `objectBool`, etc.) est répercutée là-bas.
+
+Il sert de **validation du modèle sur fichiers IFC réels** : si le métré passe sur la page
+web avec un IFC d'essai, le même JSON de règles pilote le add-on dans Archicad.
