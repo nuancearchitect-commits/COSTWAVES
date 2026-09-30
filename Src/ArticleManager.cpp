@@ -2023,11 +2023,18 @@ double ArticleManager::ComputeBilledQuantity (const CWArticle& article, const CW
 {
 	// Nouvelle architecture (spec §4) : la RÈGLE de correspondance peut imposer
 	// la quantité à adopter — elle prime sur la règle de calcul du catalogue.
+	// La FORMULE de quantité (objets GDL, articles hérités) prime sur tout :
+	// variables = paramètres GDL de l'occurrence (poussés à la lecture)
+	// + quantités Archicad de la ligne.
+	const bool rowFormula = !row.ruleQuantityFormula.IsEmpty ();
 	const CWArticle* effectiveArticle = &article;
 	CWArticle ruleAdjusted;
-	if (!row.ruleQuantity.IsEmpty ()) {
+	if (!row.ruleQuantity.IsEmpty () || rowFormula) {
 		ruleAdjusted = article;
-		ruleAdjusted.calcQuantity = row.ruleQuantity;
+		if (!row.ruleQuantity.IsEmpty ())
+			ruleAdjusted.calcQuantity = row.ruleQuantity;
+		if (rowFormula)
+			ruleAdjusted.calcFormula = row.ruleQuantityFormula;
 		effectiveArticle = &ruleAdjusted;
 	}
 
@@ -2042,18 +2049,30 @@ double ArticleManager::ComputeBilledQuantity (const CWArticle& article, const CW
 	if (row.isNumberedGroup)
 		return 1.0;
 
+	// Formule de la règle : s'applique MÊME au comptage (ex. A / 0.625
+	// lames — l'article au « u » reçoit le résultat de la formule).
+	if (rowFormula)
+		return QuantityForArticle (*effectiveArticle, row.quantities);
+
 	// Facturation à l'ensemble (forfait) : 1 par ligne facturée.
 	if (IsEnsUnit (effectiveArticle->unit))
 		return 1.0;
 
 	if (row.isGroupRow) {
 		// Ensemble facturé dans l'unité de l'article : somme des quantités
-		// des membres selon la règle de calcul de l'article.
+		// des membres — chaque membre garde SA quantité à adopter et SA
+		// formule de règle le cas échéant.
 		double total = 0.0;
 		for (UIndex m = 0; m < row.groupMembers.GetSize (); ++m) {
 			const CWElementRow* member = FindRowByGuid (allRows, row.groupMembers[m]);
-			if (member != nullptr)
-				total += QuantityForArticle (*effectiveArticle, member->quantities);
+			if (member == nullptr)
+				continue;
+			CWArticle memberEffective = *effectiveArticle;
+			if (!member->ruleQuantity.IsEmpty ())
+				memberEffective.calcQuantity = member->ruleQuantity;
+			if (!member->ruleQuantityFormula.IsEmpty ())
+				memberEffective.calcFormula = member->ruleQuantityFormula;
+			total += QuantityForArticle (memberEffective, member->quantities);
 		}
 		return total;
 	}

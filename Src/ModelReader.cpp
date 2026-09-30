@@ -2140,6 +2140,7 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 				row.ruleArticleId = structureRule->articleId;
 				row.ruleMode = structureRule->mode;
 				row.ruleQuantity = structureRule->quantity;
+				row.ruleQuantityFormula = structureRule->quantityFormula;
 			}
 			if (elementClassified) {
 				row.classItemId = item.id;
@@ -2219,6 +2220,7 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 			inheritedRow.ruleMode = CWQuantMode::Element;
 			inheritedRow.ruleQuantity = inheritedRule.quantity;
 			inheritedRow.ruleKeyId = inheritedRule.keyId;	// retrouve la règle au métré
+			inheritedRow.ruleQuantityFormula = inheritedRule.quantityFormula;
 			if (haveElemIdProp)
 				inheritedRow.elementId = GetElementIdValue (elemGuid, elemIdPropGuid);
 			// L'article hérité est TOUJOURS compté : il ne reprend ni la

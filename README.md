@@ -381,7 +381,10 @@ Bouton **« Matériaux, composites et profils… »** :
   l'unité, sinon comptage). La formule s'applique **même au comptage**
   (ex. `A / 0.625` lames) et prime sur la formule de l'article ; son
   résultat est dans l'unité de la règle (colonne Unité). Enregistrée dans
-  la bibliothèque (fichier `quantityFormula` du JSON) ;
+  la bibliothèque (fichier `quantityFormula` du JSON). Elle est appliquée
+  PARTOUT : fenêtre Quantitatif, **récapitulatif par article et exports
+  (JSON, CSV, payload API)** — chaque membre d'un ensemble garde sa
+  propre formule ;
 - **Objets GDL** (bouton « Objets GDL… » sur la palette) : fenêtre autonome avec son système de
   classification ; « Ajouter… » enchaîne : choix de l'objet (.gsm posables
   chargés, recherche), sa classe (article), puis sa valeur clé parmi les
@@ -526,13 +529,15 @@ classification) :
   par article pendant la session (persistance sur fichier : prochaine
   étape).
 
-*Limites actuelles (incrément 3)* : la différenciation par valeur clé
-s'applique à la **fenêtre Quantitatif** (le tableau principal et l'export
-API/CSV regroupent encore par article sans variante — prochaine étape) ;
-**profils complexes** sans valeur clé lisible ; ensembles/groupes non
-consommés (lecture sans propriété de groupe) ; « Conditionnelle » n'exploite
-que le volume conditionné ; les corrections manuelles ne survivent pas à la
-fermeture de la fenêtre.
+*Limites actuelles (incrément 4)* : la différenciation par **valeur clé**
+(variantes Ø125/Ø160) s'applique à la **fenêtre Quantitatif** — le
+récapitulatif et les exports API/CSV regroupent encore par article sans
+variante (prochaine étape) ; **profils complexes** sans valeur clé lisible ;
+ensembles/groupes non consommés (lecture sans propriété de groupe) ;
+« Conditionnelle » n'exploite que le volume conditionné ; les corrections
+manuelles ne survivent pas à la fermeture de la fenêtre. Les **formules de
+quantité** (objets GDL, articles hérités) s'appliquent partout, y compris
+récapitulatif et exports.
 
 ## 3. Build (Windows)
 
