@@ -367,6 +367,12 @@ Bouton **« Matériaux, composites et profils… »** :
   vérification) : TOUS les paramètres sont listés avec leur type GDL
   (longueur, bool, entier, texte…) ; ceux du type attendu apparaissent en
   tête avec le type en gras ;
+- **filtre par type** dans le sélecteur de paramètres : une rangée de
+  boutons radio sous la recherche (« Tous » + un bouton par type
+  réellement présent) filtre la liste par type — **rien n'est filtré à
+  l'ouverture** (« Tous » sélectionné), le filtre ne s'applique que sur
+  un clic et se combine avec la recherche (l'entrée « (aucune) » reste
+  toujours visible) ;
 - **Articles hérités** (bouton « Articles hérités » sur la palette) : un
   article hérité naît d'un **paramètre booléen activé** (tablette, seuil,
   volet…), **quel que soit l'objet qui le porte** — le même nom de

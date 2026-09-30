@@ -126,11 +126,22 @@
 4    ""        Button_1
 }
 
-'GDLG' ID_ADDON_DLG_PARAMPICKER Modal |noGrow   60   60  560 460  "CostWaves — Choisir le paramètre GDL" {
-/* [  1] */	SearchEdit                   10   12  540   22 LargePlain frame | update | absolute | editable 60
-/* [  2] */	MultiSelList                10   44  540  330 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
-/* [  3] */	Button                      350  390  100   23 LargePlain "Choisir"
-/* [  4] */	Button                     450  390  100   23 LargePlain "Annuler"
+'GDLG' ID_ADDON_DLG_PARAMPICKER Modal |noGrow   60   60  660  460  "CostWaves — Choisir le paramètre GDL" {
+/* [  1] */	SearchEdit                   10   12  640   22 LargePlain frame | update | absolute | editable 60
+/* [  2] */	MultiSelList                10   62  640  312 SmallPlain PartialItems HVScroll 21 HasHeader 21 HasFrame
+/* [  3] */	Button                      450  390  100   23 LargePlain "Choisir"
+/* [  4] */	Button                      550  390  100   23 LargePlain "Annuler"
+/* [  5] */	RadioButton                 10   40   56   18 LargePlain 1 "Tous"
+/* [  6] */	RadioButton                 68   40   56   18 LargePlain 1 ""
+/* [  7] */	RadioButton                126   40   56   18 LargePlain 1 ""
+/* [  8] */	RadioButton                184   40   56   18 LargePlain 1 ""
+/* [  9] */	RadioButton                242   40   56   18 LargePlain 1 ""
+/* [ 10] */	RadioButton                300   40   56   18 LargePlain 1 ""
+/* [ 11] */	RadioButton                358   40   56   18 LargePlain 1 ""
+/* [ 12] */	RadioButton                416   40   56   18 LargePlain 1 ""
+/* [ 13] */	RadioButton                474   40   56   18 LargePlain 1 ""
+/* [ 14] */	RadioButton                532   40   56   18 LargePlain 1 ""
+/* [ 15] */	RadioButton                590   40   56   18 LargePlain 1 ""
 }
 
 'DLGH' ID_ADDON_DLG_PARAMPICKER DLG_Param_Picker {
@@ -138,6 +149,17 @@
 2    ""        MultiSelList_0
 3    ""        Button_0
 4    ""        Button_1
+5    ""        RadioButton_0
+6    ""        RadioButton_1
+7    ""        RadioButton_2
+8    ""        RadioButton_3
+9    ""        RadioButton_4
+10   ""        RadioButton_5
+11   ""        RadioButton_6
+12   ""        RadioButton_7
+13   ""        RadioButton_8
+14   ""        RadioButton_9
+15   ""        RadioButton_10
 }
 
 'GDLG' ID_ADDON_DLG_INHERITED Modal |noGrow   60   60  560 470  "CostWaves — Articles hérités" {
