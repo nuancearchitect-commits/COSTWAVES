@@ -2337,13 +2337,16 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 	// déductions) viennent de la RÈGLE de correspondance (fenêtres
 	// Matériaux / objets GDL / articles hérités) ; seule la correction
 	// manuelle de la quantité est conservée de l'affichage précédent.
+	// La VALEUR CLÉ de la règle (variante Ø125/Ø160, H8/H12…) fait partie
+	// de l'identité de la ligne : une ligne par article ET par valeur.
 	auto addContribution = [&] (const CWArticle& article, const CWMapRule* rule,
 								const GS::Array<CWQuantity>& quantities,
 								CWSourceType sourceType, const GS::UniString& sourceText,
-								const GS::UniString& sourceDetail) {
+								const GS::UniString& sourceDetail,
+								const GS::UniString& variant) {
 		CWQuantityLine* linePtr = nullptr;
 		for (UIndex l = 0; l < outLines.GetSize (); ++l) {
-			if (outLines[l].articleId == article.id) {
+			if (outLines[l].articleId == article.id && outLines[l].variantLabel == variant) {
 				linePtr = &outLines[l];
 				break;
 			}
@@ -2352,6 +2355,7 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 			CWQuantityLine line;
 			line.articleId = article.id;
 			line.articleName = article.name;
+			line.variantLabel = variant;
 			// Unité : celle de la RÈGLE si elle en impose une, sinon l'article.
 			if (rule != nullptr && !rule->unit.IsEmpty ())
 				line.unit = rule->unit;
@@ -2363,7 +2367,8 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 				line.deductHoles = rule->deductHoles;
 			}
 			for (UIndex p = 0; p < previousLines.GetSize (); ++p) {
-				if (previousLines[p].articleId == article.id) {
+				if (previousLines[p].articleId == article.id
+					&& previousLines[p].variantLabel == variant) {
 					line.manualOverride = previousLines[p].manualOverride;
 					line.retainedQuantity = previousLines[p].retainedQuantity;
 					break;
@@ -2483,7 +2488,8 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 					rowRule = RuleLibrary::FindRule (rules, row.structureType, row.structureName);
 				}
 				addContribution (*article, rowRule, row.quantities,
-								 sourceType, sourceText, sourceDetail);
+								 sourceType, sourceText, sourceDetail,
+								 row.keyValueText);
 			}
 		}
 
@@ -2512,7 +2518,8 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 																	 component.label);
 			addContribution (*skinArticle, materialRule, component.quantities,
 							 CWSourceType::MaterialRule,
-							 FR ("Matériau — ") + component.label, skinDetail);
+							 FR ("Matériau — ") + component.label, skinDetail,
+							 component.keyValueText);
 		}
 	}
 

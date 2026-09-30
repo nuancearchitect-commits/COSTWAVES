@@ -137,9 +137,10 @@ void QuantitiesDialog::RunScan ()
 
 void QuantitiesDialog::RebuildLines ()
 {
-	// Les réglages (unité, mode, déductions) et corrections manuelles de
-	// l'affichage précédent sont conservés par article — la quantité est
-	// toujours recalculée depuis la maquette.
+	// Les réglages (unité, mode, déductions) viennent des RÈGLES ; seules
+	// les corrections manuelles de quantité sont conservées (par article ET
+	// par variante de valeur clé) — la quantité est toujours recalculée
+	// depuis la maquette.
 	GS::Array<CWQuantityLine> previous = lines;
 	ArticleManager::BuildQuantityLines (rows, articles, rules, CWQuantMode::Element,
 										previous, lines);
@@ -192,7 +193,9 @@ void QuantitiesDialog::FillTable ()
 		const CWQuantityLine& line = lines[l];
 		list.AppendItem ();
 		const short row = list.GetItemCount ();
-		list.SetTabItemText (row, 1, line.articleId + FR (" — ") + line.articleName);
+		list.SetTabItemText (row, 1, line.articleId + FR (" — ") + line.articleName
+			+ (line.variantLabel.IsEmpty () ? GS::UniString ()
+											: FR (" (") + line.variantLabel + FR (")")));
 
 		// Source : la première origine + le nombre d'autres origines.
 		if (line.sources.GetSize () > 0) {
@@ -256,6 +259,8 @@ void QuantitiesDialog::UpdateDetailPanel ()
 	// lecture seule ici.
 	GS::UniString settings = FR ("Réglages de la correspondance — unité : ") + line->unit
 		+ FR (" · mode : ") + FR (CWCalcModeLabel (line->calcMode));
+	if (!line->variantLabel.IsEmpty ())
+		settings += FR (" · valeur clé : ") + line->variantLabel;
 	if (line->dimension == CWQtyDimension::Surface)
 		settings += FR (" · déduit fenêtres : ") + (line->deductOpenings ? FR ("oui") : FR ("non"))
 				 + FR (" · déduit trous : ") + (line->deductHoles ? FR ("oui") : FR ("non"));
@@ -288,6 +293,8 @@ void QuantitiesDialog::ShowTraceability (const CWQuantityLine& line)
 	GS::UniString chain;
 	chain += FR ("ARTICLE COSTWAVES\n");
 	chain += FR ("  ") + line.articleId + FR (" — ") + line.articleName
+		   + (line.variantLabel.IsEmpty () ? GS::UniString ()
+										   : FR (" (") + line.variantLabel + FR (")"))
 		   + FR ("   (") + line.unit + FR (")\n");
 	chain += FR ("\nMAPPING → SOURCES ARCHICAD\n");
 	for (UIndex s = 0; s < line.sources.GetSize (); ++s) {

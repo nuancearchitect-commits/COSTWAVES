@@ -354,8 +354,9 @@ Bouton **« Matériaux, composites et profils… »** :
   de clés calculées par COSTWAVES : **Composant** (épaisseur de l'élément,
   épaisseur totale du composite) et **Couche** (épaisseur de la couche du
   matériau, position de la couche, nombre de couches) ; « — (aucune) »
-  retire la clé. La valeur de la clé sera exploitée au métré
-  (différenciation des articles — étape suivante) ;
+  retire la clé. La valeur de la clé EST exploitée au métré :
+  **une ligne par valeur** dans le Quantitatif (voir « Variantes
+  d'article » ci-dessous) ;
 - **Réglages de calcul dans la ligne** (colonne Classe remplie) :
   - **Unité** — le clic fait tourner `auto → m² → ml → m³ → u → kg` ;
     « (auto) » = l'unité de l'article de la base CostWaves ;
@@ -469,6 +470,22 @@ classification) :
   dans la traçabilité ; les réglages (unité, mode, déductions) viennent de sa
   règle comme pour tous les articles. Un échec de lecture des paramètres GDL
   n'est **jamais silencieux** (compteur « ⚠ N échec(s) » dans la ligne d'état) ;
+- **Variantes d'article par valeur clé** : quand une règle définit une
+  valeur clé, chaque valeur distincte devient sa PROPRE ligne dans le
+  Quantitatif — « CW-030 — Béton (15 mm) » / « CW-030 — Béton (25 mm) »,
+  gaine Ø125 / Ø160, article hérité H8 / H12… Sources et correction
+  manuelle suivent la variante. Valeurs lues à la lecture de la maquette :
+  - **objet GDL** : le paramètre longueur de l'occurrence (valeur clé de
+    la règle) ;
+  - **article hérité** : sa valeur clé (paramètre longueur du porteur) ;
+  - **matériau (couche)** : `Épaisseur de la couche`, `Position de la
+    couche`, `Nombre de couches`, `Épaisseur de l'élément` /
+    `Épaisseur totale du composite` (clés du catalogue) ;
+  - **composite** : `Épaisseur de l'élément` / `Épaisseur totale du
+    composite` ;
+  - les longueurs s'affichent en **mm** (exactes) sous 10 m, sinon en m ;
+    sans clé ou valeur absente, l'article reste groupé (une seule ligne).
+  Les profils complexes n'ont pas encore de clé lisible (limite actuelle) ;
 - **Réglages pilotés par la correspondance** : l'unité, le mode de calcul
   (**Brute** — géométrie principale ; **Conditionnelle** — volume conditionné
   des connexions pour le m³ ; **Nette** — après déductions ouvertures/trous)
@@ -491,12 +508,13 @@ classification) :
   par article pendant la session (persistance sur fichier : prochaine
   étape).
 
-*Limites actuelles (incrément 2)* : la **valeur clé** des règles (matériaux,
-objets GDL, hérités) **différencie la quantité** mais pas encore les
-**variantes d'article** (Ø125/Ø160 = deux lignes distinctes : prochaine
-étape) ; ensembles/groupes non consommés (lecture sans propriété de groupe) ;
-« Conditionnelle » n'exploite que le volume conditionné ; les corrections
-manuelles ne survivent pas à la fermeture de la fenêtre.
+*Limites actuelles (incrément 3)* : la différenciation par valeur clé
+s'applique à la **fenêtre Quantitatif** (le tableau principal et l'export
+API/CSV regroupent encore par article sans variante — prochaine étape) ;
+**profils complexes** sans valeur clé lisible ; ensembles/groupes non
+consommés (lecture sans propriété de groupe) ; « Conditionnelle » n'exploite
+que le volume conditionné ; les corrections manuelles ne survivent pas à la
+fermeture de la fenêtre.
 
 ## 3. Build (Windows)
 

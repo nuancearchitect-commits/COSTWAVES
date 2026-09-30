@@ -1,5 +1,7 @@
 #include "CostWavesPrecompiledHeader.hpp"
 
+#include <cmath>
+#include <cstdio>
 #include <cstring>
 
 #include "ModelReader.hpp"
@@ -1321,6 +1323,33 @@ void AddGdlDimensionQuantities (const API_Guid& elemGuid, bool withStructSizes,
 		PushQuantity (outQuantities, "Hauteur ZZYZX", "m", paramZZYZX);
 }
 
+// Libellé d'une valeur clé DIMENSIONNELLE (variante d'article Ø125/Ø160,
+// H8/H12…) : les longueurs API sont en mètres — affichées en mm (exactes)
+// sous 10 m, sinon en m. Vide si la valeur est nulle/invalide.
+GS::UniString FormatKeyLengthValue (double meters)
+{
+	if (meters <= 0.0)
+		return GS::UniString ();
+
+	char buffer[32];
+	const double mm = meters * 1000.0;
+	if (mm < 10000.0) {
+		if (std::fabs (mm - std::floor (mm + 0.5)) < 1e-6)
+			snprintf (buffer, sizeof (buffer), "%.0f mm", mm);
+		else
+			snprintf (buffer, sizeof (buffer), "%.2f mm", mm);
+	} else {
+		snprintf (buffer, sizeof (buffer), "%.2f m", meters);
+	}
+	return FR (buffer);
+}
+
+// Libellé d'une valeur clé ENTIÈRE (position de couche, nombre de couches).
+GS::UniString FormatKeyIntValue (long value)
+{
+	return GS::ToUniString (std::to_wstring (static_cast<int> (value)));
+}
+
 // Articles hérités (spec §8) : paramètres GDL d'une OCCURRENCE posée, lus
 // dans le memo (APIMemoMask_AddPars, pattern DevKit). Un booléen GDL est
 // porté par value.real (0 = désactivé, non nul = activé) ; les valeurs de
@@ -1805,6 +1834,21 @@ void ModelReader::FillQuantitiesAndSkins (const API_Guid& elemGuid, API_ElemType
 				skinRow.coreSkin = layer.core;
 				skinRow.finishSkin = layer.finish;
 				AddQuantity (skinRow.quantities, "Épaisseur", "mm", layer.thickness * 1000.0);
+
+				// Valeur clé de la règle du MATÉRIAU : différencie les
+				// VARIANTES de l'article (BETON 15 cm / BETON 25 cm…) —
+				// une ligne par valeur au métré (vide = article groupé).
+				if (materialRule != nullptr && !materialRule->keyId.IsEmpty ()) {
+					if (materialRule->keyId == FR ("skin.thickness"))
+						skinRow.keyValueText = FormatKeyLengthValue (layer.thickness);
+					else if (materialRule->keyId == FR ("skin.index"))
+						skinRow.keyValueText = FormatKeyIntValue (layerIndex + 1);
+					else if (materialRule->keyId == FR ("skin.count"))
+						skinRow.keyValueText = FormatKeyIntValue (static_cast<long> (compositeInfo.layers.size ()));
+					else if (materialRule->keyId == FR ("element.thickness")
+							 || materialRule->keyId == FR ("structure.totalThickness"))
+						skinRow.keyValueText = FormatKeyLengthValue (compositeInfo.totalThickness);
+				}
 			}
 		}
 
@@ -1904,6 +1948,8 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		CWStructureType structureType = CWStructureType::Composite;
 		GS::UniString structureName;
 		bool isLibraryPartElement = false;
+		double compositeTotalThickness = 0.0;	// clé « element.thickness »
+		bool haveCompositeInfo = false;
 		switch (header.type.typeID) {
 			case API_ObjectID:
 			case API_LampID:
@@ -1920,8 +1966,11 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 			case API_ShellID: {
 				structureType = CWStructureType::Composite;
 				CWSkinInfo compositeInfo;
-				if (GetCompositeInfo (GetCompositeIndexOfElement (elemGuid, header.type.typeID), compositeInfo))
+				if (GetCompositeInfo (GetCompositeIndexOfElement (elemGuid, header.type.typeID), compositeInfo)) {
 					structureName = compositeInfo.name;
+					compositeTotalThickness = compositeInfo.totalThickness;
+					haveCompositeInfo = true;
+				}
 				break;
 			}
 			default:
@@ -1987,7 +2036,17 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		// clé, l'article est compté (1 par objet porteur).
 		GS::Array<UIndex>	matchedInherited;	// index des règles déclenchées
 		GS::Array<double>	matchedKeyValues;	// valeur clé lue (-1 = absente)
-		if (!is2D && isLibraryPartElement && !inheritedRuleIndices.IsEmpty ()) {
+		// Valeur clé de la règle de STRUCTURE (variante d'article) : règle
+		// objet GDL -> paramètre longueur de l'occurrence ; règle composite
+		// -> épaisseur (clés catalogue « element.thickness » /
+		// « structure.totalThickness »). Vide = pas de variante.
+		GS::UniString rowKeyValueText;
+		const bool needKeyFromParams = (!is2D && isLibraryPartElement
+										&& structureRule != nullptr
+										&& structureType == CWStructureType::LibraryPart
+										&& !structureRule->keyId.IsEmpty ());
+		if (!is2D && isLibraryPartElement
+			&& (!inheritedRuleIndices.IsEmpty () || needKeyFromParams)) {
 			GS::Array<GS::Pair<GS::UniString, double>> booleans;
 			GS::Array<GS::Pair<GS::UniString, double>> lengths;
 			if (CollectInstanceGdlParameters (elemGuid, booleans, lengths)) {
@@ -2013,10 +2072,26 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 						break;	// une seule règle par booléen
 					}
 				}
+				// Valeur clé de la règle objet GDL : le paramètre longueur
+				// de l'occurrence (absent de l'objet -> pas de variante).
+				if (needKeyFromParams) {
+					for (UIndex l = 0; l < lengths.GetSize (); ++l) {
+						if (lengths[l].first == structureRule->keyId) {
+							rowKeyValueText = FormatKeyLengthValue (lengths[l].second);
+							break;
+						}
+					}
+				}
 			} else {
 				// Jamais silencieux : l'échec remonte dans le rapport.
 				++outReport.inheritedParamErrors;
 			}
+		}
+		if (structureRule != nullptr && !structureRule->keyId.IsEmpty ()
+			&& structureType == CWStructureType::Composite && haveCompositeInfo
+			&& (structureRule->keyId == FR ("element.thickness")
+				|| structureRule->keyId == FR ("structure.totalThickness"))) {
+			rowKeyValueText = FormatKeyLengthValue (compositeTotalThickness);
 		}
 
 		// Filtre général : l'élément reste s'il est facturable lui-même
@@ -2038,6 +2113,7 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 			row.layerName = GetLayerName (header.layer);
 			row.structureType = structureType;
 			row.structureName = structureName;
+			row.keyValueText = rowKeyValueText;
 			if (structureRule != nullptr) {
 				row.hasRule = true;
 				row.ruleArticleId = structureRule->articleId;
@@ -2137,6 +2213,9 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 														  GS::UniString ("ml", CC_UTF8)));
 				inheritedRow.quantities.Push (CWQuantity (keyLabel + FR (" (m)"), matchedKeyValues[m],
 														  GS::UniString ("m", CC_UTF8)));
+				// La valeur clé différencie les VARIANTES de l'article
+				// hérité (Ø125/Ø160, H8/H12…) : une ligne par valeur.
+				inheritedRow.keyValueText = FormatKeyLengthValue (matchedKeyValues[m]);
 			}
 			outRows.Push (inheritedRow);
 			++outReport.inheritedArticleRows;

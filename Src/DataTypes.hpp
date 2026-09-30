@@ -76,6 +76,10 @@ struct CWComponentRow {
 	GS::UniString			ruleQuantity;			// quantité à adopter (vide = automatique)
 	GS::UniString			classItemName;
 
+	// Valeur clé de la règle du MATÉRIAU (variante d'article Ø125/Ø160…) :
+	// libellé affichable (vide = pas de variante, article groupé).
+	GS::UniString			keyValueText;
+
 	// Phase 3 — enrichissement des skins composites :
 	GS::UniString			compositeName;			// nom du composite (vide si inconnu)
 	short					skinIndex = -1;			// position dans le composite (0..n-1, -1 si inconnue)
@@ -113,6 +117,9 @@ struct CWElementRow {
 	// (« bool:<nom GDL> »), structureName ne porte que l'objet d'origine —
 	// le moteur retrouve la règle (unité, mode, déductions) par cette clé.
 	GS::UniString			ruleKeyId;
+	// VALEUR de la clé de la règle (variante d'article Ø125/Ø160, H8/H12…) :
+	// libellé affichable calculé à la lecture — vide = pas de variante.
+	GS::UniString			keyValueText;
 	bool					hasRule = false;		// une règle s'applique à cette ligne
 	bool					ruleIgnored = false;	// structure « Ignorer » (exclue du métré)
 
@@ -355,6 +362,7 @@ struct CWQuantitySource {
 struct CWQuantityLine {
 	GS::UniString	articleId;
 	GS::UniString	articleName;
+	GS::UniString	variantLabel;	// valeur clé (variante Ø125/Ø160…) — vide = article simple
 	GS::UniString	unit;			// unité affichée (modifiable par l'utilisateur)
 	CWQtyDimension	dimension = CWQtyDimension::Unitary;
 	CWCalcMode		calcMode = CWCalcMode::Brute;
