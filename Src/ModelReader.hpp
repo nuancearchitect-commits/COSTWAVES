@@ -119,12 +119,14 @@ public:
 	// Paramètres GDL d'un objet de bibliothèque, par nom d'attribut
 	// (valeurs clés de la correspondance objets GDL). Seules les
 	// variables de TYPE LONGUEUR sont retournées (épaisseur, hauteur,
-	// dimensions…), hors tableaux et paramètres cachés. Paires
+	// dimensions…), hors tableaux — les paramètres cachés (flag GDL
+	// « hidden ») sont INCLUS : ils ont une valeur par instance et
+	// différencient tout aussi bien les articles. Paires
 	// (libellé lisible, nom GDL stable). outNote : comptage (paramètres
-	// lus, de type longueur, source). outAlert : non vide si la liste
-	// est vide ou réduite aux paramètres fixes — répartition réelle des
-	// types + premiers paramètres (à AFFICHER). Diagnostic complet dans
-	// <Documents>/CostWaves-diagnostic.txt.
+	// lus, du type, tableaux exclus, source). outAlert : non vide si la
+	// liste est vide ou réduite aux paramètres fixes — répartition réelle des
+	// types + premiers paramètres (à AFFICHER). Diagnostic complet (avec
+	// flags) dans <Documents>/CostWaves-diagnostic.txt.
 	static bool	GetLibraryPartParameters (const GS::UniString& libPartName,
 										 GS::Array<GS::Pair<GS::UniString, GS::UniString>>& outParams,
 										 GS::UniString& outNote, GS::UniString& outAlert);

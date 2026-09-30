@@ -148,7 +148,8 @@ const char* GdlParamTypeLabel (API_AddParID typeID)
 struct GdlParamsResult {
 	GS::Array<GS::Pair<GS::UniString, GS::UniString>>	params;		// (libellé, nom GDL) du type recherché
 	USize		totalCount = 0;		// paramètres hors titres/séparateurs
-	USize		matchedCount = 0;	// du type recherché (simples, non cachés)
+	USize		matchedCount = 0;	// du type recherché (simples, cachés inclus)
+	USize		arrayExcludedCount = 0;	// du type recherché mais tableaux (exclus)
 	GS::UniString	dump;			// liste complète « nom [type] — libellé »
 	GS::UniString	shortList;		// 30 premières lignes « nom (type) »
 	GS::UniString	typeSummary;	// « longueur : 3, réel : 20… »
@@ -181,7 +182,9 @@ void CollectParamsOfType (const API_GetParamsType& getParams, API_AddParID wante
 			++typeCounts[typeIndex];
 
 		// Diagnostic : liste complète (tous types).
-		outResult.dump += name + FR (" [") + FR (typeLabel) + FR ("]")
+		outResult.dump += name + FR (" [") + FR (typeLabel)
+						  + FR (", flg ") + GS::ToUniString (std::to_wstring (static_cast<int> (par.flags)))
+						  + FR ("]")
 						  + (description.IsEmpty () ? GS::UniString () : FR (" — ") + description)
 						  + FR ("\n");
 		if (shortCount < 30) {
@@ -197,12 +200,16 @@ void CollectParamsOfType (const API_GetParamsType& getParams, API_AddParID wante
 		// Seuls les paramètres du type recherché sont retenus.
 		if (par.typeID != wantedType)
 			continue;
-		// Tableaux : valeur ambiguë ; paramètres cachés : pas dans les
-		// réglages.
-		if (par.typeMod == API_ParArray)
+		// Tableaux : valeur ambiguë pour une valeur clé -> exclus, mais
+		// COMPTÉS (transparence du diagnostic).
+		if (par.typeMod == API_ParArray) {
+			++outResult.arrayExcludedCount;
 			continue;
-		if ((par.flags & API_ParFlg_Hidden) != 0 || (par.flags & API_ParFlg_SHidden) != 0)
-			continue;
+		}
+		// NOTE : plus de filtre « paramètre caché » (API_ParFlg_Hidden /
+		// SHidden) — c'est lui qui faisait disparaître la plupart des
+		// variables des objets GDL : un paramètre caché garde une valeur
+		// par instance et fait parfaitement l'affaire comme valeur clé.
 
 		if (name.IsEmpty ())
 			continue;
@@ -413,6 +420,10 @@ static bool ReadLibPartParamsOfType (const GS::UniString& libPartName, API_AddPa
 			  + FR (" paramètre(s) GDL lu(s), ")
 			  + GS::ToUniString (std::to_wstring (static_cast<int> (best.matchedCount)))
 			  + FR (" de type ") + FR (GdlParamTypeLabel (wantedType))
+			  + (best.arrayExcludedCount > 0
+				  ? FR (" (") + GS::ToUniString (std::to_wstring (static_cast<int> (best.arrayExcludedCount)))
+					+ FR (" tableau(x) exclu(s))")
+				  : GS::UniString ())
 			  + FR (" — source : ")
 			  + (fromElement ? FR ("élément posé") : FR ("bibliothèque"));
 
