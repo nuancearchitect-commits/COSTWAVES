@@ -74,11 +74,6 @@ struct CWComponentRow {
 	// (bibliothèque de correspondances) — prioritaire sur la classification.
 	GS::UniString			ruleArticleId;			// article CostWaves de la règle (vide = aucune)
 	GS::UniString			ruleQuantity;			// quantité à adopter (vide = automatique)
-	// Formule de QUANTITÉ de la règle (objets GDL, articles hérités) :
-	// portée par la ligne pour le tableau principal et les EXPORTS
-	// (récapitulatif, JSON, CSV, payload API) — elle prime sur la quantité
-	// à adopter ET sur le comptage ENS.
-	GS::UniString			ruleQuantityFormula;
 	GS::UniString			classItemName;
 
 	// Valeur clé de la règle du MATÉRIAU (variante d'article Ø125/Ø160…) :
@@ -118,6 +113,11 @@ struct CWElementRow {
 	GS::UniString			ruleArticleId;			// article de la règle (vide = aucune règle)
 	CWQuantMode				ruleMode = CWQuantMode::Element;
 	GS::UniString			ruleQuantity;			// quantité à adopter (vide = automatique)
+	// Formule de QUANTITÉ de la règle (objets GDL, articles hérités) :
+	// portée par la ligne pour le tableau principal et les EXPORTS
+	// (récapitulatif, JSON, CSV, payload API) — elle prime sur la quantité
+	// à adopter ET sur le comptage ENS.
+	GS::UniString			ruleQuantityFormula;
 	// Clé de la règle pour les ARTICLES HÉRITÉS : la règle est GLOBALE
 	// (« bool:<nom GDL> »), structureName ne porte que l'objet d'origine —
 	// le moteur retrouve la règle (unité, mode, déductions) par cette clé.
