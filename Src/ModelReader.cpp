@@ -1895,18 +1895,30 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 			}
 		}
 
-		bool hasClassifiedSkin = false;
+		bool hasBillableSkin = false;
 		if (!is2D && !elementClassified) {
 			CWSkinInfo compositeInfo;
 			if (GetCompositeInfo (GetCompositeIndexOfElement (elemGuid, header.type.typeID), compositeInfo)) {
-				for (UIndex l = 0; l < compositeInfo.layers.size () && !hasClassifiedSkin; ++l) {
+				for (UIndex l = 0; l < compositeInfo.layers.size () && !hasBillableSkin; ++l) {
 					GS::UniString skinClassId;
 					GS::UniString skinClassName;
-					hasClassifiedSkin = GetMaterialClassification (compositeInfo.layers[l].buildingMaterial,
-																  systemGuid, skinClassId, skinClassName);
+					if (GetMaterialClassification (compositeInfo.layers[l].buildingMaterial,
+												   systemGuid, skinClassId, skinClassName)) {
+						hasBillableSkin = true;
+						break;
+					}
+					// Règle du MATÉRIAU (moteur Quantitatif) : un composite
+					// sans article est « quantifié par matériau décomposé » —
+					// ses couches sont facturées sur les articles des règles
+					// matériaux, même sans classification.
+					const GS::UniString materialName = GetBuildingMaterialName (compositeInfo.layers[l].buildingMaterial);
+					const CWMapRule* materialRule = RuleLibrary::FindRule (rules, CWStructureType::BuildingMaterial,
+																		  materialName);
+					if (materialRule != nullptr && !materialRule->ignored && !materialRule->articleId.IsEmpty ())
+						hasBillableSkin = true;
 				}
 			}
-			if (!hasClassifiedSkin && structureRule == nullptr)
+			if (!hasBillableSkin && structureRule == nullptr)
 				continue;	// aucune classe, ni l'élément ni ses skins, ni règle
 		}
 

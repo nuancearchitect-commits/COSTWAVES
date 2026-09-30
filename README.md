@@ -425,6 +425,17 @@ classification) :
 | **Mode calcul** | **Brute / Conditionnelle / Nette** pour les unités géométriques (m², ml, m³) ; les unités non géométriques (u, kg…) sont comptées (pas de boutons radio affichés) |
 | **Quantité** | quantité retenue ; « * » = corrigée manuellement |
 
+- **Moteur aligné sur la correspondance** : pour chaque élément, le moteur
+  cherche la règle dans la bibliothèque (fenêtre « Matériaux, composites et
+  profils »). Un **composite/profil avec article** est calculé **pour
+  lui-même** (mode Élément de la règle) ou **par ses couches** (mode
+  Composants — chaque couche est facturée sur l'article de la règle de son
+  matériau) ; un **composite/profil sans article** est « quantifié par
+  matériau décomposé » → ses couches uniquement ; un **objet GDL** est
+  calculé pour lui-même. **Jamais l'élément ET ses couches à la fois.** La
+  traçabilité (clic Source) affiche le mode de la règle (« calculé pour
+  lui-même ») et, pour une couche, le composite d'où elle vient (« via
+  MUR_EXT_30 ») ;
 - **Mode de calcul** (panneau du bas, article sélectionné) :
   - **Brute** — géométrie principale de l'élément (surface de référence,
     volume, longueur) ;

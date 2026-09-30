@@ -2255,13 +2255,20 @@ void SourceForRow (const CWElementRow& row, const GS::Array<CWMapRule>& rules,
 	if (row.hasRule) {
 		switch (row.structureType) {
 			case CWStructureType::Composite:
-				outType = CWSourceType::CompositeRule;
-				outText = FR ("Composite — ") + row.structureName;
+			case CWStructureType::Profile: {
+				outType = (row.structureType == CWStructureType::Composite)
+					? CWSourceType::CompositeRule : CWSourceType::ProfileRule;
+				outText = (row.structureType == CWStructureType::Composite)
+					? FR ("Composite — ") + row.structureName
+					: FR ("Profil — ") + row.structureName;
+				const CWMapRule* rule = RuleLibrary::FindRule (rules, row.structureType,
+															   row.structureName);
+				if (rule != nullptr)
+					outDetail = (rule->mode == CWQuantMode::Element)
+						? FR ("calculé pour lui-même (règle)")
+						: FR ("calculé par ses couches (règle)");
 				return;
-			case CWStructureType::Profile:
-				outType = CWSourceType::ProfileRule;
-				outText = FR ("Profil — ") + row.structureName;
-				return;
+			}
 			case CWStructureType::BuildingMaterial:
 				outType = CWSourceType::MaterialRule;
 				outText = FR ("Matériau — ") + row.structureName;
@@ -2405,11 +2412,29 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 		if (row.consumed)
 			continue;
 
-		const GS::UniString effectiveArticleId = RowArticleId (row);
-		const CWQuantMode rowMode = row.hasRule ? row.ruleMode : globalMode;
-		const bool billElement = (rowMode != CWQuantMode::Component) || row.is2D;
+		// LE MOTEUR SUIT LA CORRESPONDANCE : pour chaque élément il cherche
+		// la règle dans la bibliothèque (fenêtre Matériaux, composites et
+		// profils). Un COMPOSITE/PROFIL avec article est calculé POUR
+		// LUI-MÊME (mode Élément de la règle) ou PAR SES COUCHES (mode
+		// Composants — articles des règles matériaux). Un composite/profil
+		// SANS article est « quantifié par matériau décomposé » -> ses
+		// couches uniquement. Jamais l'élément ET ses couches à la fois.
+		const bool isStructureRow = ((row.structureType == CWStructureType::Composite
+									   || row.structureType == CWStructureType::Profile)
+									  && !row.structureName.IsEmpty ());
+		bool billElementItself;
+		if (isStructureRow) {
+			if (row.hasRule && !row.ruleArticleId.IsEmpty ())
+				billElementItself = (row.ruleMode == CWQuantMode::Element);
+			else
+				billElementItself = !row.classItemId.IsEmpty ();	// repli classification
+		} else {
+			billElementItself = (globalMode != CWQuantMode::Component) || row.is2D;
+		}
 
-		if (billElement && !effectiveArticleId.IsEmpty ()) {
+		const GS::UniString effectiveArticleId = RowArticleId (row);
+
+		if (billElementItself && !effectiveArticleId.IsEmpty ()) {
 			const CWArticle* article = findArticle (effectiveArticleId);
 			if (article != nullptr) {
 				CWSourceType sourceType = CWSourceType::Unknown;
@@ -2421,8 +2446,9 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 			}
 		}
 
-		// Skins (mode Composants des règles) : article du MATÉRIAU de la couche.
-		if (rowMode != CWQuantMode::Component)
+		// Ses couches (mode Composants de la règle, ou structure décomposée) :
+		// article du MATÉRIAU de chaque couche — jamais avec l'élément.
+		if (billElementItself)
 			continue;
 
 		for (UIndex c = 0; c < row.components.GetSize (); ++c) {
@@ -2434,9 +2460,15 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 			if (skinArticle == nullptr)
 				continue;
 
+			// Traçabilité de la décomposition : le matériau, via le
+			// composite de la couche quand il est connu.
+			GS::UniString skinDetail;
+			if (!component.compositeName.IsEmpty ())
+				skinDetail = FR ("via ") + component.compositeName;
+
 			addContribution (*skinArticle, component.ruleQuantity, component.quantities,
 							 CWSourceType::MaterialRule,
-							 FR ("Matériau — ") + component.label, GS::UniString ());
+							 FR ("Matériau — ") + component.label, skinDetail);
 		}
 	}
 

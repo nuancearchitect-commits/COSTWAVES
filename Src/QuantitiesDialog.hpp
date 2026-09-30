@@ -10,7 +10,12 @@
 namespace CostWaves {
 
 // Fenêtre « Quantitatif » — contrôle et calcul des quantités AVANT export
-// vers CostWaves :
+// vers CostWaves. LE MOTEUR SUIT LA CORRESPONDANCE : pour chaque élément il
+// cherche la règle dans la bibliothèque (fenêtre Matériaux, composites et
+// profils) — un composite/profil avec article est calculé pour LUI-MÊME
+// (mode Élément de la règle) ou PAR SES COUCHES (mode Composants), un
+// composite/profil sans article est « quantifié par matériau décomposé »
+// (ses couches, articles des règles matériaux) ; jamais les deux à la fois :
 //  - tableau : Article | Source | Unité | Mode calcul | Quantité — une ligne
 //    par article CostWaves EFFECTIVEMENT quantifié dans la maquette ;
 //  - Source CLIQUABLE : la colonne affiche la chaîne de traçabilité complète

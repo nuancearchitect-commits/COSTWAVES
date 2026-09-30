@@ -247,14 +247,20 @@ public:
 								   CWQuantMode						mode,
 								   GS::Array<CWArticleSummary>&	outSummary);
 
-	// Fenêtre « Quantitatif » : une ligne par article EFFECTIVEMENT quantifié,
-	// avec ses origines Archicad (traçabilité), son unité (modifiable), son
-	// mode de calcul (Brute/Conditionnelle/Nette — unités géométriques) et
-	// ses paramètres (déductions). previousLines : réglages de l'affichage
-	// précédent (unité, mode, déductions, correction manuelle) conservés par
-	// articleId — la quantité est TOUJOURS recalculée depuis la maquette, la
-	// valeur calculée n'est jamais perdue (calculatedQuantity conservée à
-	// côté de retainedQuantity).
+	// Fenêtre « Quantitatif » : une ligne par article EFFECTIVEMENT quantifié.
+	// LE MOTEUR SUIT LA CORRESPONDANCE : pour chaque élément il cherche la
+	// règle dans la bibliothèque — un composite/profil AVEC article est
+	// calculé pour LUI-MÊME (mode Élément de la règle) ou PAR SES COUCHES
+	// (mode Composants — articles des règles matériaux) ; un composite/profil
+	// SANS article est « quantifié par matériau décomposé » -> ses couches
+	// uniquement ; jamais l'élément ET ses couches à la fois.
+	// Chaque ligne porte ses origines Archicad (traçabilité), son unité
+	// (modifiable), son mode de calcul (Brute/Conditionnelle/Nette — unités
+	// géométriques) et ses paramètres (déductions). previousLines : réglages
+	// de l'affichage précédent (unité, mode, déductions, correction manuelle)
+	// conservés par articleId — la quantité est TOUJOURS recalculée depuis la
+	// maquette, la valeur calculée n'est jamais perdue (calculatedQuantity
+	// conservée à côté de retainedQuantity).
 	static void	BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 									 const GS::Array<CWArticle>&			articles,
 									 const GS::Array<CWMapRule>&				rules,
