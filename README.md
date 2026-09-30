@@ -457,6 +457,18 @@ classification) :
   La traçabilité (clic Source) affiche le mode de la règle (« calculé pour
   lui-même ») et, pour une couche, le composite d'où elle vient (« via
   MUR_EXT_30 ») ;
+- **Articles hérités comptés** (spec §8) : à la lecture de la maquette, les
+  paramètres BOOLÉENS ACTIVÉS de chaque objet posé (posable, lampe, porte,
+  fenêtre) déclenchent les règles globales « bool:<nom GDL> » — l'article
+  hérité naît **quel que soit l'objet qui le porte**. Quantité : la **valeur
+  clé** (longueur du paramètre GDL de l'occurrence, en ml/m) si la règle en
+  définit une et que l'article est au ml/m ; sinon **comptage** (1 par objet
+  porteur). L'article hérité est **toujours compté individuellement** (il ne
+  reprend ni la classification ni l'appartenance à un ensemble de son objet
+  porteur) ; sa source s'affiche « Booléen — <nom> · objet porteur : <objet> »
+  dans la traçabilité ; les réglages (unité, mode, déductions) viennent de sa
+  règle comme pour tous les articles. Un échec de lecture des paramètres GDL
+  n'est **jamais silencieux** (compteur « ⚠ N échec(s) » dans la ligne d'état) ;
 - **Réglages pilotés par la correspondance** : l'unité, le mode de calcul
   (**Brute** — géométrie principale ; **Conditionnelle** — volume conditionné
   des connexions pour le m³ ; **Nette** — après déductions ouvertures/trous)
@@ -479,11 +491,12 @@ classification) :
   par article pendant la session (persistance sur fichier : prochaine
   étape).
 
-*Limites actuelles (incrément 1)* : les **articles hérités** (booléens) ne
-sont pas encore comptés dans la lecture (ils le seront dès que le lecteur
-appliquera ces règles) ; ensembles/groupes non consommés (lecture sans
-propriété de groupe) ; « Conditionnelle » n'exploite que le volume
-conditionné ; les réglages ne survivent pas à la fermeture de la fenêtre.
+*Limites actuelles (incrément 2)* : la **valeur clé** des règles (matériaux,
+objets GDL, hérités) **différencie la quantité** mais pas encore les
+**variantes d'article** (Ø125/Ø160 = deux lignes distinctes : prochaine
+étape) ; ensembles/groupes non consommés (lecture sans propriété de groupe) ;
+« Conditionnelle » n'exploite que le volume conditionné ; les corrections
+manuelles ne survivent pas à la fermeture de la fenêtre.
 
 ## 3. Build (Windows)
 

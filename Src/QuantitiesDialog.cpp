@@ -229,12 +229,24 @@ void QuantitiesDialog::UpdateDetailPanel ()
 {
 	const CWQuantityLine* line = SelectedLine ();
 
+	// Articles hérités (booléens activés) : comptage toujours visible ;
+	// un échec de lecture des paramètres GDL n'est JAMAIS silencieux.
+	GS::UniString inheritedNote;
+	if (report.inheritedArticleRows > 0)
+		inheritedNote += FR (" · ")
+						 + GS::ToUniString (std::to_wstring (static_cast<int> (report.inheritedArticleRows)))
+						 + FR (" article(s) hérité(s)");
+	if (report.inheritedParamErrors > 0)
+		inheritedNote += FR (" · ⚠ ")
+						 + GS::ToUniString (std::to_wstring (static_cast<int> (report.inheritedParamErrors)))
+						 + FR (" échec(s) de lecture des paramètres GDL");
+
 	if (line == nullptr) {
 		settingsText.SetText (GS::UniString ());
 		calcValueText.SetText (FR ("—"));
 		retainedEdit.SetText (GS::UniString ());
 		hintText.SetText (FR ("Aucun article quantifié — vérifiez les correspondances")
-						  + FR (" et la classification du projet."));
+						  + FR (" et la classification du projet.") + inheritedNote);
 		return;
 	}
 
@@ -265,7 +277,7 @@ void QuantitiesDialog::UpdateDetailPanel ()
 					  + FR (" article(s) quantifié(s) · ")
 					  + GS::ToUniString (std::to_wstring (static_cast<int> (line->elementCount)))
 					  + FR (" élément(s) pour la sélection · cliquez la colonne")
-					  + FR (" « Source » pour la traçabilité complète."));
+					  + FR (" « Source » pour la traçabilité complète.") + inheritedNote);
 }
 
 

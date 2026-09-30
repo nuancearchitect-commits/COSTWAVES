@@ -1321,6 +1321,49 @@ void AddGdlDimensionQuantities (const API_Guid& elemGuid, bool withStructSizes,
 		PushQuantity (outQuantities, "Hauteur ZZYZX", "m", paramZZYZX);
 }
 
+// Articles hérités (spec §8) : paramètres GDL d'une OCCURRENCE posée, lus
+// dans le memo (APIMemoMask_AddPars, pattern DevKit). Un booléen GDL est
+// porté par value.real (0 = désactivé, non nul = activé) ; les valeurs de
+// type longueur servent de valeur clé dimensionnelle (Ø125/Ø160, H8/H12…).
+// Retourne false si les paramètres sont illisibles (jamais silencieux :
+// l'appelant compte l'échec dans le rapport de lecture).
+bool CollectInstanceGdlParameters (const API_Guid& elemGuid,
+								   GS::Array<GS::Pair<GS::UniString, double>>& outBooleans,
+								   GS::Array<GS::Pair<GS::UniString, double>>& outLengths)
+{
+	outBooleans.Clear ();
+	outLengths.Clear ();
+
+	API_ElementMemo memo;
+	BNZeroMemory (&memo, sizeof (memo));
+	if (ACAPI_Element_GetMemo (elemGuid, &memo, APIMemoMask_AddPars) != NoError)
+		return false;
+	if (memo.params == nullptr || *memo.params == nullptr) {
+		ACAPI_DisposeElemMemoHdls (&memo);
+		return false;
+	}
+
+	const GSSize nParams = BMGetHandleSize (reinterpret_cast<GSHandle> (memo.params))
+		/ static_cast<GSSize> (sizeof (API_AddParType));
+	for (GSIndex p = 0; p < nParams; ++p) {
+		const API_AddParType& par = (*memo.params)[p];
+		if (par.name[0] == '\0')
+			continue;
+		if (par.typeID == APIParT_Boolean) {
+			// Booléen GDL : porté par value.real (0 = désactivé).
+			if (par.value.real != 0.0) {
+				GS::Pair<GS::UniString, double> entry (GS::UniString (par.name, CC_UTF8), 1.0);
+				outBooleans.Push (entry);
+			}
+		} else if (par.typeID == APIParT_Length) {
+			GS::Pair<GS::UniString, double> entry (GS::UniString (par.name, CC_UTF8), par.value.real);
+			outLengths.Push (entry);
+		}
+	}
+	ACAPI_DisposeElemMemoHdls (&memo);
+	return true;
+}
+
 } // namespace
 
 
@@ -1823,6 +1866,20 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 	std::unordered_map<UInt32, GS::Array<UIndex>> groupsByType;	// clé : typeID + variationID
 	GS::Array<GS::UniString>	unmappedSeen;						// structures sans règle déjà comptées
 
+	// Articles hérités (spec §8) : règles « bool:<nom GDL> » actives de la
+	// bibliothèque. La règle est GLOBALE : tout objet (posable, lampe,
+	// porte, fenêtre) portant ce booléen ACTIVÉ fait naître l'article,
+	// quel que soit l'objet. Les paramètres d'une occurrence ne sont lus
+	// que s'il en existe au moins une (économie d'appels).
+	GS::Array<UIndex> inheritedRuleIndices;
+	for (UIndex r = 0; r < rules.GetSize (); ++r) {
+		if (rules[r].structureType == CWStructureType::LibraryPartBool
+			&& !rules[r].ignored && !rules[r].articleId.IsEmpty ()
+			&& !rules[r].keyId.IsEmpty ())
+			inheritedRuleIndices.Push (r);
+	}
+	const char* kInheritedBoolPrefix = "bool:";
+
 	for (UIndex i = 0; i < elemList.GetSize (); ++i) {
 		const API_Guid& elemGuid = elemList[i];
 
@@ -1846,12 +1903,14 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 		// (élément/composant) et la quantité à adopter.
 		CWStructureType structureType = CWStructureType::Composite;
 		GS::UniString structureName;
+		bool isLibraryPartElement = false;
 		switch (header.type.typeID) {
 			case API_ObjectID:
 			case API_LampID:
 			case API_DoorID:
 			case API_WindowID: {
 				structureType = CWStructureType::LibraryPart;
+				isLibraryPartElement = true;
 				structureName = GetLibraryPartName (LibIndOfElement (elemGuid, header.type.typeID));
 				break;
 			}
@@ -1918,79 +1977,169 @@ GSErrCode ModelReader::Scan (const API_Guid& systemGuid, const API_Guid& elemIdP
 						hasBillableSkin = true;
 				}
 			}
-			if (!hasBillableSkin && structureRule == nullptr)
-				continue;	// aucune classe, ni l'élément ni ses skins, ni règle
 		}
 
-		CWElementRow row;
-		row.guid = elemGuid;
-		row.type = header.type;
-		row.typeName = GetTypeName (header.type);
-		row.floorInd = header.floorInd;
-		if (haveStories)
-			row.storyName = GetStoryName (storyInfo, header.floorInd);
-		row.is2D = is2D;
-		row.layerName = GetLayerName (header.layer);
-		row.structureType = structureType;
-		row.structureName = structureName;
-		if (structureRule != nullptr) {
-			row.hasRule = true;
-			row.ruleArticleId = structureRule->articleId;
-			row.ruleMode = structureRule->mode;
-			row.ruleQuantity = structureRule->quantity;
+		// --- Articles hérités (spec §8) : booléens ACTIVÉS dans les
+		// paramètres GDL de l'occurrence. La règle « bool:<nom> » est
+		// GLOBALE : tout objet posé portant ce paramètre activé fait naître
+		// l'article, quel que soit l'objet. La valeur clé (longueur) de la
+		// règle, si définie et présente, fournit la quantité (ml/m) ; sans
+		// clé, l'article est compté (1 par objet porteur).
+		GS::Array<UIndex>	matchedInherited;	// index des règles déclenchées
+		GS::Array<double>	matchedKeyValues;	// valeur clé lue (-1 = absente)
+		if (!is2D && isLibraryPartElement && !inheritedRuleIndices.IsEmpty ()) {
+			GS::Array<GS::Pair<GS::UniString, double>> booleans;
+			GS::Array<GS::Pair<GS::UniString, double>> lengths;
+			if (CollectInstanceGdlParameters (elemGuid, booleans, lengths)) {
+				for (UIndex b = 0; b < booleans.GetSize (); ++b) {
+					const GS::UniString boolKey = GS::UniString (kInheritedBoolPrefix, CC_UTF8)
+												  + booleans[b].first;
+					for (UIndex rr = 0; rr < inheritedRuleIndices.GetSize (); ++rr) {
+						const CWMapRule& inheritedRule = rules[inheritedRuleIndices[rr]];
+						if (inheritedRule.keyId != boolKey)
+							continue;
+
+						matchedInherited.Push (inheritedRuleIndices[rr]);
+						double keyValue = -1.0;
+						if (!inheritedRule.valueKeyId.IsEmpty ()) {
+							for (UIndex l = 0; l < lengths.GetSize (); ++l) {
+								if (lengths[l].first == inheritedRule.valueKeyId) {
+									keyValue = lengths[l].second;
+									break;
+								}
+							}
+						}
+						matchedKeyValues.Push (keyValue);
+						break;	// une seule règle par booléen
+					}
+				}
+			} else {
+				// Jamais silencieux : l'échec remonte dans le rapport.
+				++outReport.inheritedParamErrors;
+			}
 		}
-		if (elementClassified) {
-			row.classItemId = item.id;
-			row.classItemName = item.name;
-		}
-		if (haveElemIdProp)
-			row.elementId = GetElementIdValue (elemGuid, elemIdPropGuid);
 
-		// Phase 4 : appartenance à un ensemble CostWaves (CW_Group_ID).
-		if (haveGroupProp) {
-			row.groupId = GetElementIdValue (elemGuid, groupPropGuid);
-			row.consumed = !row.groupId.IsEmpty ();
-		}
+		// Filtre général : l'élément reste s'il est facturable lui-même
+		// (classe, règle de structure, skins) OU s'il porte des articles
+		// hérités (spec §8).
+		const bool billableRow = elementClassified || structureRule != nullptr || hasBillableSkin;
+		if (!billableRow && matchedInherited.IsEmpty ())
+			continue;	// aucune classe, ni l'élément ni ses skins, ni règle
 
-		ItemInfo info;
-		info.guid = elemGuid;
-		info.type = header.type;
-		info.rowIndex = outRows.GetSize ();
+		if (billableRow) {
+			CWElementRow row;
+			row.guid = elemGuid;
+			row.type = header.type;
+			row.typeName = GetTypeName (header.type);
+			row.floorInd = header.floorInd;
+			if (haveStories)
+				row.storyName = GetStoryName (storyInfo, header.floorInd);
+			row.is2D = is2D;
+			row.layerName = GetLayerName (header.layer);
+			row.structureType = structureType;
+			row.structureName = structureName;
+			if (structureRule != nullptr) {
+				row.hasRule = true;
+				row.ruleArticleId = structureRule->articleId;
+				row.ruleMode = structureRule->mode;
+				row.ruleQuantity = structureRule->quantity;
+			}
+			if (elementClassified) {
+				row.classItemId = item.id;
+				row.classItemName = item.name;
+			}
+			if (haveElemIdProp)
+				row.elementId = GetElementIdValue (elemGuid, elemIdPropGuid);
 
-		const UInt32 typeKey = (static_cast<UInt32> (header.type.typeID) << 12)
-							 ^ static_cast<UInt32> (header.type.variationID);
-		// Les hachures passent par le batch des quantités (surface/périmètre) ;
-		// les autres dessins 2D sont calculés géométriquement en passe 1.
-		if (!is2D || header.type.typeID == API_HatchID)
-			groupsByType[typeKey].Push (items.GetSize ());
-		else
-			Extract2DQuantities (elemGuid, header.type.typeID, row.quantities);
-		items.Push (info);
+			// Phase 4 : appartenance à un ensemble CostWaves (CW_Group_ID).
+			if (haveGroupProp) {
+				row.groupId = GetElementIdValue (elemGuid, groupPropGuid);
+				row.consumed = !row.groupId.IsEmpty ();
+			}
 
-		outRows.Push (row);
-		if (elementClassified) {
-			if (is2D)
-				++outReport.classified2D;
+			ItemInfo info;
+			info.guid = elemGuid;
+			info.type = header.type;
+			info.rowIndex = outRows.GetSize ();
+
+			const UInt32 typeKey = (static_cast<UInt32> (header.type.typeID) << 12)
+								 ^ static_cast<UInt32> (header.type.variationID);
+			// Les hachures passent par le batch des quantités (surface/périmètre) ;
+			// les autres dessins 2D sont calculés géométriquement en passe 1.
+			if (!is2D || header.type.typeID == API_HatchID)
+				groupsByType[typeKey].Push (items.GetSize ());
 			else
-				++outReport.classifiedElements;
-		}
+				Extract2DQuantities (elemGuid, header.type.typeID, row.quantities);
+			items.Push (info);
 
-		// Structure présente dans la maquette mais sans règle (spec §7) :
-		// ⚠ à configurer dans le gestionnaire de correspondances.
-		if (!is2D && !structureName.IsEmpty () && structureRule == nullptr) {
-			const GS::UniString unmappedKey = GS::ToUniString (std::to_wstring (
-												  static_cast<int> (structureType))) + US ("|") + structureName;
-			bool alreadySeen = false;
-			for (UIndex u = 0; u < unmappedSeen.GetSize (); ++u) {
-				if (unmappedSeen[u] == unmappedKey) {
-					alreadySeen = true;
-					break;
+			outRows.Push (row);
+			if (elementClassified) {
+				if (is2D)
+					++outReport.classified2D;
+				else
+					++outReport.classifiedElements;
+			}
+
+			// Structure présente dans la maquette mais sans règle (spec §7) :
+			// ⚠ à configurer dans le gestionnaire de correspondances.
+			if (!is2D && !structureName.IsEmpty () && structureRule == nullptr) {
+				const GS::UniString unmappedKey = GS::ToUniString (std::to_wstring (
+													  static_cast<int> (structureType))) + US ("|") + structureName;
+				bool alreadySeen = false;
+				for (UIndex u = 0; u < unmappedSeen.GetSize (); ++u) {
+					if (unmappedSeen[u] == unmappedKey) {
+						alreadySeen = true;
+						break;
+					}
+				}
+				if (!alreadySeen) {
+					unmappedSeen.Push (unmappedKey);
+					++outReport.unmappedStructures;
 				}
 			}
-			if (!alreadySeen) {
-				unmappedSeen.Push (unmappedKey);
-				++outReport.unmappedStructures;
+		}	// fin du row principal (élément facturable lui-même)
+
+		// --- Lignes « article hérité » (spec §8) : UNE par booléen activé —
+		// un même objet peut faire naître plusieurs articles (tablette ET
+		// seuil). L'article vient de la RÈGLE ; la quantité vient de la
+		// valeur clé (longueur du paramètre GDL de l'occurrence), sinon
+		// l'article est compté (1 par objet porteur). Ces lignes ne passent
+		// pas par le batch des quantités : leur quantité est déjà connue.
+		for (UIndex m = 0; m < matchedInherited.GetSize (); ++m) {
+			const CWMapRule& inheritedRule = rules[matchedInherited[m]];
+			CWElementRow inheritedRow;
+			inheritedRow.guid = elemGuid;					// objet porteur
+			inheritedRow.type = header.type;
+			inheritedRow.typeName = GetTypeName (header.type);
+			inheritedRow.floorInd = header.floorInd;
+			if (haveStories)
+				inheritedRow.storyName = GetStoryName (storyInfo, header.floorInd);
+			inheritedRow.layerName = GetLayerName (header.layer);
+			inheritedRow.structureType = CWStructureType::LibraryPartBool;
+			inheritedRow.structureName = structureName;	// objet porteur (documentaire)
+			inheritedRow.hasRule = true;
+			inheritedRow.ruleArticleId = inheritedRule.articleId;
+			inheritedRow.ruleMode = CWQuantMode::Element;
+			inheritedRow.ruleQuantity = inheritedRule.quantity;
+			inheritedRow.ruleKeyId = inheritedRule.keyId;	// retrouve la règle au métré
+			if (haveElemIdProp)
+				inheritedRow.elementId = GetElementIdValue (elemGuid, elemIdPropGuid);
+			// L'article hérité est TOUJOURS compté : il ne reprend ni la
+			// classification ni l'appartenance à un ensemble de son objet
+			// porteur (sinon un ensemble dont le premier membre ne porte
+			// qu'un article hérité perdrait sa classe).
+			if (matchedKeyValues[m] > 0.0) {
+				const GS::UniString keyLabel = inheritedRule.valueKeyName.IsEmpty ()
+					? inheritedRule.valueKeyId : inheritedRule.valueKeyName;
+				// Longueur disponible en ml et m : la ligne retient l'unité
+				// de la règle, sinon celle de l'article.
+				inheritedRow.quantities.Push (CWQuantity (keyLabel, matchedKeyValues[m],
+														  GS::UniString ("ml", CC_UTF8)));
+				inheritedRow.quantities.Push (CWQuantity (keyLabel + FR (" (m)"), matchedKeyValues[m],
+														  GS::UniString ("m", CC_UTF8)));
 			}
+			outRows.Push (inheritedRow);
+			++outReport.inheritedArticleRows;
 		}
 	}
 

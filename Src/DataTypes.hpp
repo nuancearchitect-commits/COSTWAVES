@@ -109,6 +109,10 @@ struct CWElementRow {
 	GS::UniString			ruleArticleId;			// article de la règle (vide = aucune règle)
 	CWQuantMode				ruleMode = CWQuantMode::Element;
 	GS::UniString			ruleQuantity;			// quantité à adopter (vide = automatique)
+	// Clé de la règle pour les ARTICLES HÉRITÉS : la règle est GLOBALE
+	// (« bool:<nom GDL> »), structureName ne porte que l'objet d'origine —
+	// le moteur retrouve la règle (unité, mode, déductions) par cette clé.
+	GS::UniString			ruleKeyId;
 	bool					hasRule = false;		// une règle s'applique à cette ligne
 	bool					ruleIgnored = false;	// structure « Ignorer » (exclue du métré)
 
@@ -380,6 +384,8 @@ struct CWScanReport {
 	USize	classifiedSkins = 0;		// skins dont le matériau porte une classe
 	USize	classified2D = 0;		// dessins 2D classés (lignes, hachures…)
 	USize	unmappedStructures = 0;	// structures natives sans règle (⚠ à configurer)
+	USize	inheritedArticleRows = 0;	// articles hérités déclenchés (booléens activés)
+	USize	inheritedParamErrors = 0;	// échecs de lecture des paramètres GDL (⚠ jamais silencieux)
 	USize					groupCount = 0;				// ensembles CostWaves (phase 4)
 	USize					numberedGroupCount = 0;		// groupes numérotés CostWaves (phase 5)
 	USize					consumedElements = 0;		// éléments membres d'un ensemble/groupe (consommés)

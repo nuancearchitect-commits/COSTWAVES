@@ -2282,6 +2282,25 @@ void SourceForRow (const CWElementRow& row, const GS::Array<CWMapRule>& rules,
 					outDetail = FR ("valeur clé : ") + rule->keyName;
 				return;
 			}
+			case CWStructureType::LibraryPartBool: {
+				// Article hérité : le BOOLÉEN activé fait naître l'article,
+				// quel que soit l'objet qui le porte (règle globale).
+				outType = CWSourceType::InheritedBoolRule;
+				const CWMapRule* rule = nullptr;
+				for (UIndex r = 0; r < rules.GetSize () && rule == nullptr; ++r) {
+					if (rules[r].structureType == CWStructureType::LibraryPartBool
+						&& rules[r].keyId == row.ruleKeyId)
+						rule = &rules[r];
+				}
+				outText = FR ("Booléen — ")
+						  + (rule != nullptr && !rule->keyName.IsEmpty () ? rule->keyName : row.ruleKeyId);
+				if (!row.structureName.IsEmpty ())
+					outDetail = FR ("objet porteur : ") + row.structureName;
+				if (rule != nullptr && !rule->valueKeyName.IsEmpty ())
+					outDetail += (outDetail.IsEmpty () ? GS::UniString () : FR (" · "))
+								 + FR ("valeur clé : ") + rule->valueKeyName;
+				return;
+			}
 			default:
 				break;
 		}
@@ -2450,9 +2469,19 @@ void ArticleManager::BuildQuantityLines (const GS::Array<CWElementRow>&		rows,
 				GS::UniString sourceText;
 				GS::UniString sourceDetail;
 				SourceForRow (row, rules, sourceType, sourceText, sourceDetail);
-				const CWMapRule* rowRule = row.hasRule
-					? RuleLibrary::FindRule (rules, row.structureType, row.structureName)
-					: nullptr;
+				// Règle de la ligne : les articles hérités se retrouvent par
+				// leur CLÉ « bool:<nom> » (la règle est GLOBALE, structureName
+				// ne porte que l'objet d'origine) ; les autres par structure.
+				const CWMapRule* rowRule = nullptr;
+				if (row.structureType == CWStructureType::LibraryPartBool && !row.ruleKeyId.IsEmpty ()) {
+					for (UIndex r = 0; r < rules.GetSize () && rowRule == nullptr; ++r) {
+						if (rules[r].structureType == CWStructureType::LibraryPartBool
+							&& rules[r].keyId == row.ruleKeyId)
+							rowRule = &rules[r];
+					}
+				} else if (row.hasRule) {
+					rowRule = RuleLibrary::FindRule (rules, row.structureType, row.structureName);
+				}
 				addContribution (*article, rowRule, row.quantities,
 								 sourceType, sourceText, sourceDetail);
 			}
